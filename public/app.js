@@ -1,7 +1,7 @@
 const REPOSITORY = "https://github.com/Parsifal1986/TokensBurned";
 const CARD_ORIGIN = "https://api.tokensburned.com/v1/cards/u";
 const SITE_ORIGIN = "https://parsifal1986.github.io/TokensBurned/";
-const DEMO_CARD_VERSION = "theme-1";
+const DEMO_CARD_VERSION = "theme-2";
 const demoCardCache = new Map();
 
 const harnesses = {
@@ -165,6 +165,7 @@ document.querySelectorAll("[data-copy-target]").forEach((button) => {
 
 const form = document.querySelector("#builder-form");
 const username = document.querySelector("#github-name");
+const heroPreview = document.querySelector("#hero-card-preview");
 const preview = document.querySelector("#card-preview");
 const urlOutput = document.querySelector("#card-url");
 const markdownOutput = document.querySelector("#card-markdown");
@@ -172,6 +173,8 @@ const previewState = document.querySelector("#preview-state");
 const builderMessage = document.querySelector("#builder-message");
 const outputCopyButtons = document.querySelectorAll(".builder-output [data-copy-target]");
 let previewRevision = 0;
+let heroPreviewRevision = 0;
+let currentSiteTheme = "dark";
 
 function validGithubName(value) {
   return /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(value);
@@ -211,6 +214,35 @@ function selectedCardOptions() {
 
 function demoCardPath(options) {
   return `demo/card-${options.layout}-h${Number(options.heatmap)}-c${Number(options.compare)}-r${Number(options.rank)}-m${Number(options.meme)}.svg?v=${DEMO_CARD_VERSION}`;
+}
+
+function setSvgTheme(svg, theme) {
+  return svg.includes("data-card-theme=")
+    ? svg.replace(/data-card-theme="[^"]+"/, `data-card-theme="${theme}"`)
+    : svg.replace("<svg ", `<svg data-card-theme="${theme}" `);
+}
+
+async function loadDemoCard(path) {
+  let svg = demoCardCache.get(path);
+  if (svg) return svg;
+  const response = await fetch(path, { cache: "force-cache" });
+  if (!response.ok) throw new Error(`Demo card ${response.status}`);
+  svg = await response.text();
+  demoCardCache.set(path, svg);
+  return svg;
+}
+
+async function renderHeroPreview() {
+  const revision = ++heroPreviewRevision;
+  const path = `demo/card-full.svg?v=${DEMO_CARD_VERSION}`;
+  try {
+    const svg = await loadDemoCard(path);
+    if (revision !== heroPreviewRevision) return;
+    heroPreview.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(setSvgTheme(svg, currentSiteTheme))}`;
+  } catch {
+    if (revision !== heroPreviewRevision) return;
+    heroPreview.src = path;
+  }
 }
 
 function cardUrlFor(name, options) {
@@ -261,18 +293,9 @@ async function renderStaticPreview() {
   previewState.textContent = translate("previewSample");
   preview.alt = `${translate("previewAlt")} (@${owner})`;
   try {
-    let svg = demoCardCache.get(path);
-    if (!svg) {
-      const response = await fetch(path, { cache: "force-cache" });
-      if (!response.ok) throw new Error(`Demo card ${response.status}`);
-      svg = await response.text();
-      demoCardCache.set(path, svg);
-    }
+    const svg = await loadDemoCard(path);
     if (revision !== previewRevision) return;
-    let personalizedSvg = svg.replaceAll("sample-user", owner);
-    personalizedSvg = personalizedSvg.includes("data-card-theme=")
-      ? personalizedSvg.replace(/data-card-theme="[^"]+"/, `data-card-theme="${options.theme}"`)
-      : personalizedSvg.replace("<svg ", `<svg data-card-theme="${options.theme}" `);
+    const personalizedSvg = setSvgTheme(svg.replaceAll("sample-user", owner), options.theme);
     preview.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(personalizedSvg)}`;
   } catch {
     if (revision !== previewRevision) return;
@@ -289,16 +312,17 @@ form.addEventListener("submit", (event) => {
   event.preventDefault();
 });
 setPreset("full");
-renderStaticPreview();
 
 const themeToggle = document.querySelector("[data-theme-toggle]");
-let currentSiteTheme = "dark";
 function applyTheme(theme) {
   currentSiteTheme = theme;
   document.documentElement.dataset.theme = theme;
+  form.querySelector(`input[name="cardTheme"][value="${theme}"]`).checked = true;
   const nextTheme = theme === "dark" ? "light" : "dark";
   themeToggle.textContent = translate(`theme${nextTheme[0].toUpperCase()}${nextTheme.slice(1)}`);
   themeToggle.setAttribute("aria-label", translate(nextTheme === "light" ? "switchLight" : "switchDark"));
+  renderHeroPreview();
+  renderStaticPreview();
 }
 let savedTheme;
 try { savedTheme = localStorage.getItem("tokensburned-theme"); } catch { savedTheme = null; }
@@ -319,5 +343,4 @@ languageSelect.addEventListener("change", () => {
   translatePage();
   selectHarness(activeHarness);
   applyTheme(currentSiteTheme);
-  renderStaticPreview();
 });
