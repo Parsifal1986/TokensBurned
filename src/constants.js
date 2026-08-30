@@ -1,7 +1,7 @@
 import os from "node:os";
 import path from "node:path";
 
-export const VERSION = "0.2.1";
+export const VERSION = "0.3.0";
 export const STATS_VERSION = 2;
 export const SYNC_INTERVAL_MS = 3 * 60 * 60 * 1000;
 export const API_ORIGIN = process.env.TOKENSBURNED_API_ORIGIN || "https://api.tokensburned.com";
