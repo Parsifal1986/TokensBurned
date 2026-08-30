@@ -9,6 +9,9 @@
   "scripts": {
     "start": "node ./bin/burn.js",
     "dev": "node ./scripts/serve.js",
+    "worker:dev": "wrangler dev --config ./serverless/wrangler.toml",
+    "worker:migrate:local": "wrangler d1 migrations apply tokensburned --local --config ./serverless/wrangler.toml",
+    "worker:deploy": "wrangler deploy --config ./serverless/wrangler.toml",
     "test": "node --test",
     "check": "node --check ./bin/burn.js && node --test"
   },
@@ -37,5 +40,8 @@
     "README.md",
     "SECURITY.md",
     "LICENSE"
-  ]
+  ],
+  "devDependencies": {
+    "wrangler": "^4.127.1"
+  }
 }
