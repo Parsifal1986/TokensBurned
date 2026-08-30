@@ -24,6 +24,9 @@ test("renders a safe dynamic profile card", () => {
   assert.match(svg, /#2 OF 17/);
   assert.match(svg, /DAILY HEAT/);
   assert.match(svg, /ACTIVE HOURS/);
-  assert.match(svg, /SNAPSHOTS TAKE PRIORITY/);
+  assert.match(svg, /SNAPSHOTS OVERRIDE/);
+  assert.match(svg, /height="700"/);
+  assert.doesNotMatch(svg, /class="track"/);
+  assert.doesNotMatch(svg, /text-anchor/);
   assert.doesNotMatch(svg, /model<&/);
 });

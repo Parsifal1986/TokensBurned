@@ -13,7 +13,20 @@ const UNION = `WITH snapshot_rows AS (
   SELECT user_id, bucket, harness, provider, model,
          input_tokens, output_tokens, cache_read_tokens,
          cache_write_tokens, reasoning_tokens, request_count
-    FROM snapshot_rows WHERE row_number = 1
+    FROM snapshot_rows selected
+   WHERE row_number = 1
+     AND (
+       model <> 'unknown'
+       OR NOT EXISTS (
+         SELECT 1 FROM snapshot_rows identified
+          WHERE identified.user_id = selected.user_id
+            AND identified.bucket = selected.bucket
+            AND identified.session_id = selected.session_id
+            AND identified.harness = selected.harness
+            AND identified.model <> 'unknown'
+            AND identified.row_number = 1
+       )
+     )
 ), all_usage AS (
   SELECT user_id, bucket, harness, provider, model,
          input_tokens, output_tokens, cache_read_tokens,

@@ -37,6 +37,26 @@ test("Codex history converts cumulative usage to non-overlapping bucket deltas",
   await fs.rm(root, { recursive: true, force: true });
 });
 
+test("Codex history recognizes top-level turn_context records from desktop rollouts", async () => {
+  const now = Date.UTC(2026, 7, 30, 12);
+  const at = new Date(now - 60_000).toISOString();
+  const { root, file } = await fixture([
+    { timestamp: at, type: "session_meta", payload: { session_id: "session-new" } },
+    { timestamp: at, type: "turn_context", payload: { model: "gpt-5.6-sol", summary: "never retain" } },
+    { timestamp: at, type: "event_msg", payload: { type: "token_count", info: { total_token_usage: { input_tokens: 100, cached_input_tokens: 25, output_tokens: 50, reasoning_output_tokens: 10 } } } },
+  ]);
+  const entries = await parseHistoryFile(file, {
+    harness: "codex",
+    root,
+    now,
+    backend: { provider: "unknown" },
+  });
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].model, "gpt-5.6-sol");
+  assert.equal(JSON.stringify(entries).includes("never retain"), false);
+  await fs.rm(root, { recursive: true, force: true });
+});
+
 test("Claude history keeps the final usage record for each assistant message", async () => {
   const now = Date.UTC(2026, 7, 30, 12);
   const at = new Date(now - 60_000).toISOString();

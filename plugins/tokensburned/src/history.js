@@ -112,7 +112,13 @@ async function parseCodex(realFile, minimumBucket) {
     const payload = record?.payload;
     if (!payload || typeof payload !== "object") continue;
     if (!sessionId && typeof payload.session_id === "string") sessionId = payload.session_id;
-    if (payload.type === "turn_context") currentModel = cleanModel(payload.model);
+    // Codex has emitted turn context in two shapes over time:
+    //   { type: "event_msg", payload: { type: "turn_context", model } }
+    //   { type: "turn_context", payload: { model } }
+    // Accept both so newer desktop rollouts do not lose their model identity.
+    if (record.type === "turn_context" || payload.type === "turn_context") {
+      currentModel = cleanModel(payload.model);
+    }
     if (payload.type !== "token_count") continue;
     const raw = payload.info?.total_token_usage;
     const observed = timestamp(record.timestamp);
