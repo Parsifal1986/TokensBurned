@@ -3,14 +3,14 @@
   <h1>TokensBurned</h1>
   <p><strong>Put your AI coding activity on GitHub without uploading prompts or source code.</strong></p>
   <p>
-    <a href="https://parsifal1986.github.io/TokensBurned/"><img alt="Website" src="https://img.shields.io/badge/website-tokensburned.com-eb6733?style=flat-square"></a>
+    <a href="https://tokensburned.com/"><img alt="Website" src="https://img.shields.io/badge/website-tokensburned.com-eb6733?style=flat-square"></a>
     <a href="https://github.com/Parsifal1986/TokensBurned/actions/workflows/pages.yml"><img alt="GitHub Pages" src="https://img.shields.io/github/actions/workflow/status/Parsifal1986/TokensBurned/pages.yml?style=flat-square&label=pages"></a>
     <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-f1eadf?style=flat-square"></a>
   </p>
   <p>
     <strong>English</strong> · <a href="docs/readme/README.zh-CN.md">简体中文</a> · <a href="docs/readme/README.ja.md">日本語</a> · <a href="docs/readme/README.ko.md">한국어</a> · <a href="docs/readme/README.es.md">Español</a> · <a href="docs/readme/README.fr.md">Français</a>
   </p>
-  <h3><a href="https://parsifal1986.github.io/TokensBurned/#card-builder">Open the interactive card builder →</a></h3>
+  <h3><a href="https://tokensburned.com/#card-builder">Open the interactive card builder →</a></h3>
   <p><sub>Choose a layout, light/dark/auto theme, and profile elements. The preview uses fictional local data.</sub></p>
 </div>
 
@@ -106,12 +106,12 @@ tokensburned doctor</code></pre>
 
 ## Build your profile card
 
-Open the [interactive card builder](https://parsifal1986.github.io/TokensBurned/#card-builder), enter your GitHub username, choose a preset, then copy the generated Markdown.
+Open the [interactive card builder](https://tokensburned.com/#card-builder), enter your GitHub username, choose a preset, then copy the generated Markdown.
 
 The full card is the default:
 
 ```markdown
-[![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg?theme=auto)](https://parsifal1986.github.io/TokensBurned/)
+[![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg?theme=auto)](https://tokensburned.com/)
 ```
 
 The preview below is bundled fictional data. Rendering this README does not call the TokensBurned API.

@@ -1,6 +1,6 @@
 <div align="center"><img src="../../assets/logo.svg" width="112" alt="Logotipo de TokensBurned" /><h1>TokensBurned</h1><p><strong>Muestra tu actividad de programación con IA en GitHub sin subir prompts ni código fuente.</strong></p><p><a href="../../README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <strong>Español</strong> · <a href="README.fr.md">Français</a></p></div>
 
-<div align="center"><h3><a href="https://parsifal1986.github.io/TokensBurned/?lang=es#card-builder">Abrir el creador interactivo →</a></h3><p><sub>Elige diseño, tema claro/oscuro/automático y elementos. La vista previa usa datos ficticios locales.</sub></p></div>
+<div align="center"><h3><a href="https://tokensburned.com/?lang=es#card-builder">Abrir el creador interactivo →</a></h3><p><sub>Elige diseño, tema claro/oscuro/automático y elementos. La vista previa usa datos ficticios locales.</sub></p></div>
 
 TokensBurned recoge conteos de tokens y metadatos del modelo, los agrega localmente en bloques de 15 minutos y sirve un SVG vivo para tu perfil de GitHub. La tarjeta puede mostrar 24 horas, 7 días, 30 días, total histórico, mapas de calor, comparativas de harness/provider/model y una clasificación anónima.
 
@@ -21,10 +21,10 @@ Los hooks de Copilot todavía no exponen conteos de tokens, por lo que la recopi
 
 ## Tarjeta de perfil
 
-Usa el [constructor interactivo](https://parsifal1986.github.io/TokensBurned/?lang=es#card-builder), introduce tu usuario y copia el Markdown generado.
+Usa el [constructor interactivo](https://tokensburned.com/?lang=es#card-builder), introduce tu usuario y copia el Markdown generado.
 
 ```markdown
-[![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg?theme=auto)](https://parsifal1986.github.io/TokensBurned/?lang=es)
+[![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg?theme=auto)](https://tokensburned.com/?lang=es)
 ```
 
 - Compacta: `?layout=compact&compare=0&rank=1`
