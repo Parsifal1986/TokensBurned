@@ -104,7 +104,7 @@ tokensburned connect</code></pre>
         <header class="section-heading builder-heading">
           <p>PROFILE CARD BUILDER</p>
           <h2 id="builder-title">Make the damage fit.</h2>
-          <p>Explore fictional samples locally. The API is called only after you enter a username and request a live preview.</p>
+          <p>Explore fictional samples locally. Your username changes only the card label and generated link; the preview never calls the API.</p>
         </header>
 
         <div class="builder-shell">
@@ -123,7 +123,6 @@ tokensburned connect</code></pre>
               <label><input type="checkbox" name="rank" checked /><span>Site-wide rank</span></label>
               <label><input type="checkbox" name="meme" /><span>Meme stamp</span></label>
             </fieldset>
-            <button class="button primary builder-submit" type="submit">Preview live card</button>
           </form>
 
           <div class="builder-output">
@@ -131,13 +130,13 @@ tokensburned connect</code></pre>
             <div class="preview-stage"><img id="card-preview" src="demo/card-full.svg" alt="Static TokensBurned preview with fictional sample data" /></div>
             <div class="output-field">
               <label for="card-url">SVG URL</label>
-              <div><input id="card-url" readonly placeholder="Generated after live preview" /><button type="button" data-copy-target="card-url" disabled>copy</button></div>
+              <div><input id="card-url" readonly placeholder="Enter a GitHub username" /><button type="button" data-copy-target="card-url" disabled>copy</button></div>
             </div>
             <div class="output-field">
               <label for="card-markdown">GitHub Markdown</label>
-              <div><input id="card-markdown" readonly placeholder="Generated after live preview" /><button type="button" data-copy-target="card-markdown" disabled>copy</button></div>
+              <div><input id="card-markdown" readonly placeholder="Enter a GitHub username" /><button type="button" data-copy-target="card-markdown" disabled>copy</button></div>
             </div>
-            <p class="builder-message" id="builder-message">Static sample. Enter a connected GitHub username, then request one live preview.</p>
+            <p class="builder-message" id="builder-message">Static fictional preview. Enter a GitHub username to generate the link; no API request is made here.</p>
           </div>
         </div>
       </section>

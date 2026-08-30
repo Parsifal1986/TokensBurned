@@ -1,10 +1,6 @@
 const REPOSITORY = "https://github.com/Parsifal1986/TokensBurned";
 const CARD_ORIGIN = "https://api.tokensburned.com/v1/cards/u";
-const DEMO_CARDS = {
-  full: "demo/card-full.svg",
-  compact: "demo/card-compact.svg",
-  meme: "demo/card-meme.svg",
-};
+const demoCardCache = new Map();
 
 const harnesses = {
   claude: {
@@ -127,8 +123,7 @@ const markdownOutput = document.querySelector("#card-markdown");
 const previewState = document.querySelector("#preview-state");
 const builderMessage = document.querySelector("#builder-message");
 const outputCopyButtons = document.querySelectorAll(".builder-output [data-copy-target]");
-let previewMode = "sample";
-let activeUsername = "";
+let previewRevision = 0;
 
 function validGithubName(value) {
   return /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(value);
@@ -154,87 +149,94 @@ function setPreset(value) {
   heatmap.disabled = value === "compact";
 }
 
-function showStaticPreview() {
+function selectedCardOptions() {
   const preset = form.elements.preset.value;
-  previewMode = "sample";
-  activeUsername = "";
-  previewState.textContent = "sample";
-  builderMessage.textContent = "Static sample with fictional data. Submit a connected GitHub username to request one live preview.";
-  preview.alt = `Static ${preset} TokensBurned preview with fictional sample data`;
-  preview.src = DEMO_CARDS[preset];
-  urlOutput.value = "";
-  markdownOutput.value = "";
-  outputCopyButtons.forEach((button) => { button.disabled = true; });
+  return {
+    layout: preset === "compact" ? "compact" : "full",
+    heatmap: preset === "compact" ? false : form.elements.heatmap.checked,
+    compare: form.elements.compare.checked,
+    rank: form.elements.rank.checked,
+    meme: form.elements.meme.checked,
+  };
 }
 
-function updateCard() {
+function demoCardPath(options) {
+  return `demo/card-${options.layout}-h${Number(options.heatmap)}-c${Number(options.compare)}-r${Number(options.rank)}-m${Number(options.meme)}.svg`;
+}
+
+function cardUrlFor(name, options) {
+  const params = new URLSearchParams({
+    layout: options.layout,
+    heatmap: options.heatmap ? "1" : "0",
+    compare: options.compare ? "1" : "0",
+    rank: options.rank ? "1" : "0",
+    meme: options.meme ? "1" : "0",
+  });
+  return `${CARD_ORIGIN}/${name}.svg?${params}`;
+}
+
+function updateGeneratedLink(options) {
   const name = username.value.trim();
-  const preset = form.elements.preset.value;
   if (!name) {
     username.removeAttribute("aria-invalid");
-    showStaticPreview();
-    return;
+    urlOutput.value = "";
+    markdownOutput.value = "";
+    outputCopyButtons.forEach((button) => { button.disabled = true; });
+    builderMessage.textContent = "Static fictional preview. Enter a GitHub username to generate the link; no API request is made here.";
+    return "sample-user";
   }
   if (!validGithubName(name)) {
-    previewState.textContent = "check username";
-    builderMessage.textContent = "Use a valid GitHub username without leading or trailing hyphens.";
     username.setAttribute("aria-invalid", "true");
-    return;
+    urlOutput.value = "";
+    markdownOutput.value = "";
+    outputCopyButtons.forEach((button) => { button.disabled = true; });
+    builderMessage.textContent = "Use a valid GitHub username without leading or trailing hyphens.";
+    return "sample-user";
   }
+  const normalizedName = name.toLowerCase();
+  const cardUrl = cardUrlFor(normalizedName, options);
   username.removeAttribute("aria-invalid");
-  const params = new URLSearchParams({
-    layout: preset === "compact" ? "compact" : "full",
-    heatmap: form.elements.heatmap.checked ? "1" : "0",
-    compare: form.elements.compare.checked ? "1" : "0",
-    rank: form.elements.rank.checked ? "1" : "0",
-    meme: form.elements.meme.checked ? "1" : "0",
-  });
-  const cardUrl = `${CARD_ORIGIN}/${name.toLowerCase()}.svg?${params}`;
-  previewMode = "live";
-  activeUsername = name.toLowerCase();
-  previewState.textContent = "loading";
-  builderMessage.textContent = "Requesting one live card. Connect TokensBurned first so this public card exists.";
-  preview.alt = `TokensBurned card preview for ${name}`;
-  preview.src = cardUrl;
   urlOutput.value = cardUrl;
   markdownOutput.value = `[![TokensBurned activity](${cardUrl})](https://tokensburned.com/)`;
-  outputCopyButtons.forEach((button) => { button.disabled = true; });
+  outputCopyButtons.forEach((button) => { button.disabled = false; });
+  builderMessage.textContent = "The preview keeps fictional usage data and substitutes only your username. The copied URL becomes live after TokensBurned is connected.";
+  return normalizedName;
 }
 
-preview.addEventListener("load", () => {
-  if (previewMode === "sample") {
-    previewState.textContent = "sample";
-    return;
+async function renderStaticPreview() {
+  const revision = ++previewRevision;
+  const options = selectedCardOptions();
+  const owner = updateGeneratedLink(options);
+  const path = demoCardPath(options);
+  previewState.textContent = "static sample";
+  preview.alt = `Static ${options.layout} TokensBurned preview for ${owner} with fictional usage data`;
+  try {
+    let svg = demoCardCache.get(path);
+    if (!svg) {
+      const response = await fetch(path, { cache: "force-cache" });
+      if (!response.ok) throw new Error(`Demo card ${response.status}`);
+      svg = await response.text();
+      demoCardCache.set(path, svg);
+    }
+    if (revision !== previewRevision) return;
+    const personalizedSvg = svg.replaceAll("sample-user", owner);
+    preview.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(personalizedSvg)}`;
+  } catch {
+    if (revision !== previewRevision) return;
+    preview.src = path;
+    previewState.textContent = "static fallback";
   }
-  previewState.textContent = "live";
-  builderMessage.textContent = "This is the same SVG URL GitHub will render. Copy it once and the card keeps updating.";
-  outputCopyButtons.forEach((button) => { button.disabled = false; });
-});
-preview.addEventListener("error", () => {
-  if (previewMode === "sample") return;
-  previewState.textContent = "not connected";
-  builderMessage.textContent = "No public card was found. Connect TokensBurned for this username, then try again.";
-  outputCopyButtons.forEach((button) => { button.disabled = true; });
-});
+}
 
-let updateTimer;
 form.addEventListener("input", (event) => {
   if (event.target.name === "preset") setPreset(event.target.value);
-  window.clearTimeout(updateTimer);
-  const currentName = username.value.trim().toLowerCase();
-  if (activeUsername && currentName === activeUsername) {
-    updateTimer = window.setTimeout(updateCard, 220);
-  } else {
-    showStaticPreview();
-  }
+  renderStaticPreview();
 });
 form.addEventListener("submit", (event) => {
   event.preventDefault();
-  window.clearTimeout(updateTimer);
-  updateCard();
 });
 setPreset("full");
-showStaticPreview();
+renderStaticPreview();
 
 const themeToggle = document.querySelector("[data-theme-toggle]");
 function applyTheme(theme) {

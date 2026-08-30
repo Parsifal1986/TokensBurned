@@ -42,7 +42,26 @@ const sample = {
   generated_at: "2026-08-30T00:00:00.000Z",
 };
 
+function variantName(options) {
+  return `card-${options.layout}-h${Number(options.heatmap)}-c${Number(options.compare)}-r${Number(options.rank)}-m${Number(options.meme)}.svg`;
+}
+
+const variants = [];
+for (const layout of ["full", "compact"]) {
+  for (const heatmap of layout === "compact" ? [false] : [false, true]) {
+    for (const compare of [false, true]) {
+      for (const rank of [false, true]) {
+        for (const meme of [false, true]) {
+          const options = { layout, heatmap, compare, rank, meme };
+          variants.push([variantName(options), options]);
+        }
+      }
+    }
+  }
+}
+
 const cards = [
+  ...variants,
   ["card-full.svg", { layout: "full", heatmap: true, compare: true, rank: true, meme: false }],
   ["card-compact.svg", { layout: "compact", heatmap: false, compare: false, rank: true, meme: false }],
   ["card-meme.svg", { layout: "full", heatmap: false, compare: false, rank: true, meme: true }],
