@@ -5,7 +5,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const harness = process.env.CODEX_PLUGIN_ROOT ? "codex" : "claude";
+const harness = process.env.CODEX_PLUGIN_ROOT
+  ? "codex"
+  : process.env.COPILOT_PLUGIN_ROOT
+    ? "copilot"
+    : process.env.GEMINI_SESSION_ID || process.env.TOKENSBURNED_EXTENSION_PATH
+      ? "gemini-cli"
+      : "claude";
 const chunks = [];
 let size = 0;
 for await (const chunk of process.stdin) {

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">TokensBurned</title><desc id="desc">AI coding activity for GitHub.</desc>
+  <rect width="1200" height="630" fill="#171513"/>
+  <path d="M84 74h126v162H84z" fill="none" stroke="#f0e9df" stroke-width="10"/>
+  <path d="M147 213c-29 0-46-19-46-43 0-27 19-42 35-64 1 17 8 26 16 34 8-11 11-22 9-35 21 18 32 39 32 61 0 28-19 47-46 47Z" fill="#ef6b37"/>
+  <path d="M148 196c-13 0-21-8-21-19 0-10 7-18 16-27 1 8 5 13 10 17 3-5 5-11 4-16 9 8 13 17 13 26 0 11-9 19-22 19Z" fill="#ffc15b"/>
+  <text x="84" y="358" fill="#ef6b37" font-family="ui-monospace,monospace" font-size="22" font-weight="800" letter-spacing="5">AI CODING ACTIVITY FOR GITHUB</text>
+  <text x="84" y="458" fill="#f0e9df" font-family="Arial Black,Arial,sans-serif" font-size="80" font-weight="900" letter-spacing="-5">TOKENSBURNED</text>
+  <text x="84" y="523" fill="#a49b91" font-family="ui-monospace,monospace" font-size="24">No prompts. No code. One live SVG.</text>
+  <path d="M1000 74h116v482h-116" fill="none" stroke="#403a35" stroke-width="2"/>
+  <path d="M1042 234c-28 0-45-19-45-42 0-27 19-41 34-63 1 17 8 25 16 33 8-10 11-21 9-34 21 17 31 38 31 59 0 28-18 47-45 47Z" fill="#ef6b37" opacity=".55"/>
+</svg>

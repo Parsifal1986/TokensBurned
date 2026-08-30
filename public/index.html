@@ -3,110 +3,162 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="TokensBurned tracks AI coding token usage and puts a live activity card on your GitHub profile. No prompts or source code uploaded." />
+    <meta name="description" content="TokensBurned turns private AI coding usage metadata into a live GitHub profile card. No prompts or source code uploaded." />
+    <meta name="theme-color" content="#171513" />
+    <meta property="og:title" content="TokensBurned | AI coding activity for GitHub" />
+    <meta property="og:description" content="Track token usage across coding harnesses and publish one live SVG card." />
+    <meta property="og:image" content="https://tokensburned.com/social-card.svg" />
     <title>TokensBurned | AI coding activity for GitHub</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css" />
     <script src="./app.js" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="site-header">
-      <a class="wordmark" href="#" aria-label="TokensBurned home"><span class="flame">🔥</span> tokensburned</a>
+      <a class="wordmark" href="#top" aria-label="TokensBurned home">
+        <img src="./favicon.svg" alt="" width="28" height="28" />
+        <span>tokensburned</span>
+      </a>
       <nav aria-label="Primary navigation">
-        <a href="#how">how it works</a>
-        <a href="#privacy">privacy</a>
-        <a href="https://github.com/Parsifal1986/TokensBurned">github ↗</a>
+        <a href="#install">Install</a>
+        <a href="#card-builder">Card builder</a>
+        <a href="#privacy">Privacy</a>
+        <a href="https://github.com/Parsifal1986/TokensBurned">GitHub</a>
       </nav>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch color theme">light</button>
     </header>
 
     <main id="main">
-      <section class="hero" aria-labelledby="hero-title">
+      <section class="hero" id="top" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <p class="kicker">AI CODING ACTIVITY / GITHUB</p>
-          <h1 id="hero-title">Burn tokens.<br />Ship code.</h1>
-          <p class="lede">Question your life choices. Track AI coding locally, then put the damage on GitHub.</p>
-          <div class="install" aria-label="Install command">
-            <code><span>$</span> npm install -g burn-ai</code>
-            <button type="button" data-copy="npm install -g burn-ai" aria-label="Copy install command">copy</button>
+          <p class="kicker">AI CODING ACTIVITY FOR GITHUB</p>
+          <h1 id="hero-title">Your AI coding receipt.</h1>
+          <p class="lede">Count tokens across coding harnesses, keep prompts and code on your machine, and publish one live profile card.</p>
+          <div class="hero-actions">
+            <a class="button primary" href="#install">Install for your harness</a>
+            <a class="button secondary" href="#card-builder">Build your card</a>
           </div>
-          <span id="copy-status" class="sr-only" aria-live="polite"></span>
+          <dl class="hero-facts">
+            <div><dt>Collected</dt><dd>Token totals and model metadata</dd></div>
+            <div><dt>Ignored</dt><dd>Prompts, replies, code, repo names</dd></div>
+          </dl>
         </div>
+        <figure class="live-card">
+          <figcaption><span>Live card</span><a href="https://github.com/Parsifal1986">@parsifal1986</a></figcaption>
+          <img src="https://api.tokensburned.com/v1/cards/u/parsifal1986.svg" width="840" height="700" alt="Live TokensBurned profile card for parsifal1986" fetchpriority="high" />
+        </figure>
+      </section>
 
-        <div class="receipt-stage" aria-label="Interactive TokensBurned card preview">
-          <div class="stage-label">LIVE DAMAGE REPORT</div>
-          <article class="receipt" id="burn-card">
-            <div class="receipt-head">
-              <strong>🔥 TOKENS BURNED</strong><span>LOCAL / PRIVATE</span>
+      <section class="proof-strip" aria-label="Project facts">
+        <span>MIT licensed</span><span>Serverless API</span><span>15 minute aggregates</span><span>No profile commits</span>
+      </section>
+
+      <section class="install-section" id="install" aria-labelledby="install-title">
+        <header class="section-heading">
+          <p>SUPPORTED HARNESSES</p>
+          <h2 id="install-title">Pick your coding harness.</h2>
+          <p>Each integration uses the strongest official capability available. The panel tells you when collection is native, OTLP based, or CLI assisted.</p>
+        </header>
+
+        <div class="installer">
+          <div class="harness-list" role="tablist" aria-label="Choose a coding harness">
+            <button type="button" role="tab" aria-selected="true" aria-controls="install-panel" data-harness="claude" class="active"><strong>Claude Code</strong><span>native hook</span></button>
+            <button type="button" role="tab" aria-selected="false" aria-controls="install-panel" data-harness="codex"><strong>Codex</strong><span>native plugin</span></button>
+            <button type="button" role="tab" aria-selected="false" aria-controls="install-panel" data-harness="gemini"><strong>Gemini CLI</strong><span>extension + OTLP</span></button>
+            <button type="button" role="tab" aria-selected="false" aria-controls="install-panel" data-harness="copilot"><strong>Copilot CLI</strong><span>plugin + CLI</span></button>
+            <button type="button" role="tab" aria-selected="false" aria-controls="install-panel" data-harness="cline"><strong>Cline CLI</strong><span>plugin + CLI</span></button>
+            <button type="button" role="tab" aria-selected="false" aria-controls="install-panel" data-harness="opencode"><strong>OpenCode</strong><span>OTLP adapter</span></button>
+            <button type="button" role="tab" aria-selected="false" aria-controls="install-panel" data-harness="other"><strong>Cursor, Aider, other</strong><span>CLI fallback</span></button>
+          </div>
+
+          <article class="install-panel" id="install-panel" role="tabpanel" tabindex="0">
+            <div class="install-panel-head">
+              <div><p data-install-status>NATIVE HOOK</p><h3 data-install-title>Claude Code</h3></div>
+              <span data-install-confidence>Precise session totals</span>
             </div>
-            <div class="rule"></div>
-            <p class="receipt-label">THIS WEEK</p>
-            <div class="token-count"><strong data-week>38.7M</strong><span>TOKENS</span></div>
-            <div class="micro-stats"><span>17 DAY STREAK</span><span>SCORE 8,721</span></div>
-            <div class="rule"></div>
-            <section class="breakdown">
-              <h2>HARNESS</h2>
-              <div class="bar-row"><span>Claude Code</span><i aria-hidden="true"><b style="--value: 76%"></b></i><em>76%</em></div>
-              <div class="bar-row"><span>Codex</span><i aria-hidden="true"><b style="--value: 24%"></b></i><em>24%</em></div>
-            </section>
-            <section class="breakdown backend" data-backend>
-              <h2>BACKEND</h2>
-              <div class="bar-row"><span>DeepSeek</span><i aria-hidden="true"><b style="--value: 61%"></b></i><em>61%</em></div>
-              <div class="bar-row"><span>Anthropic</span><i aria-hidden="true"><b style="--value: 27%"></b></i><em>27%</em></div>
-              <div class="bar-row"><span>OpenAI</span><i aria-hidden="true"><b style="--value: 12%"></b></i><em>12%</em></div>
-            </section>
-            <div class="stack">
-              <span>MOST USED STACK</span>
-              <strong data-stack aria-live="polite">Claude Code × DeepSeek</strong>
+            <p class="install-summary" data-install-summary>Install from the TokensBurned marketplace, connect GitHub, then let the official SessionEnd hook upload a short aggregate snapshot.</p>
+            <ol class="install-steps" data-install-steps></ol>
+            <div class="command-block">
+              <pre><code data-install-command>/plugin marketplace add Parsifal1986/TokensBurned
+/plugin install tokensburned@tokensburned
+/reload-plugins
+/tokensburned:connect</code></pre>
+              <button type="button" data-copy-target="install-command">copy all</button>
             </div>
-            <blockquote data-quote>“Claude Code. Zero Claude involved.”</blockquote>
-            <div class="receipt-foot"><span>NO PROMPTS</span><span>NO CODE</span><span>NO SPYING</span></div>
+            <p class="install-note" data-install-note>Optional history import reads only Claude Code JSONL usage fields for the approved date range.</p>
           </article>
-          <div class="card-switcher" role="group" aria-label="Preview scenario">
-            <button class="active" type="button" data-scenario="cursed" aria-pressed="true">cursed stack</button>
-            <button type="button" data-scenario="mystery" aria-pressed="false">mystery meat</button>
+        </div>
+
+        <aside class="cli-fallback" aria-labelledby="fallback-title">
+          <div><p>WORKS EVERYWHERE</p><h3 id="fallback-title">CLI fallback</h3><span>Use this when your harness has no stable token hook yet.</span></div>
+          <div class="command-block compact-command">
+            <pre><code id="fallback-command">npm install -g github:Parsifal1986/TokensBurned
+tokensburned connect</code></pre>
+            <button type="button" data-copy-target="fallback-command">copy</button>
+          </div>
+        </aside>
+      </section>
+
+      <section class="builder-section" id="card-builder" aria-labelledby="builder-title">
+        <header class="section-heading builder-heading">
+          <p>PROFILE CARD BUILDER</p>
+          <h2 id="builder-title">Make the damage fit.</h2>
+          <p>Start with a preset, then keep or remove comparisons, rank, heatmaps, and the optional bad decision stamp.</p>
+        </header>
+
+        <div class="builder-shell">
+          <form class="builder-controls" id="builder-form">
+            <label class="username-field" for="github-name"><span>GitHub username</span><input id="github-name" name="username" value="parsifal1986" autocomplete="off" spellcheck="false" maxlength="39" /></label>
+            <fieldset class="preset-grid">
+              <legend>Card size</legend>
+              <label><input type="radio" name="preset" value="full" checked /><span><strong>Full report</strong><small>Heatmaps and comparisons</small></span></label>
+              <label><input type="radio" name="preset" value="compact" /><span><strong>Compact</strong><small>Totals only</small></span></label>
+              <label><input type="radio" name="preset" value="meme" /><span><strong>Meme receipt</strong><small>Short and judgmental</small></span></label>
+            </fieldset>
+            <fieldset class="option-list">
+              <legend>Elements</legend>
+              <label><input type="checkbox" name="heatmap" checked /><span>Daily and hourly heatmaps</span></label>
+              <label><input type="checkbox" name="compare" checked /><span>Harness, provider, model comparison</span></label>
+              <label><input type="checkbox" name="rank" checked /><span>Site-wide rank</span></label>
+              <label><input type="checkbox" name="meme" /><span>Meme stamp</span></label>
+            </fieldset>
+          </form>
+
+          <div class="builder-output">
+            <div class="preview-head"><span>Preview</span><span id="preview-state" aria-live="polite">ready</span></div>
+            <div class="preview-stage"><img id="card-preview" src="https://api.tokensburned.com/v1/cards/u/parsifal1986.svg?layout=full&amp;heatmap=1&amp;compare=1&amp;rank=1&amp;meme=0" alt="TokensBurned card preview" /></div>
+            <div class="output-field">
+              <label for="card-url">SVG URL</label>
+              <div><input id="card-url" readonly /><button type="button" data-copy-target="card-url">copy</button></div>
+            </div>
+            <div class="output-field">
+              <label for="card-markdown">GitHub Markdown</label>
+              <div><input id="card-markdown" readonly /><button type="button" data-copy-target="card-markdown">copy</button></div>
+            </div>
+            <p class="builder-message" id="builder-message">Connect TokensBurned first so the public card exists for your username.</p>
           </div>
         </div>
       </section>
 
-      <section class="manifesto" id="privacy" aria-label="Privacy promises">
-        <ul><li>No prompts.</li><li>No code.</li><li>No daemon.</li><li>No proxy.</li><li>Aggregates only.</li></ul>
-        <strong>Only usage totals and model metadata leave your machine.</strong>
-      </section>
-
-      <section class="how" id="how" aria-labelledby="how-title">
-        <div class="section-intro">
-          <h2 id="how-title">Your machine reads the usage.<br />The card stays live.</h2>
-        </div>
-        <ol class="flow">
-          <li><span>CAPTURE</span><strong>Official hook</strong><p>Receives usage metadata from the coding harness.</p></li>
-          <li><span>AGGREGATE</span><strong>Local buckets</strong><p>Reduces sessions into 15-minute usage snapshots.</p></li>
-          <li><span>UPLOAD</span><strong>Serverless API</strong><p>Sends counts, harness, provider, and model. Nothing conversational.</p></li>
-          <li><span>PUBLISH</span><strong>Live SVG</strong><p>One profile link updates without noisy Git commits.</p></li>
-        </ol>
-      </section>
-
-      <section class="distinction" aria-labelledby="distinction-title">
-        <div class="distinction-inner">
-          <h2 id="distinction-title">Claude Code <mark>≠</mark> Claude.</h2>
-          <p>Harness. Provider. Model. TokensBurned keeps them separate because routers, gateways, local models, and cursed configurations exist.</p>
-          <div class="identity-line" aria-label="Identity layers">
-            <span><small>HARNESS</small>Claude Code</span><b aria-hidden="true">→</b><span><small>PROVIDER</small>DeepSeek</span><b aria-hidden="true">→</b><span><small>MODEL</small>V4 Pro</span>
-          </div>
-          <p class="axiom">OBSERVED DATA &gt; INFERRED DATA &gt; GUESSED DATA</p>
-        </div>
+      <section class="privacy-section" id="privacy" aria-labelledby="privacy-title">
+        <div><p>THE DATA BOUNDARY</p><h2 id="privacy-title">Aggregate locally. Publish deliberately.</h2></div>
+        <dl>
+          <div><dt>Leaves your machine</dt><dd>Token counts, harness, provider, model, hashed session ID, 15 minute bucket.</dd></div>
+          <div><dt>Stays on your machine</dt><dd>Prompts, responses, source code, repository names, transcript paths, API keys.</dd></div>
+          <div><dt>Runs automatically</dt><dd>A short best-effort lifecycle upload. No cron job, daemon, proxy, or Git commit.</dd></div>
+        </dl>
       </section>
 
       <section class="final-cta" aria-labelledby="cta-title">
-        <p class="kicker">READY TO DOCUMENT THE DAMAGE?</p>
-        <h2 id="cta-title">Make your GitHub profile slightly more concerning.</h2>
-        <div class="install light" aria-label="Install command">
-          <code><span>$</span> npm install -g burn-ai</code>
-          <button type="button" data-copy="npm install -g burn-ai" aria-label="Copy install command">copy</button>
-        </div>
-        <p>MIT licensed. Serverless by design. Mildly judgmental.</p>
+        <img src="./favicon.svg" width="64" height="64" alt="" />
+        <h2 id="cta-title">Document the damage.</h2>
+        <p>Open source, privacy bounded, and mildly judgmental.</p>
+        <div class="hero-actions"><a class="button primary" href="#install">Install TokensBurned</a><a class="button secondary" href="https://github.com/Parsifal1986/TokensBurned">Read the source</a></div>
       </section>
     </main>
 
-    <footer><span>🔥 tokensburned</span><span>© 2026 parsifal1986 / MIT LICENSED</span></footer>
+    <footer><span>TokensBurned</span><span>© 2026 parsifal1986. MIT licensed.</span></footer>
+    <span id="copy-status" class="sr-only" aria-live="polite"></span>
   </body>
 </html>

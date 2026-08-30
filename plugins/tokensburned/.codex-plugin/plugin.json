@@ -1,6 +1,6 @@
 {
   "name": "tokensburned",
-  "version": "0.3.0+codex.20260830182736",
+  "version": "0.4.0+codex.20260830191933",
   "description": "Privacy-first AI coding activity with serverless aggregation and GitHub profile cards.",
   "author": {
     "name": "Parsifal1986",
@@ -13,7 +13,9 @@
     "tokens",
     "github-profile",
     "claude-code",
-    "codex"
+    "codex",
+    "gemini-cli",
+    "cline"
   ],
   "skills": "./skills/",
   "interface": {

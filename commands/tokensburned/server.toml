@@ -1,0 +1,2 @@
+description = "Show TokensBurned server totals and card URL."
+prompt = "Use the installed TokensBurned server skill and report the server totals and public card URL without exposing device credentials."

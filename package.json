@@ -1,6 +1,6 @@
 {
   "name": "burn-ai",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Privacy-first AI coding activity for your GitHub profile.",
   "type": "module",
   "bin": {
@@ -28,6 +28,22 @@
     "developer-tools"
   ],
   "license": "MIT",
+  "cline": {
+    "plugins": [
+      {
+        "paths": ["./integrations/cline/plugin.js"],
+        "capabilities": ["hooks"]
+      }
+    ]
+  },
+  "peerDependencies": {
+    "@cline/sdk": "*"
+  },
+  "peerDependenciesMeta": {
+    "@cline/sdk": {
+      "optional": true
+    }
+  },
   "files": [
     "bin",
     "src",
@@ -39,6 +55,9 @@
     ".claude-plugin",
     "commands",
     "examples",
+    "integrations",
+    "gemini-extension.json",
+    ".plugin",
     "README.md",
     "SECURITY.md",
     "LICENSE"
