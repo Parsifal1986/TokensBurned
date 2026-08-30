@@ -18,6 +18,9 @@ Worker with D1 for aggregate usage and R2 for pre-rendered SVG cards.
 - Claude Code sends only its `claude_code.token.usage` metric.
 - Codex sends OTLP logs, but the Worker allow-lists only
   `codex.sse_event` / `response.completed` token and model fields.
+- Gemini CLI and other current harnesses can send standard OpenTelemetry GenAI
+  usage logs or spans. Known harness aliases, providers and model families are
+  canonicalized before aggregation.
 - Request bodies, prompts, tool details, repository names, file paths and raw
   OTLP documents are never persisted.
 - OTLP/HTTP JSON is supported first. Protobuf support can be added without
@@ -79,14 +82,35 @@ as keyed hashes.
 | Endpoint | Input |
 | --- | --- |
 | `POST /v1/ingest/batch` | Revisioned, absolute 15-minute usage snapshots. |
-| `POST /v1/otel/metrics` | OTLP/HTTP JSON from Claude Code. |
-| `POST /v1/otel/logs` | OTLP/HTTP JSON from Codex. |
+| `POST /v1/otel/metrics` | OTLP/HTTP JSON token metrics from Claude Code or GenAI clients. |
+| `POST /v1/otel/logs` | Codex events or standard GenAI usage logs. |
+| `POST /v1/otel/traces` | Standard GenAI spans containing usage attributes. |
 | `GET /v1/me/summary` | Authenticated aggregate totals. |
 | `DELETE /v1/me/data` | Delete the authenticated user's usage, devices, account, and card. |
 | `GET /v1/cards/u/:slug.svg` | Public cached SVG card. |
 
 All write and self-service endpoints except device authorization require
 `Authorization: Bearer <device-token>`.
+
+Standard OTLP base endpoints are also available at `/v1/metrics`, `/v1/logs`
+and `/v1/traces`. Configure exporters to send only one token-bearing signal per
+harness to avoid counting the same model call once as a log and again as a span.
+The examples in `serverless/config/` disable prompt logging; the Worker also
+allow-lists fields and never stores raw OTLP payloads.
+
+Revisioned native snapshots are deduplicated across devices by user, stable
+hashed session, harness, model and 15-minute bucket, taking the newest revision.
+When those snapshots overlap OTel events for the same user, harness and bucket,
+summary queries use the snapshot and omit the overlapping OTel events. Records
+remain append-only; reconnects and backfills cannot inflate public totals.
+
+## Public card analytics
+
+Cards summarize rolling 24-hour, 7-day and 30-day windows plus all retained
+history. Daily cells cover 12 weeks; hourly cells group the last 30 days by UTC
+hour. Harness, provider and model shares use the same 30-day window. Rank is an
+all-time token rank across users with recorded activity; only the viewer's rank
+and the aggregate participant count are rendered.
 
 ## Production resources
 

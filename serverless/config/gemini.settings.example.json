@@ -1,0 +1,9 @@
+{
+  "telemetry": {
+    "enabled": true,
+    "target": "local",
+    "otlpEndpoint": "https://api.tokensburned.com",
+    "otlpProtocol": "http",
+    "logPrompts": false
+  }
+}

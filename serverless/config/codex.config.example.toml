@@ -2,8 +2,7 @@
 environment = "production"
 log_user_prompt = false
 exporter = { otlp-http = {
-  endpoint = "https://otel.tokensburned.dev/v1/otel/logs",
+  endpoint = "https://api.tokensburned.com/v1/otel/logs",
   protocol = "json",
   headers = { Authorization = "Bearer REPLACE_WITH_DEVICE_TOKEN" }
 } }
-

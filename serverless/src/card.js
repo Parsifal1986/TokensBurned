@@ -7,47 +7,93 @@ function escapeXml(value) {
 }
 
 function formatTokens(value) {
-  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`;
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
-  return String(value);
+  const number = Number(value || 0);
+  if (number >= 1_000_000_000) return `${(number / 1_000_000_000).toFixed(1)}B`;
+  if (number >= 1_000_000) return `${(number / 1_000_000).toFixed(1)}M`;
+  if (number >= 1_000) return `${(number / 1_000).toFixed(1)}K`;
+  return String(number);
 }
 
-function rows(items, y) {
+function shorten(value, length = 24) {
+  const text = String(value || "unknown");
+  return text.length > length ? `${text.slice(0, length - 1)}…` : text;
+}
+
+function intensity(value, maximum) {
+  if (!value || !maximum) return 0;
+  return Math.max(1, Math.min(4, Math.ceil(Math.sqrt(value / maximum) * 4)));
+}
+
+function calendarHeatmap(days) {
+  const values = days.length ? days : Array.from({ length: 84 }, () => ({ date: "", tokens: 0 }));
+  const maximum = Math.max(...values.map((day) => day.tokens), 0);
+  return values.slice(-84).map((day, index) => {
+    const x = 42 + Math.floor(index / 7) * 18;
+    const y = 250 + (index % 7) * 18;
+    return `<rect x="${x}" y="${y}" width="13" height="13" rx="2" class="heat${intensity(day.tokens, maximum)}"><title>${escapeXml(day.date)} · ${escapeXml(formatTokens(day.tokens))} tokens</title></rect>`;
+  }).join("");
+}
+
+function hourlyHeatmap(hours) {
+  const values = hours.length ? hours : Array.from({ length: 24 }, (_, hour) => ({ hour, tokens: 0 }));
+  const maximum = Math.max(...values.map((hour) => hour.tokens), 0);
+  return values.map((hour, index) => {
+    const x = 340 + index * 18;
+    return `<rect x="${x}" y="268" width="13" height="72" rx="2" class="heat${intensity(hour.tokens, maximum)}"><title>${String(hour.hour).padStart(2, "0")}:00 UTC · ${escapeXml(formatTokens(hour.tokens))} tokens in 30 days</title></rect>`;
+  }).join("");
+}
+
+function comparison(items, x, title) {
+  const visible = items.slice(0, 3);
   const total = items.reduce((sum, item) => sum + item.tokens, 0) || 1;
-  return items.slice(0, 3).map((item, index) => {
+  const body = visible.length ? visible.map((item, index) => {
+    const y = 490 + index * 42;
     const percentage = Math.round(item.tokens / total * 100);
-    const rowY = y + index * 27;
-    return `<text x="42" y="${rowY}" class="label">${escapeXml(item.key)}</text>
-    <rect x="224" y="${rowY - 12}" width="220" height="8" rx="2" class="track"/>
-    <rect x="224" y="${rowY - 12}" width="${Math.max(2, Math.round(2.2 * percentage))}" height="8" rx="2" class="bar"/>
-    <text x="480" y="${rowY}" class="pct">${percentage}%</text>`;
-  }).join("\n");
+    return `<text x="${x}" y="${y}" class="row">${escapeXml(shorten(item.key, 21))}</text>
+      <text x="${x + 220}" y="${y}" class="pct" text-anchor="end">${percentage}%</text>
+      <rect x="${x}" y="${y + 10}" width="220" height="5" rx="2" class="track"/>
+      <rect x="${x}" y="${y + 10}" width="${Math.max(2, Math.round(2.2 * percentage))}" height="5" rx="2" class="bar"/>`;
+  }).join("") : `<text x="${x}" y="490" class="muted">No activity yet</text>`;
+  return `<text x="${x}" y="455" class="section">${escapeXml(title)}</text>${body}`;
 }
 
 export function renderServerCard(summary, slug) {
-  const harnesses = summary.by_harness.length
-    ? rows(summary.by_harness, 226)
-    : `<text x="42" y="226" class="muted">No activity yet.</text>`;
-  const topModel = summary.by_model[0]?.key || "Awaiting first burn";
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="760" height="390" viewBox="0 0 760 390" role="img" aria-labelledby="title desc">
+  const rank = summary.rank && summary.participants
+    ? `#${summary.rank} OF ${summary.participants}`
+    : "AWAITING RANK";
+  const updated = summary.generated_at.slice(0, 16).replace("T", " ");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="840" height="650" viewBox="0 0 840 650" role="img" aria-labelledby="title desc">
   <title id="title">${escapeXml(slug)} on TokensBurned</title>
-  <desc id="desc">${escapeXml(formatTokens(summary.week_tokens))} AI coding tokens in the last seven days.</desc>
-  <defs><linearGradient id="heat" x1="0" x2="1"><stop offset="0" stop-color="#ff5a1f"/><stop offset="1" stop-color="#ffb000"/></linearGradient></defs>
+  <desc id="desc">${escapeXml(formatTokens(summary.week_tokens))} AI coding tokens in seven days; ranked ${escapeXml(rank.toLowerCase())} among TokensBurned users.</desc>
+  <defs><linearGradient id="ember" x1="0" x2="1"><stop offset="0" stop-color="#ff5a1f"/><stop offset="1" stop-color="#ffb000"/></linearGradient></defs>
   <style>
-    .bg{fill:#171513}.frame{fill:none;stroke:#3b3733}.paper{fill:#f4efe5}.muted{fill:#8f8981}.ember{fill:#ff6b28}.track{fill:#312d29}.bar{fill:url(#heat)}
-    text{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}.brand{font-size:18px;font-weight:800;letter-spacing:3px}.big{font-size:46px;font-weight:800}.unit,.muted{font-size:12px}.eyebrow{font-size:11px;font-weight:700;letter-spacing:2px;fill:#ff8a45}.label{font-size:14px;fill:#ded7cd}.pct{font-size:13px;fill:#f4efe5;text-anchor:end}.model{font-size:14px;font-weight:700;fill:#ffb000}
+    .bg{fill:#171513}.frame,.rule{stroke:#3b3733}.frame{fill:none}.paper{fill:#f4efe5}.muted{fill:#8f8981}.ember{fill:#ff6b28}.track{fill:#312d29}.bar{fill:url(#ember)}
+    .heat0{fill:#292622}.heat1{fill:#63301f}.heat2{fill:#a54121}.heat3{fill:#e45824}.heat4{fill:#ff9a3d}
+    text{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}.brand{font-size:18px;font-weight:800;letter-spacing:3px}.owner{font-size:12px}.rank{font-size:11px;font-weight:800;letter-spacing:1.5px;fill:#ff9a3d}.stat-label,.muted{font-size:11px}.stat{font-size:29px;font-weight:800;fill:#f4efe5}.section{font-size:11px;font-weight:800;letter-spacing:2px;fill:#ff8a45}.row{font-size:12px;fill:#ded7cd}.pct{font-size:11px;fill:#f4efe5}
   </style>
-  <rect width="760" height="390" rx="14" class="bg"/><rect x="1" y="1" width="758" height="388" rx="13" class="frame"/>
-  <text x="42" y="55" class="ember brand">🔥 TOKENSBURNED</text><text x="718" y="54" class="muted" text-anchor="end">${escapeXml(slug)}</text>
-  <line x1="42" x2="718" y1="82" y2="82" stroke="#3b3733"/>
-  <text x="42" y="116" class="muted">LAST 7 DAYS</text><text x="42" y="163" class="paper big">${escapeXml(formatTokens(summary.week_tokens))}</text>
-  <text x="718" y="128" class="muted" text-anchor="end">${summary.week_requests.toLocaleString("en-US")} REQUESTS</text>
-  <text x="718" y="151" class="muted" text-anchor="end">${escapeXml(formatTokens(summary.all_time_tokens))} ALL TIME</text>
-  <text x="42" y="194" class="eyebrow">HARNESS</text>${harnesses}
-  <line x1="42" x2="718" y1="319" y2="319" stroke="#3b3733"/>
-  <text x="42" y="349" class="muted">TOP MODEL</text><text x="42" y="373" class="model">${escapeXml(topModel)}</text>
-  <text x="718" y="373" class="muted" text-anchor="end">UPDATED ${escapeXml(summary.generated_at.slice(0, 16).replace("T", " "))} UTC</text>
+  <rect width="840" height="650" rx="14" class="bg"/><rect x="1" y="1" width="838" height="648" rx="13" class="frame"/>
+  <text x="42" y="53" class="ember brand">🔥 TOKENSBURNED</text>
+  <text x="798" y="35" class="rank" text-anchor="end">${escapeXml(rank)}</text><text x="798" y="55" class="muted owner" text-anchor="end">@${escapeXml(slug)}</text>
+  <line x1="42" x2="798" y1="78" y2="78" class="rule"/>
+  ${[
+    ["PAST 24 HOURS", summary.day_tokens],
+    ["PAST 7 DAYS", summary.week_tokens],
+    ["PAST 30 DAYS", summary.month_tokens],
+    ["ALL TIME", summary.all_time_tokens],
+  ].map(([label, value], index) => {
+    const x = 42 + index * 193;
+    return `<text x="${x}" y="111" class="stat-label muted">${label}</text><text x="${x}" y="148" class="stat">${escapeXml(formatTokens(value))}</text>`;
+  }).join("")}
+  <text x="42" y="204" class="section">DAILY HEAT · 12 WEEKS</text><text x="340" y="204" class="section">ACTIVE HOURS · 30 DAYS / UTC</text>
+  <text x="42" y="231" class="muted">7 DAYS / COLUMN</text><text x="42" y="375" class="muted">12 WEEKS AGO</text><text x="244" y="375" class="muted" text-anchor="end">NOW</text>
+  ${calendarHeatmap(summary.daily || [])}${hourlyHeatmap(summary.hourly || [])}
+  <text x="340" y="250" class="muted">00</text><text x="448" y="250" class="muted">06</text><text x="556" y="250" class="muted">12</text><text x="664" y="250" class="muted">18</text><text x="772" y="250" class="muted">23</text>
+  <text x="340" y="375" class="muted">${Number(summary.month_requests || 0).toLocaleString("en-US")} REQUESTS IN 30 DAYS</text>
+  <line x1="42" x2="798" y1="414" y2="414" class="rule"/>
+  ${comparison(summary.by_harness || [], 42, "HARNESSES · 30D")}
+  ${comparison(summary.by_provider || [], 310, "PROVIDERS · 30D")}
+  ${comparison(summary.by_model || [], 578, "MODELS · 30D")}
+  <text x="42" y="626" class="muted">SNAPSHOTS TAKE PRIORITY OVER OVERLAPPING OTEL</text><text x="798" y="626" class="muted" text-anchor="end">UPDATED ${escapeXml(updated)} UTC</text>
 </svg>`;
 }
 
@@ -63,4 +109,3 @@ export async function refreshUserCard(env, user, now = Date.now()) {
   });
   return { summary, svg };
 }
-

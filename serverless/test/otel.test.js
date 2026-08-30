@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseClaudeMetrics, parseCodexLogs } from "../src/otel.js";
+import {
+  parseClaudeMetrics,
+  parseCodexLogs,
+  parseGenAiLogs,
+  parseGenAiSpans,
+} from "../src/otel.js";
 
 function attr(key, value) {
   const typed = typeof value === "number"
@@ -59,4 +64,50 @@ test("accepts only Codex response.completed token events", async () => {
   assert.equal(events[0].cache_read_tokens, 400);
   assert.equal(events[0].reasoning_tokens, 25);
   assert.equal(JSON.stringify(events).includes("must-not-survive"), false);
+});
+
+test("accepts standard GenAI usage logs from Gemini CLI and discards message content", async () => {
+  const record = {
+    timeUnixNano: "1788091200000000000",
+    attributes: [
+      attr("event.name", "gen_ai.client.inference.operation.details"),
+      attr("gen_ai.agent.name", "gemini-cli"),
+      attr("gen_ai.provider.name", "google"),
+      attr("gen_ai.response.model", "gemini-2.5-pro"),
+      attr("gen_ai.usage.input_tokens", 1000),
+      attr("gen_ai.usage.output_tokens", 200),
+      attr("gen_ai.input.messages", "private prompt"),
+    ],
+  };
+  const events = await parseGenAiLogs({
+    resourceLogs: [{ scopeLogs: [{ logRecords: [record] }] }],
+  }, "dev_123");
+  assert.equal(events.length, 1);
+  assert.equal(events[0].harness, "gemini-cli");
+  assert.equal(events[0].provider, "google");
+  assert.equal(events[0].model, "gemini-2.5-pro");
+  assert.equal(events[0].input_tokens, 1000);
+  assert.equal(JSON.stringify(events).includes("private prompt"), false);
+});
+
+test("accepts standard GenAI span usage for additional harnesses", async () => {
+  const events = await parseGenAiSpans({
+    resourceSpans: [{
+      resource: { attributes: [attr("service.name", "OpenCode-AI")] },
+      scopeSpans: [{ spans: [{
+        traceId: "trace",
+        spanId: "span",
+        endTimeUnixNano: "1788091200000000000",
+        attributes: [
+          attr("gen_ai.request.model", "anthropic/claude-sonnet-4"),
+          attr("gen_ai.usage.input_tokens", 700),
+          attr("gen_ai.usage.output_tokens", 100),
+        ],
+      }] }],
+    }],
+  }, "dev_123");
+  assert.equal(events.length, 1);
+  assert.equal(events[0].harness, "opencode");
+  assert.equal(events[0].provider, "anthropic");
+  assert.equal(events[0].model, "claude-sonnet-4");
 });

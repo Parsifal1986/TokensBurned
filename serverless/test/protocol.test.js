@@ -58,3 +58,21 @@ test("rejects stale buckets and negative token counts", () => {
   }, now), /input must be an integer/);
 });
 
+test("canonicalizes harness aliases and infers a missing provider from the model", () => {
+  const now = Date.UTC(2026, 7, 30, 12);
+  const result = normalizeBatch({
+    v: 1,
+    entries: [{
+      bucket: currentBucket(now),
+      session: "session",
+      harness: "Google-Gemini-CLI",
+      provider: "unknown",
+      model: "google/gemini-2.5-pro",
+      revision: 1,
+      input: 100,
+    }],
+  }, now);
+  assert.equal(result.entries[0].harness, "gemini-cli");
+  assert.equal(result.entries[0].provider, "google");
+  assert.equal(result.entries[0].model, "gemini-2.5-pro");
+});

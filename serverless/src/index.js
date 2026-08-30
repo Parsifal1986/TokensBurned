@@ -70,12 +70,17 @@ async function authenticatedRoute(request, env, ctx, pathname) {
     ctx.waitUntil(refreshUserCard(env, device));
     return json(result, 202);
   }
-  if ((pathname === "/v1/otel/metrics" || pathname === "/v1/otel/logs") && request.method === "POST") {
+  const otelSignals = new Map([
+    ["/v1/otel/metrics", "metrics"], ["/v1/metrics", "metrics"],
+    ["/v1/otel/logs", "logs"], ["/v1/logs", "logs"],
+    ["/v1/otel/traces", "traces"], ["/v1/traces", "traces"],
+  ]);
+  if (otelSignals.has(pathname) && request.method === "POST") {
     const contentType = request.headers.get("content-type") || "";
     if (!contentType.includes("json")) {
       throw new HttpError(415, "unsupported_media_type", "Use OTLP/HTTP JSON for the initial serverless collector.");
     }
-    const signal = pathname.endsWith("metrics") ? "metrics" : "logs";
+    const signal = otelSignals.get(pathname);
     const result = await ingestOtel(env, device, await readJson(request, 512 * 1024), signal);
     if (result.accepted) ctx.waitUntil(refreshUserCard(env, device));
     return json({ partialSuccess: {}, tokensburned: result });
@@ -115,7 +120,7 @@ export async function handleRequest(request, env, ctx) {
   const url = new URL(request.url);
   if (request.method === "OPTIONS") return new Response(null, { status: 204 });
   if (url.pathname === "/health" && request.method === "GET") {
-    return json({ ok: true, service: "tokensburned-api", version: 1 });
+    return json({ ok: true, service: "tokensburned-api", version: 2 });
   }
   if (url.pathname === "/v1/admin/bootstrap" && request.method === "POST") {
     return bootstrap(request, env);

@@ -1,4 +1,5 @@
 import { HttpError } from "./http.js";
+import { identifyDimensions } from "./identity.js";
 
 export const BUCKET_SECONDS = 15 * 60;
 const MAX_ENTRIES = 100;
@@ -42,12 +43,15 @@ export function normalizeEntry(raw, now = Date.now()) {
   if (bucket < present - 96 * 90 || bucket > present + 1) {
     throw new HttpError(400, "invalid_payload", "bucket must be within the last 90 days.");
   }
-  return {
-    bucket,
-    session_id: text(raw.session ?? raw.session_id, "session", { max: 128 }),
+  const dimensions = identifyDimensions({
     harness: dimension(raw.harness, "harness"),
     provider: dimension(raw.provider, "provider"),
     model: text(raw.model, "model"),
+  });
+  return {
+    bucket,
+    session_id: text(raw.session ?? raw.session_id, "session", { max: 128 }),
+    ...dimensions,
     revision: integer(raw.revision, "revision", { min: 1, max: 2_147_483_647 }),
     input_tokens: integer(raw.input ?? raw.input_tokens ?? 0, "input", { max: MAX_TOKENS }),
     output_tokens: integer(raw.output ?? raw.output_tokens ?? 0, "output", { max: MAX_TOKENS }),
@@ -71,4 +75,3 @@ export function normalizeBatch(raw, now = Date.now()) {
     entries: raw.entries.map((entry) => normalizeEntry(entry, now)),
   };
 }
-

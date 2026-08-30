@@ -1,5 +1,6 @@
 import { stableId } from "./crypto.js";
 import { HttpError } from "./http.js";
+import { identifyDimensions } from "./identity.js";
 import { BUCKET_SECONDS } from "./protocol.js";
 
 const INSERT_EVENT = `INSERT OR IGNORE INTO usage_events (
@@ -59,6 +60,23 @@ function emptyCounts() {
   };
 }
 
+function dimensions(attrs, fallbackHarness) {
+  return identifyDimensions({
+    harness: first(attrs, [
+      "tokensburned.harness", "gen_ai.agent.name", "service.name",
+      "process.executable.name", "process.command",
+    ], fallbackHarness),
+    provider: first(attrs, [
+      "gen_ai.provider.name", "gen_ai.system", "provider", "provider.id",
+      "provider_id", "model_provider",
+    ], "unknown"),
+    model: first(attrs, [
+      "gen_ai.response.model", "gen_ai.request.model", "model", "model.id",
+      "model_id", "model_name",
+    ], "unknown"),
+  });
+}
+
 function tokenField(type) {
   const normalized = String(type || "").toLowerCase().replace(/[._ -]/g, "");
   if (["input", "inputtokens", "prompt", "prompttokens"].includes(normalized)) return "input_tokens";
@@ -93,12 +111,11 @@ export async function parseClaudeMetrics(payload, deviceId, now = Date.now()) {
             value,
             model: first(attrs, ["model", "model.id", "model_id"], "unknown"),
           };
+          const identityDimensions = dimensions(attrs, "claude-code");
           events.push({
             id: await stableId(identity),
             bucket: Math.floor(observed.getTime() / 1000 / BUCKET_SECONDS),
-            harness: "claude-code",
-            provider: String(first(attrs, ["provider", "provider.id", "provider_id"], "unknown")),
-            model: String(identity.model),
+            ...identityDimensions,
             observed_at: observed.toISOString(),
             ...counts,
           });
@@ -151,12 +168,11 @@ export async function parseCodexLogs(payload, deviceId, now = Date.now()) {
           turn: first(attrs, ["turn.id", "turn_id"], "unknown"),
           counts,
         };
+        const identityDimensions = dimensions(attrs, "codex");
         events.push({
           id: await stableId(identity),
           bucket: Math.floor(observed.getTime() / 1000 / BUCKET_SECONDS),
-          harness: "codex",
-          provider: String(first(attrs, ["provider", "provider.id", "model_provider"], "unknown")),
-          model: String(first(attrs, ["model", "model.id", "model_id"], "unknown")),
+          ...identityDimensions,
           observed_at: observed.toISOString(),
           ...counts,
         });
@@ -166,10 +182,168 @@ export async function parseCodexLogs(payload, deviceId, now = Date.now()) {
   return events;
 }
 
+function usageCounts(attrs) {
+  const result = emptyCounts();
+  result.input_tokens = count(first(attrs, [
+    "gen_ai.usage.input_tokens", "input_token_count", "input_tokens",
+    "usage.input_tokens", "prompt_tokens",
+  ], 0));
+  result.output_tokens = count(first(attrs, [
+    "gen_ai.usage.output_tokens", "output_token_count", "output_tokens",
+    "usage.output_tokens", "completion_tokens",
+  ], 0));
+  result.cache_read_tokens = count(first(attrs, [
+    "gen_ai.usage.cache_read.input_tokens", "cached_content_token_count",
+    "cached_input_token_count", "cache_read_tokens",
+  ], 0));
+  result.cache_write_tokens = count(first(attrs, [
+    "gen_ai.usage.cache_write.input_tokens", "cache_creation_input_tokens",
+    "cache_write_tokens",
+  ], 0));
+  result.reasoning_tokens = count(first(attrs, [
+    "gen_ai.usage.reasoning.output_tokens", "thoughts_token_count",
+    "reasoning_output_token_count", "reasoning_tokens",
+  ], 0));
+  // Cache and reasoning are usually subsets of input/output in GenAI semantic
+  // conventions. Store disjoint categories so SUM remains exact.
+  result.cache_read_tokens = Math.min(result.input_tokens, result.cache_read_tokens);
+  result.reasoning_tokens = Math.min(result.output_tokens, result.reasoning_tokens);
+  result.input_tokens -= result.cache_read_tokens;
+  result.output_tokens -= result.reasoning_tokens;
+  result.request_count = 1;
+  return result;
+}
+
+function hasTokens(counts) {
+  return counts.input_tokens + counts.output_tokens + counts.cache_read_tokens +
+    counts.cache_write_tokens + counts.reasoning_tokens > 0;
+}
+
+function genericEventName(attrs, record) {
+  return String(first(attrs, ["event.name", "event_name", "name"], record?.name || ""));
+}
+
+export async function parseGenAiLogs(payload, deviceId, now = Date.now()) {
+  const events = [];
+  for (const resourceLog of payload?.resourceLogs || []) {
+    const resource = attributes(resourceLog.resource?.attributes);
+    for (const scopeLog of resourceLog.scopeLogs || []) {
+      for (const record of scopeLog.logRecords || []) {
+        const attrs = { ...resource, ...attributes(record.attributes) };
+        const name = genericEventName(attrs, record);
+        if (!["gen_ai.client.inference.operation.details", "gemini_cli.api_response"].includes(name)) continue;
+        const counts = usageCounts(attrs);
+        if (!hasTokens(counts)) continue;
+        const observed = unixNanoToDate(record.timeUnixNano ?? record.observedTimeUnixNano, now);
+        const dims = dimensions(attrs, name.startsWith("gemini_cli") ? "gemini-cli" : "unknown");
+        const identity = {
+          signal: "gen-ai-log",
+          deviceId,
+          timeUnixNano: String(record.timeUnixNano || observed.getTime() * 1_000_000),
+          name,
+          conversation: first(attrs, ["gen_ai.conversation.id", "session.id", "session_id"], "unknown"),
+          operation: first(attrs, ["gen_ai.operation.name", "prompt_id", "request.id"], "unknown"),
+          counts,
+          ...dims,
+        };
+        events.push({
+          id: await stableId(identity),
+          bucket: Math.floor(observed.getTime() / 1000 / BUCKET_SECONDS),
+          observed_at: observed.toISOString(),
+          ...dims,
+          ...counts,
+        });
+      }
+    }
+  }
+  return events;
+}
+
+export async function parseGenAiSpans(payload, deviceId, now = Date.now()) {
+  const events = [];
+  for (const resourceSpan of payload?.resourceSpans || []) {
+    const resource = attributes(resourceSpan.resource?.attributes);
+    for (const scopeSpan of resourceSpan.scopeSpans || []) {
+      for (const span of scopeSpan.spans || []) {
+        const attrs = { ...resource, ...attributes(span.attributes) };
+        const counts = usageCounts(attrs);
+        if (!hasTokens(counts)) continue;
+        const observed = unixNanoToDate(span.endTimeUnixNano ?? span.startTimeUnixNano, now);
+        const dims = dimensions(attrs, "unknown");
+        const identity = {
+          signal: "gen-ai-span",
+          deviceId,
+          traceId: span.traceId || "unknown",
+          spanId: span.spanId || "unknown",
+          counts,
+          ...dims,
+        };
+        events.push({
+          id: await stableId(identity),
+          bucket: Math.floor(observed.getTime() / 1000 / BUCKET_SECONDS),
+          observed_at: observed.toISOString(),
+          ...dims,
+          ...counts,
+        });
+      }
+    }
+  }
+  return events;
+}
+
+export async function parseGenAiMetrics(payload, deviceId, now = Date.now()) {
+  const grouped = new Map();
+  for (const resourceMetric of payload?.resourceMetrics || []) {
+    const resource = attributes(resourceMetric.resource?.attributes);
+    for (const scopeMetric of resourceMetric.scopeMetrics || []) {
+      for (const metric of scopeMetric.metrics || []) {
+        if (!["gen_ai.client.token.usage", "gemini_cli.token.usage"].includes(metric.name)) continue;
+        const points = metric.sum?.dataPoints || metric.histogram?.dataPoints || metric.gauge?.dataPoints || [];
+        for (const point of points) {
+          const attrs = { ...resource, ...attributes(point.attributes) };
+          const field = tokenField(first(attrs, ["gen_ai.token.type", "type", "token.type", "token_type"]));
+          const value = count(point.asInt ?? point.asDouble ?? point.sum);
+          if (!field || value === 0) continue;
+          const observed = unixNanoToDate(point.timeUnixNano, now);
+          const dims = dimensions(attrs, metric.name.startsWith("gemini_cli") ? "gemini-cli" : "unknown");
+          const key = `${point.timeUnixNano || observed.getTime()}\0${dims.harness}\0${dims.provider}\0${dims.model}`;
+          const row = grouped.get(key) || { observed, dims, counts: emptyCounts(), metric: metric.name };
+          row.counts[field] += value;
+          grouped.set(key, row);
+        }
+      }
+    }
+  }
+  const events = [];
+  for (const row of grouped.values()) {
+    const identity = {
+      signal: "gen-ai-metric", deviceId, metric: row.metric,
+      observed: row.observed.toISOString(), counts: row.counts, ...row.dims,
+    };
+    events.push({
+      id: await stableId(identity),
+      bucket: Math.floor(row.observed.getTime() / 1000 / BUCKET_SECONDS),
+      observed_at: row.observed.toISOString(),
+      ...row.dims,
+      ...row.counts,
+    });
+  }
+  return events;
+}
+
 export async function ingestOtel(env, device, payload, signal, now = Date.now()) {
-  const events = signal === "metrics"
-    ? await parseClaudeMetrics(payload, device.id, now)
-    : await parseCodexLogs(payload, device.id, now);
+  const parsed = signal === "metrics"
+    ? await Promise.all([
+      parseClaudeMetrics(payload, device.id, now),
+      parseGenAiMetrics(payload, device.id, now),
+    ])
+    : signal === "traces"
+      ? [await parseGenAiSpans(payload, device.id, now)]
+      : await Promise.all([
+        parseCodexLogs(payload, device.id, now),
+        parseGenAiLogs(payload, device.id, now),
+      ]);
+  const events = [...new Map(parsed.flat().map((event) => [event.id, event])).values()];
   if (events.length === 0) return { accepted: 0, filtered: true };
   if (events.length > 500) throw new HttpError(413, "too_many_points", "OTLP batch contains too many accepted points.");
   const createdAt = new Date(now).toISOString();

@@ -2,7 +2,7 @@
 
 **Put your AI coding activity on GitHub without uploading prompts or source code.**
 
-TokensBurned is a Claude Code and Codex plugin that collects token-usage metadata, aggregates it with a serverless backend, and gives you a live SVG card for your GitHub profile.
+TokensBurned collects token-usage metadata from AI coding harnesses, aggregates it with a serverless backend, and gives you a live SVG card for your GitHub profile. The card shows 24-hour, 7-day, 30-day and all-time totals, daily and hourly heatmaps, harness/provider/model comparisons, and your anonymous site-wide rank.
 
 [Live website](https://tokensburned.com/) · [Repository](https://github.com/Parsifal1986/TokensBurned) · [Security boundary](./SECURITY.md)
 
@@ -64,6 +64,17 @@ The shorter `burn` command remains an alias.
 - The bundled `SessionEnd` hook performs a short best-effort incremental upload. It does not install a cron job, daemon, proxy, or make Git commits.
 
 Harness, provider, and model are kept as separate identities. TokensBurned does not infer a provider solely from the harness name.
+
+## Supported harnesses
+
+- Claude Code and Codex have first-party plugin hooks plus an optional 90-day local history import.
+- Gemini CLI is supported through its built-in OpenTelemetry GenAI events.
+- OpenCode, Cursor, Cline, Aider, Copilot CLI and other harnesses can use the revisioned batch API or standard OTLP/HTTP JSON logs and traces.
+- Harness aliases, provider aliases and provider-prefixed model names are normalized server-side. Unknown providers are inferred only from recognizable model families; an explicitly reported provider is never overwritten.
+
+Standard OTLP exporters can use `https://api.tokensburned.com` as their base endpoint and send a connected device token through `OTEL_EXPORTER_OTLP_HEADERS`. TokensBurned accepts `/v1/logs`, `/v1/metrics`, and `/v1/traces`, as well as the explicit `/v1/otel/*` routes. Only allow-listed identity and token-count attributes survive parsing.
+
+Repeated connections are deduplicated by the stable hashed session, harness, model and 15-minute bucket, taking only the highest revision. If a native revisioned snapshot and OTel data overlap for the same user, harness and bucket, the snapshot is authoritative. This prevents reconnects, history imports and live telemetry from counting the same model call twice.
 
 ## Add the card to your GitHub profile
 
