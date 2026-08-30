@@ -45,8 +45,8 @@
           </dl>
         </div>
         <figure class="live-card">
-          <figcaption><span>Live card</span><a href="https://github.com/Parsifal1986">@parsifal1986</a></figcaption>
-          <img src="https://api.tokensburned.com/v1/cards/u/parsifal1986.svg" width="840" height="700" alt="Live TokensBurned profile card for parsifal1986" fetchpriority="high" />
+          <figcaption><span>Static example</span><span>sample data</span></figcaption>
+          <img src="demo/card-full.svg" width="840" height="700" alt="Static TokensBurned profile card with fictional sample data" fetchpriority="high" />
         </figure>
       </section>
 
@@ -104,12 +104,12 @@ tokensburned connect</code></pre>
         <header class="section-heading builder-heading">
           <p>PROFILE CARD BUILDER</p>
           <h2 id="builder-title">Make the damage fit.</h2>
-          <p>Start with a preset, then keep or remove comparisons, rank, heatmaps, and the optional bad decision stamp.</p>
+          <p>Explore fictional samples locally. The API is called only after you enter a username and request a live preview.</p>
         </header>
 
         <div class="builder-shell">
           <form class="builder-controls" id="builder-form">
-            <label class="username-field" for="github-name"><span>GitHub username</span><input id="github-name" name="username" value="parsifal1986" autocomplete="off" spellcheck="false" maxlength="39" /></label>
+            <label class="username-field" for="github-name"><span>GitHub username</span><input id="github-name" name="username" placeholder="your-github-name" autocomplete="off" spellcheck="false" maxlength="39" /></label>
             <fieldset class="preset-grid">
               <legend>Card size</legend>
               <label><input type="radio" name="preset" value="full" checked /><span><strong>Full report</strong><small>Heatmaps and comparisons</small></span></label>
@@ -123,20 +123,21 @@ tokensburned connect</code></pre>
               <label><input type="checkbox" name="rank" checked /><span>Site-wide rank</span></label>
               <label><input type="checkbox" name="meme" /><span>Meme stamp</span></label>
             </fieldset>
+            <button class="button primary builder-submit" type="submit">Preview live card</button>
           </form>
 
           <div class="builder-output">
-            <div class="preview-head"><span>Preview</span><span id="preview-state" aria-live="polite">ready</span></div>
-            <div class="preview-stage"><img id="card-preview" src="https://api.tokensburned.com/v1/cards/u/parsifal1986.svg?layout=full&amp;heatmap=1&amp;compare=1&amp;rank=1&amp;meme=0" alt="TokensBurned card preview" /></div>
+            <div class="preview-head"><span>Preview</span><span id="preview-state" aria-live="polite">sample</span></div>
+            <div class="preview-stage"><img id="card-preview" src="demo/card-full.svg" alt="Static TokensBurned preview with fictional sample data" /></div>
             <div class="output-field">
               <label for="card-url">SVG URL</label>
-              <div><input id="card-url" readonly /><button type="button" data-copy-target="card-url">copy</button></div>
+              <div><input id="card-url" readonly placeholder="Generated after live preview" /><button type="button" data-copy-target="card-url" disabled>copy</button></div>
             </div>
             <div class="output-field">
               <label for="card-markdown">GitHub Markdown</label>
-              <div><input id="card-markdown" readonly /><button type="button" data-copy-target="card-markdown">copy</button></div>
+              <div><input id="card-markdown" readonly placeholder="Generated after live preview" /><button type="button" data-copy-target="card-markdown" disabled>copy</button></div>
             </div>
-            <p class="builder-message" id="builder-message">Connect TokensBurned first so the public card exists for your username.</p>
+            <p class="builder-message" id="builder-message">Static sample. Enter a connected GitHub username, then request one live preview.</p>
           </div>
         </div>
       </section>

@@ -114,6 +114,7 @@ nav a:hover { color: var(--ink); }
 .builder-heading { max-width: 1440px; margin: auto; }
 .builder-shell { max-width: 1440px; margin: 74px auto 0; display: grid; grid-template-columns: minmax(340px, .72fr) minmax(0, 1.28fr); gap: clamp(40px, 6vw, 90px); }
 .builder-controls { padding-right: 42px; border-right: 1px solid var(--line); }
+.builder-submit { width: 100%; margin-top: 8px; }
 .username-field { display: grid; gap: 11px; }
 .username-field span, fieldset legend, .output-field label, .preview-head { color: var(--muted); font: 800 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
 .username-field input, .output-field input { width: 100%; height: 48px; border: 1px solid var(--line); color: var(--ink); background: var(--bg); font: 13px var(--mono); }

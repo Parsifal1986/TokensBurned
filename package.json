@@ -13,6 +13,7 @@
     "worker:dev": "wrangler dev --config ./serverless/wrangler.toml",
     "worker:migrate:local": "wrangler d1 migrations apply tokensburned --local --config ./serverless/wrangler.toml",
     "worker:deploy": "wrangler deploy --config ./serverless/wrangler.toml",
+    "demo:cards": "node ./scripts/build-demo-cards.js",
     "plugin:sync": "node ./scripts/sync-plugin-runtime.js",
     "test": "node --test",
     "check": "node --check ./bin/burn.js && node --test"
