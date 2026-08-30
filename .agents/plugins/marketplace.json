@@ -1,0 +1,20 @@
+{
+  "name": "tokensburned",
+  "interface": {
+    "displayName": "TokensBurned"
+  },
+  "plugins": [
+    {
+      "name": "tokensburned",
+      "source": {
+        "source": "local",
+        "path": "./plugins/tokensburned"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

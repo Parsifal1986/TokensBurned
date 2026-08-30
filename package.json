@@ -1,10 +1,11 @@
 {
   "name": "burn-ai",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Privacy-first AI coding activity for your GitHub profile.",
   "type": "module",
   "bin": {
-    "burn": "./bin/burn.js"
+    "burn": "./bin/burn.js",
+    "tokensburned": "./bin/burn.js"
   },
   "scripts": {
     "start": "node ./bin/burn.js",
@@ -12,6 +13,7 @@
     "worker:dev": "wrangler dev --config ./serverless/wrangler.toml",
     "worker:migrate:local": "wrangler d1 migrations apply tokensburned --local --config ./serverless/wrangler.toml",
     "worker:deploy": "wrangler deploy --config ./serverless/wrangler.toml",
+    "plugin:sync": "node ./scripts/sync-plugin-runtime.js",
     "test": "node --test",
     "check": "node --check ./bin/burn.js && node --test"
   },

@@ -1,0 +1,4 @@
+interface:
+  display_name: "TokensBurned"
+  short_description: "Connect and publish AI coding token activity"
+  default_prompt: "Use $tokensburned to connect my account and offer a private history backfill."
