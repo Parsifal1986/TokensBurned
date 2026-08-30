@@ -1,5 +1,6 @@
 const REPOSITORY = "https://github.com/Parsifal1986/TokensBurned";
 const CARD_ORIGIN = "https://api.tokensburned.com/v1/cards/u";
+const SITE_ORIGIN = "https://parsifal1986.github.io/TokensBurned/";
 const DEMO_CARD_VERSION = "theme-1";
 const demoCardCache = new Map();
 
@@ -246,7 +247,7 @@ function updateGeneratedLink(options) {
   const cardUrl = cardUrlFor(normalizedName, options);
   username.removeAttribute("aria-invalid");
   urlOutput.value = cardUrl;
-  markdownOutput.value = `[![TokensBurned activity](${cardUrl})](https://tokensburned.com/)`;
+  markdownOutput.value = `[![TokensBurned activity](${cardUrl})](${SITE_ORIGIN})`;
   outputCopyButtons.forEach((button) => { button.disabled = false; });
   builderMessage.textContent = translate("builderReady");
   return normalizedName;

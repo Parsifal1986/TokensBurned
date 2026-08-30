@@ -6,7 +6,7 @@
 </div>
 
 <div align="center">
-  <h3><a href="https://tokensburned.com/?lang=zh-CN#card-builder">打开在线卡片构建器 →</a></h3>
+  <h3><a href="https://parsifal1986.github.io/TokensBurned/?lang=zh-CN#card-builder">打开在线卡片构建器 →</a></h3>
   <p><sub>选择版式、浅色/深色/自动主题和显示内容。预览只使用本地虚构数据。</sub></p>
 </div>
 
@@ -79,10 +79,10 @@ tokensburned doctor</code></pre>
 
 ## 生成 GitHub Profile 卡片
 
-打开[在线卡片构建器](https://tokensburned.com/#card-builder)，输入 GitHub 用户名，选择完整版、紧凑版或 meme 版，然后复制生成的 Markdown。
+打开[在线卡片构建器](https://parsifal1986.github.io/TokensBurned/?lang=zh-CN#card-builder)，输入 GitHub 用户名，选择完整版、紧凑版或 meme 版，然后复制生成的 Markdown。
 
 ```markdown
-[![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/你的_GITHUB_用户名.svg?theme=auto)](https://tokensburned.com/)
+[![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/你的_GITHUB_用户名.svg?theme=auto)](https://parsifal1986.github.io/TokensBurned/?lang=zh-CN)
 ```
 
 下面使用的是仓库内置的虚构静态数据，浏览 README 不会请求 TokensBurned API。

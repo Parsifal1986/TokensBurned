@@ -1,6 +1,6 @@
 <div align="center"><img src="../../assets/logo.svg" width="112" alt="TokensBurned logo" /><h1>TokensBurned</h1><p><strong>프롬프트와 소스 코드를 업로드하지 않고 AI 코딩 활동을 GitHub Profile에 표시합니다.</strong></p><p><a href="../../README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a> · <strong>한국어</strong> · <a href="README.es.md">Español</a> · <a href="README.fr.md">Français</a></p></div>
 
-<div align="center"><h3><a href="https://tokensburned.com/?lang=ko#card-builder">온라인 카드 빌더 열기 →</a></h3><p><sub>레이아웃, 라이트/다크/자동 테마와 표시 요소를 선택하세요. 미리보기는 가상 로컬 데이터만 사용합니다.</sub></p></div>
+<div align="center"><h3><a href="https://parsifal1986.github.io/TokensBurned/?lang=ko#card-builder">온라인 카드 빌더 열기 →</a></h3><p><sub>레이아웃, 라이트/다크/자동 테마와 표시 요소를 선택하세요. 미리보기는 가상 로컬 데이터만 사용합니다.</sub></p></div>
 
 TokensBurned는 AI coding harness의 token 수와 모델 메타데이터를 로컬에서 15분 단위로 집계합니다. 라이브 SVG는 24시간, 7일, 30일, 전체 사용량, 일별/시간대 heatmap, harness/provider/model 비교와 익명 순위를 표시할 수 있습니다.
 
@@ -21,10 +21,10 @@ Copilot lifecycle hook은 현재 token 수를 제공하지 않으므로 수집�
 
 ## Profile 카드 만들기
 
-[온라인 card builder](https://tokensburned.com/#card-builder)에서 사용자 이름과 요소를 선택한 뒤 Markdown을 복사하세요.
+[온라인 card builder](https://parsifal1986.github.io/TokensBurned/?lang=ko#card-builder)에서 사용자 이름과 요소를 선택한 뒤 Markdown을 복사하세요.
 
 ```markdown
-[![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg?theme=auto)](https://tokensburned.com/)
+[![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg?theme=auto)](https://parsifal1986.github.io/TokensBurned/?lang=ko)
 ```
 
 - Compact: `?layout=compact&compare=0&rank=1`
