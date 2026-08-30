@@ -1,6 +1,6 @@
 <div align="center"><img src="../../assets/logo.svg" width="112" alt="Logo TokensBurned" /><h1>TokensBurned</h1><p><strong>Affichez votre activité de programmation IA sur GitHub sans envoyer vos prompts ni votre code source.</strong></p><p><a href="../../README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a> · <strong>Français</strong></p></div>
 
-<div align="center"><h3><a href="https://tokensburned.com/?lang=fr#card-builder">Ouvrir le générateur interactif →</a></h3><p><sub>Choisissez la disposition, le thème clair/sombre/automatique et les éléments. L'aperçu utilise des données fictives locales.</sub></p></div>
+<div align="center"><h3><a href="https://parsifal1986.github.io/TokensBurned/?lang=fr#card-builder">Ouvrir le générateur interactif →</a></h3><p><sub>Choisissez la disposition, le thème clair/sombre/automatique et les éléments. L'aperçu utilise des données fictives locales.</sub></p></div>
 
 TokensBurned collecte les nombres de tokens et les métadonnées du modèle, les agrège localement par tranche de 15 minutes et sert un SVG vivant pour votre profil GitHub. La carte peut afficher 24 heures, 7 jours, 30 jours, le total, des heatmaps, les comparaisons harness/provider/model et un classement anonyme.
 
@@ -21,10 +21,10 @@ Les hooks Copilot ne fournissent pas encore les nombres de tokens. La collecte r
 
 ## Carte de profil
 
-Ouvrez le [générateur interactif](https://tokensburned.com/#card-builder), saisissez votre nom GitHub, choisissez les éléments et copiez le Markdown.
+Ouvrez le [générateur interactif](https://parsifal1986.github.io/TokensBurned/?lang=fr#card-builder), saisissez votre nom GitHub, choisissez les éléments et copiez le Markdown.
 
 ```markdown
-[![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg?theme=auto)](https://tokensburned.com/)
+[![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg?theme=auto)](https://parsifal1986.github.io/TokensBurned/?lang=fr)
 ```
 
 - Compacte : `?layout=compact&compare=0&rank=1`
