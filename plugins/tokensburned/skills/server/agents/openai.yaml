@@ -1,0 +1,4 @@
+interface:
+  display_name: "TokensBurned Status"
+  short_description: "Show server totals and profile card"
+  default_prompt: "Use $tokensburned:server to show my server totals and card URL."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Backfill TokensBurned"
+  short_description: "Preview or import token-only history"
+  default_prompt: "Use $tokensburned:backfill to preview my last 90 days without uploading."

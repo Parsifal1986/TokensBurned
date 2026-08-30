@@ -1,0 +1,4 @@
+interface:
+  display_name: "Connect TokensBurned"
+  short_description: "Connect GitHub to TokensBurned safely"
+  default_prompt: "Use $tokensburned:connect to connect my GitHub account without importing history."

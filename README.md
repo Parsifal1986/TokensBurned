@@ -34,7 +34,15 @@ codex plugin marketplace add /path/to/TokensBurned
 codex plugin add tokensburned@tokensburned
 ```
 
-Then ask Codex to connect TokensBurned. The installed skill invokes the bundled CLI from the plugin directory.
+Start a new Codex task after installation. Use the three focused skills directly:
+
+```text
+$tokensburned:connect
+$tokensburned:backfill Preview my last 90 days without uploading.
+$tokensburned:server
+```
+
+Natural-language requests still work; the explicit skills make the intended action and authorization boundary clearer.
 
 ### CLI fallback
 
@@ -86,7 +94,7 @@ For example, GitHub user `octocat` has a special public profile repository named
 | `tokensburned setup` | Use the legacy Git-branch profile publishing flow. |
 | `tokensburned clean` | Delete local TokensBurned state after confirmation. |
 
-Claude Code also exposes `/tokensburned:connect`, `/tokensburned:backfill`, `/tokensburned:server`, and `/tokensburned:burn`.
+Claude Code exposes `/tokensburned:connect`, `/tokensburned:backfill`, `/tokensburned:server`, and `/tokensburned:burn`. Codex exposes the corresponding `$tokensburned:connect`, `$tokensburned:backfill`, and `$tokensburned:server` skills.
 
 ## Architecture
 
@@ -106,7 +114,7 @@ npm run check
 
 Run the website locally with `npm run dev`, then open `http://127.0.0.1:4173`.
 
-The plugin source is in [`plugins/tokensburned/`](./plugins/tokensburned/). `npm run plugin:sync` refreshes its self-contained CLI runtime from the repository source before validation or release.
+The plugin source is in [`plugins/tokensburned/`](./plugins/tokensburned/). `npm run plugin:sync` refreshes its self-contained CLI runtime and focused skills from the repository source before validation or release.
 
 ## License
 
