@@ -2,7 +2,7 @@
 
 **Put your AI coding activity on GitHub without uploading prompts or source code.**
 
-TokensBurned collects supported token-usage metadata locally, turns the totals into a shareable SVG card, and can publish that card to your GitHub profile.
+TokensBurned collects supported token-usage metadata, turns the totals into a shareable SVG card, and can publish that card to your GitHub profile.
 
 [Open the live website](https://parsifal1986.github.io/TokensBurned/) · [View the repository](https://github.com/Parsifal1986/TokensBurned) · [Read the security boundary](./SECURITY.md)
 
@@ -16,7 +16,7 @@ TokensBurned collects supported token-usage metadata locally, turns the totals i
 - Publishes through a dedicated `burn` branch in your own GitHub profile repository.
 - Adds one marker-delimited image block to your profile README.
 
-TokensBurned does not collect prompts, source code, transcripts, credentials, or intercepted network traffic. There is no TokensBurned account and no TokensBurned backend.
+TokensBurned does not collect prompts, source code, transcripts, credentials, or intercepted network traffic. The current `0.1.x` release is local-first. A deployed serverless v2 preview lives in [`serverless/`](./serverless/README.md); it accepts only allow-listed aggregate usage fields and pre-renders cards without Git commits.
 
 ## Requirements
 
@@ -173,6 +173,17 @@ Run the complete test suite:
 ```bash
 npm run check
 ```
+
+The Cloudflare Worker can be developed independently from the current CLI:
+
+```bash
+npm run worker:migrate:local
+npm run worker:dev
+```
+
+See [`serverless/README.md`](./serverless/README.md) for its D1, R2, endpoint and privacy boundaries.
+
+The preview API is live at [tokensburned-api.burn-ai.workers.dev](https://tokensburned-api.burn-ai.workers.dev/health). Harness plugin packaging and the end-user `connect` command are the next release step; the serverless backend is not yet used by the published `0.1.x` CLI.
 
 ## License
 

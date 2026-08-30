@@ -1,0 +1,20 @@
+name = "tokensburned-api"
+main = "src/index.js"
+compatibility_date = "2026-08-30"
+workers_dev = true
+
+[vars]
+APP_ORIGIN = "https://parsifal1986.github.io"
+API_ORIGIN = "https://tokensburned-api.burn-ai.workers.dev"
+CARD_ORIGIN = "https://tokensburned-api.burn-ai.workers.dev/v1/cards"
+GITHUB_CLIENT_ID = "Iv23liAuvAy5CLQVmpgd"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tokensburned"
+database_id = "61bed05d-ca2d-4b9a-8998-f6b242c7a86c"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "CARDS"
+bucket_name = "tokensburned-cards"
