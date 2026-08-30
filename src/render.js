@@ -52,8 +52,8 @@ export function renderSvg(summary, options = {}) {
   const stack = splitStack(summary.most_used_stack);
   const harnessHeight = Math.max(harnessRows.length, 1) * ROW_HEIGHT;
   const providerHeight = providerRows.length ? Math.max(providerRows.length, 1) * ROW_HEIGHT + 42 : 0;
-  const height = 332 + harnessHeight + providerHeight;
-  let y = 191;
+  const height = 352 + harnessHeight + providerHeight;
+  let y = 211;
 
   const harnessMarkup = harnessRows.length
     ? harnessRows.map((row) => {
@@ -81,7 +81,7 @@ export function renderSvg(summary, options = {}) {
     : "Awaiting first burn";
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${height}" viewBox="0 0 ${WIDTH} ${height}" role="img" aria-labelledby="title desc">
-  <title id="title">Burn AI coding activity</title>
+  <title id="title">TokensBurned AI coding activity</title>
   <desc id="desc">${escapeXml(formatTokens(summary.week.total_tokens))} tokens this week, ${summary.streak} day streak.</desc>
   <defs>
     <linearGradient id="heat" x1="0" x2="1">
@@ -97,7 +97,7 @@ export function renderSvg(summary, options = {}) {
   <rect x="1" y="1" width="${WIDTH - 2}" height="${height - 2}" rx="13" class="frame"/>
   <g transform="translate(43 31)">
     <path class="ember" d="M13 0c2 10-7 11-3 21-7-5-10 2-10 7 0 9 7 16 16 16s16-7 16-16c0-9-6-17-13-23 1 7-2 10-6 12 2-7-1-12 0-17Z"/>
-    <text x="47" y="26" class="paper brand">BURN</text>
+    <text x="47" y="26" class="paper brand">TOKENSBURNED</text>
     <text x="628" y="24" class="muted unit" text-anchor="end">LOCAL / PRIVATE</text>
   </g>
   <line x1="43" x2="717" y1="91" y2="91" stroke="#3b3733"/>
@@ -106,7 +106,7 @@ export function renderSvg(summary, options = {}) {
   <text x="${summary.week.total_tokens ? 43 + String(formatTokens(summary.week.total_tokens)).length * 29 : 95}" y="165" class="muted unit"> TOKENS</text>
   <text x="717" y="130" class="metric" text-anchor="end">${summary.streak} DAY STREAK</text>
   <text x="717" y="156" class="metric" text-anchor="end">SCORE ${summary.burn_score.toLocaleString("en-US")}</text>
-  <text x="44" y="${191 - 34}" class="eyebrow">HARNESS</text>
+  <text x="44" y="${211 - 34}" class="eyebrow">HARNESS</text>
   ${harnessMarkup}
   ${providerMarkup}
   <line x1="43" x2="717" y1="${y}" y2="${y}" stroke="#3b3733"/>

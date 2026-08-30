@@ -4,6 +4,11 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 const START = "<!-- burn:start -->";
 const END = "<!-- burn:end -->";
+const PROJECT_URL = "https://parsifal1986.github.io/TokensBurned/";
+
+export function profileCardMarkdown(repository, branch = "burn") {
+  return `${START}\n[![TokensBurned AI Coding Stats](https://raw.githubusercontent.com/${repository}/${branch}/stats.svg)](${PROJECT_URL})\n${END}`;
+}
 
 async function gh(args, options = {}) {
   try {
@@ -77,7 +82,7 @@ export async function configureProfile({ repository, branch = "burn", svg, json 
   if (!readme) throw new Error("Profile repository has no README.md.");
   const current = Buffer.from(readme.content, "base64").toString("utf8");
   if (!current.includes(START)) {
-    const image = `\n\n${START}\n[![Burn AI Coding Stats](https://raw.githubusercontent.com/${repository}/${branch}/stats.svg)](https://burn.lol)\n${END}\n`;
+    const image = `\n\n${profileCardMarkdown(repository, branch)}\n`;
     await putContent(
       repository,
       "README.md",

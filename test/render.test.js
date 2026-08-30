@@ -18,10 +18,18 @@ const summary = {
 
 test("renders separate harness and backend labels", () => {
   const svg = renderSvg(summary);
+  assert.match(svg, /TokensBurned AI coding activity/);
+  assert.match(svg, />TOKENSBURNED<\/text>/);
   assert.match(svg, /HARNESS/);
   assert.match(svg, /BACKEND/);
   assert.match(svg, /Claude Code/);
   assert.match(svg, /DeepSeek/);
+});
+
+test("keeps the harness section below the token total", () => {
+  const svg = renderSvg(summary);
+  assert.match(svg, /y="166" class="paper big"/);
+  assert.match(svg, /y="177" class="eyebrow">HARNESS/);
 });
 
 test("privacy mode omits provider output", () => {
