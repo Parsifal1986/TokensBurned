@@ -19,7 +19,7 @@ Run these commands inside Claude Code:
 /tokensburned:connect
 ```
 
-`connect` opens GitHub authorization. In an interactive terminal it asks whether you want to import up to 90 days of existing Codex and Claude token history. In a non-interactive harness it safely skips history unless you explicitly run `/tokensburned:connect --backfill`. Preview the import without uploading anything:
+`connect` opens GitHub authorization. In an interactive terminal it asks whether you want to import up to 90 days of the current harness's token history. It does not silently scan another installed harness. In a non-interactive harness it safely skips history unless you explicitly request backfill. Preview the current Claude Code import without uploading anything:
 
 ```text
 /tokensburned:backfill --dry-run --days 90
@@ -58,7 +58,7 @@ The shorter `burn` command remains an alias.
 ## What happens after installation
 
 - `connect` verifies your GitHub identity through the TokensBurned GitHub App and stores a device credential in `~/.burn/credentials.json` with user-only permissions.
-- If you approve history import, TokensBurned opens only `~/.codex/sessions/**/*.jsonl` and `~/.claude/projects/**/*.jsonl` for up to the requested 90-day range.
+- If you approve history import, TokensBurned opens only the selected harness directory: `~/.codex/sessions/**/*.jsonl` for Codex or `~/.claude/projects/**/*.jsonl` for Claude Code, for up to the requested 90-day range. Cross-harness import requires the explicit `--all-harnesses` flag.
 - JSONL is decoded locally. Only token counts, harness, provider, model, a hashed session identifier, and a 15-minute time bucket are uploaded.
 - Prompts, responses, tool payloads, source code, repository names, transcript paths, API keys, and raw session files are not uploaded.
 - The bundled `SessionEnd` hook performs a short best-effort incremental upload. It does not install a cron job, daemon, proxy, or make Git commits.
@@ -97,8 +97,9 @@ For example, GitHub user `octocat` has a special public profile repository named
 | Command | Purpose |
 | --- | --- |
 | `tokensburned connect` | Connect GitHub and optionally import existing history. |
-| `tokensburned backfill --dry-run` | Preview historical totals locally without uploading. |
-| `tokensburned backfill --days 30` | Import an approved 1–90 day history range. |
+| `tokensburned backfill --harness codex --dry-run` | Preview Codex historical totals locally without uploading. |
+| `tokensburned backfill --harness claude-code --days 30` | Import an approved Claude Code history range. |
+| `tokensburned backfill --all-harnesses --days 30` | Explicitly import every recognized harness. |
 | `tokensburned server` | Show server totals and the public card URL. |
 | `tokensburned doctor` | Show detected harnesses and all read, write, and network boundaries. |
 | `tokensburned` | Show the legacy local activity report. |

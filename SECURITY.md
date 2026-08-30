@@ -9,7 +9,7 @@ TokensBurned may read:
 - usage metadata delivered by an official harness lifecycle hook;
 - known harness configuration fields needed for best-effort provider and model attribution;
 - its own files under `~/.burn`;
-- after explicit backfill consent, JSONL files under `~/.codex/sessions` and `~/.claude/projects`, limited to a user-selected 1–90 day range;
+- after explicit backfill consent, JSONL files under the selected harness directory (`~/.codex/sessions` or `~/.claude/projects`), limited to a user-selected 1–90 day range; reading both requires the explicit `--all-harnesses` flag;
 - at `SessionEnd`, the single transcript path supplied by the harness, only when the user has already connected TokensBurned.
 
 The history parser uses resolved-path boundary checks and rejects a transcript outside the recognized harness directory. It streams each file and extracts only usage counters, model identifiers, session identifiers, and timestamps. It does not retain message content.

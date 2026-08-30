@@ -59,6 +59,38 @@ function has(args, name) {
   return args.includes(name);
 }
 
+function normalizeHarnessOption(value) {
+  return value === "claude" ? "claude-code" : value;
+}
+
+function currentHarness() {
+  const hinted = normalizeHarnessOption(process.env.TOKENSBURNED_HARNESS);
+  if (hinted && adapterFor(hinted)) return hinted;
+  if (process.env.CODEX_PLUGIN_ROOT) return "codex";
+  if (process.env.CLAUDE_PLUGIN_ROOT) return "claude-code";
+  return undefined;
+}
+
+function requestedBackfillHarnesses(args) {
+  const requested = normalizeHarnessOption(option(args, "--harness"));
+  const all = has(args, "--all-harnesses");
+  if (requested && all) {
+    throw new Error("Use either --harness or --all-harnesses, not both.");
+  }
+  if (requested) {
+    const adapter = adapterFor(requested);
+    if (!adapter) throw new Error(`Unsupported history harness: ${requested}`);
+    return [adapter.id];
+  }
+  if (all) return adapters.map((adapter) => adapter.id);
+  const detected = currentHarness();
+  if (detected) return [detected];
+  throw new Error(
+    "Could not determine the current harness. Use --harness codex, " +
+    "--harness claude-code, or explicitly opt into --all-harnesses.",
+  );
+}
+
 function label(record, key) {
   return record[key] || key;
 }
@@ -275,7 +307,10 @@ async function backfillHistory({
   if (!dryRun && (!config.server.enabled || !credentials.device_token)) {
     throw new Error("TokensBurned is not connected. Run `burn connect` first.");
   }
-  const selected = harnesses || adapters.map((adapter) => adapter.id);
+  const selected = harnesses;
+  if (!Array.isArray(selected) || selected.length === 0) {
+    throw new Error("Backfill requires an explicit harness scope.");
+  }
   const backendByHarness = {};
   for (const harness of selected) {
     const adapter = adapterFor(harness);
@@ -299,7 +334,7 @@ async function backfillHistory({
   }
   if (!quiet) {
     const files = Object.values(result.summary).reduce((sum, item) => sum + item.files, 0);
-    console.log(`${dryRun ? "Would import" : "Imported"} ${formatTokens(tokens)} tokens from ${files} history files across ${result.entries.length} aggregate buckets.`);
+    console.log(`${dryRun ? "Would import" : "Imported"} ${formatTokens(tokens)} tokens from ${files} ${selected.join(", ")} history files across ${result.entries.length} aggregate buckets.`);
     console.log(dryRun
       ? "Dry run complete: no history data was uploaded. A real import would send only token counts, harness, provider, model, hashed session id and 15-minute bucket."
       : "Only token counts, harness, provider, model, hashed session id and 15-minute bucket left this machine.");
@@ -308,6 +343,9 @@ async function backfillHistory({
 }
 
 async function connect(args) {
+  let selectedBackfillHarnesses = has(args, "--backfill")
+    ? requestedBackfillHarnesses(args)
+    : null;
   const apiOrigin = option(args, "--api-origin") || API_ORIGIN;
   const authorization = await startDeviceAuthorization({
     apiOrigin,
@@ -351,20 +389,25 @@ async function connect(args) {
   if (!has(args, "--backfill") && !has(args, "--no-backfill")) {
     if (process.stdin.isTTY) {
       shouldBackfill = await confirm(
-        "Import up to 90 days of token totals from local Codex and Claude session history? No prompts or responses are uploaded.",
+        "Import up to 90 days of token totals from the current harness? No prompts or responses are uploaded.",
         false,
       );
+      if (shouldBackfill) selectedBackfillHarnesses = requestedBackfillHarnesses(args);
     } else {
-      console.log("History was not imported because this harness command is non-interactive. Run `tokensburned backfill --dry-run` to preview or `tokensburned backfill` to opt in.");
+      console.log("History was not imported because this harness command is non-interactive. Run the backfill skill to preview or explicitly choose --harness <id>.");
     }
   }
-  if (shouldBackfill) await backfillHistory();
+  if (shouldBackfill) await backfillHistory({ harnesses: selectedBackfillHarnesses });
 }
 
 async function backfillCommand(args) {
   const value = Number(option(args, "--days") || 90);
   const days = Number.isFinite(value) ? Math.max(1, Math.min(90, Math.floor(value))) : 90;
-  return backfillHistory({ days, dryRun: has(args, "--dry-run") });
+  return backfillHistory({
+    harnesses: requestedBackfillHarnesses(args),
+    days,
+    dryRun: has(args, "--dry-run"),
+  });
 }
 
 async function serverStatus() {
@@ -470,7 +513,7 @@ Usage
   tokensburned doctor              Show exactly what TokensBurned reads and writes
   tokensburned hooks install       Install the Claude Code lifecycle hook
   tokensburned connect             Connect to the serverless collector with GitHub
-  tokensburned backfill            Import up to 90 days of local session token totals
+  tokensburned backfill            Import current-harness session token totals
   tokensburned server              Show authenticated server totals and card URL
   tokensburned privacy public      Publish aggregate provider attribution
   tokensburned privacy private     Keep provider attribution local
@@ -479,6 +522,8 @@ Usage
 Connect options
   --backfill                Import history immediately after authorization
   --no-backfill             Connect without importing history
+  --harness <id>           Scope import to codex or claude-code
+  --all-harnesses          Explicitly import every recognized harness
   --no-open                 Print the authorization URL without opening it
   --api-origin <url>        Use a self-hosted TokensBurned API endpoint
 
@@ -489,6 +534,8 @@ Ingest options
   --confidence <level>     verified, detected, reported, unknown
 
 Backfill options
+  --harness <id>           Import codex or claude-code history only
+  --all-harnesses          Explicitly import every recognized harness
   --days <1-90>            Limit history range (default: 90)
   --dry-run                Parse locally without uploading
 
