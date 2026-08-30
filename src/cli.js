@@ -349,10 +349,14 @@ async function connect(args) {
 
   let shouldBackfill = has(args, "--backfill");
   if (!has(args, "--backfill") && !has(args, "--no-backfill")) {
-    shouldBackfill = await confirm(
-      "Import up to 90 days of token totals from local Codex and Claude session history? No prompts or responses are uploaded.",
-      false,
-    );
+    if (process.stdin.isTTY) {
+      shouldBackfill = await confirm(
+        "Import up to 90 days of token totals from local Codex and Claude session history? No prompts or responses are uploaded.",
+        false,
+      );
+    } else {
+      console.log("History was not imported because this harness command is non-interactive. Run `tokensburned backfill --dry-run` to preview or `tokensburned backfill` to opt in.");
+    }
   }
   if (shouldBackfill) await backfillHistory();
 }
@@ -458,19 +462,25 @@ function help() {
 🔥 TokensBurned ${VERSION}
 
 Usage
-  burn                     Show local activity
-  burn ingest [file|-]     Add one or more sanitized usage events
-  burn setup               Put the TokensBurned card on your GitHub profile
-  burn sync                Sync now
-  burn render              Render ~/.burn/stats.svg locally
-  burn doctor              Show exactly what TokensBurned reads and writes
-  burn hooks install       Install the Claude Code lifecycle hook
-  burn connect             Connect to the serverless collector with GitHub
-  burn backfill            Import up to 90 days of local session token totals
-  burn server              Show authenticated server totals and card URL
-  burn privacy public      Publish aggregate provider attribution
-  burn privacy private     Keep provider attribution local
-  burn clean               Delete ~/.burn after confirmation
+  tokensburned                     Show local activity
+  tokensburned ingest [file|-]     Add one or more sanitized usage events
+  tokensburned setup               Put the TokensBurned card on your GitHub profile
+  tokensburned sync                Sync now
+  tokensburned render              Render ~/.burn/stats.svg locally
+  tokensburned doctor              Show exactly what TokensBurned reads and writes
+  tokensburned hooks install       Install the Claude Code lifecycle hook
+  tokensburned connect             Connect to the serverless collector with GitHub
+  tokensburned backfill            Import up to 90 days of local session token totals
+  tokensburned server              Show authenticated server totals and card URL
+  tokensburned privacy public      Publish aggregate provider attribution
+  tokensburned privacy private     Keep provider attribution local
+  tokensburned clean               Delete ~/.burn after confirmation
+
+Connect options
+  --backfill                Import history immediately after authorization
+  --no-backfill             Connect without importing history
+  --no-open                 Print the authorization URL without opening it
+  --api-origin <url>        Use a self-hosted TokensBurned API endpoint
 
 Ingest options
   --harness <id>           claude-code or codex

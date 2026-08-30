@@ -19,7 +19,7 @@ Run these commands inside Claude Code:
 /tokensburned:connect
 ```
 
-`connect` opens GitHub authorization and then asks whether you want to import up to 90 days of existing Codex and Claude token history. The import is optional. Preview it without uploading anything:
+`connect` opens GitHub authorization. In an interactive terminal it asks whether you want to import up to 90 days of existing Codex and Claude token history. In a non-interactive harness it safely skips history unless you explicitly run `/tokensburned:connect --backfill`. Preview the import without uploading anything:
 
 ```text
 /tokensburned:backfill --dry-run --days 90
@@ -38,10 +38,10 @@ Then ask Codex to connect TokensBurned. The installed skill invokes the bundled 
 
 ### CLI fallback
 
-The standalone CLI remains available for harnesses without plugin support:
+The standalone CLI remains available directly from GitHub for harnesses without plugin support:
 
 ```bash
-npm install -g burn-ai
+npm install -g github:Parsifal1986/TokensBurned
 tokensburned connect
 ```
 
