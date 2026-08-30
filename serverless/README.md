@@ -1,6 +1,6 @@
-# TokensBurned Serverless Preview
+# TokensBurned serverless backend
 
-The first server-backed architecture for TokensBurned. It runs as one Cloudflare
+The server-backed architecture for TokensBurned 0.2. It runs as one Cloudflare
 Worker with D1 for aggregate usage and R2 for pre-rendered SVG cards.
 
 - API: `https://tokensburned-api.burn-ai.workers.dev`
@@ -11,6 +11,10 @@ Worker with D1 for aggregate usage and R2 for pre-rendered SVG cards.
 ## Boundaries
 
 - Native adapters upload revisioned 15-minute snapshots to `/v1/ingest/batch`.
+- The 0.2 plugin can optionally import up to 90 days of local Codex and Claude
+  history after explicit user consent, then incrementally upload at `SessionEnd`.
+- Native history ingestion contains only token counts, harness, provider, model,
+  a hashed session identifier, a 15-minute bucket, revision and request count.
 - Claude Code sends only its `claude_code.token.usage` metric.
 - Codex sends OTLP logs, but the Worker allow-lists only
   `codex.sse_event` / `response.completed` token and model fields.

@@ -14,7 +14,7 @@
   "interface": {
     "displayName": "TokensBurned",
     "shortDescription": "Put aggregate AI coding activity on GitHub.",
-    "longDescription": "Connect AI coding harnesses to the TokensBurned serverless collector, optionally import historical token totals, and render a live GitHub Profile SVG without uploading prompts or code.",
+    "longDescription": "Connect Codex to the TokensBurned serverless collector, optionally import historical token totals, and render a live GitHub Profile SVG without uploading prompts or code.",
     "developerName": "Parsifal1986",
     "category": "Productivity",
     "capabilities": ["Local", "Network", "Write"],

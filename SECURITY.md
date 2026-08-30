@@ -1,19 +1,38 @@
 # Security and privacy boundary
 
-Burn is designed so its product promise is also its architecture.
+TokensBurned is designed so its privacy promise is also its architecture.
 
-Burn may read:
+## Data it may read
 
-- usage metadata delivered to an official lifecycle hook;
-- known harness configuration fields needed for best-effort backend attribution;
-- its own files under `~/.burn`.
+TokensBurned may read:
 
-Burn does not open transcript or rollout/session history, recursively scan the home directory, read prompt or response fields for attribution, inspect source repositories, read API keys, intercept traffic, install a proxy, or start a daemon.
+- usage metadata delivered by an official harness lifecycle hook;
+- known harness configuration fields needed for best-effort provider and model attribution;
+- its own files under `~/.burn`;
+- after explicit backfill consent, JSONL files under `~/.codex/sessions` and `~/.claude/projects`, limited to a user-selected 1–90 day range;
+- at `SessionEnd`, the single transcript path supplied by the harness, only when the user has already connected TokensBurned.
 
-In the current `0.1.x` release, the only network destination is GitHub, and only after profile sync is configured. Public output contains aggregate totals and, by default, harness/provider percentages. It never contains endpoints, raw events, timestamps, repository names, machine information, or credentials. Provider publication can be disabled with `burn privacy private`.
+The history parser uses resolved-path boundary checks and rejects a transcript outside the recognized harness directory. It streams each file and extracts only usage counters, model identifiers, session identifiers, and timestamps. It does not retain message content.
 
-The serverless v2 collector in `serverless/` is not yet the default release. Its native endpoint accepts revisioned 15-minute usage snapshots. Its OTLP endpoints immediately reduce incoming documents to an allow-list of token counts, harness, provider, model, coarse time bucket and a deterministic replay id. Raw OTLP documents, prompts, tool details, output snippets, user email, repository names and file paths are not persisted.
+## Data sent to the API
 
-Device credentials are scoped to usage writes and self-service reads. Production secrets belong in Cloudflare Worker Secrets and must never be committed. Public SVG cards are generated from aggregate counters and contain no device or session identifiers.
+Native ingestion sends only:
+
+- input, output, cache-read, cache-write, and reasoning token counts;
+- harness, provider, and model labels;
+- a one-way hashed session identifier;
+- a 15-minute time bucket, revision, and request count.
+
+Prompts, responses, tool payloads, source code, repository names, transcript paths, raw session files, machine information, API keys, and GitHub credentials are not included in ingestion requests.
+
+The Worker reduces supported OTLP documents to the same allow-list before persistence. Raw OTLP documents are not persisted. Public SVG cards contain aggregate counters and no device or session identifiers.
+
+## Authentication and local behavior
+
+GitHub OAuth is used to verify account identity. The resulting GitHub user token is used once to read the authenticated identity and is not stored. TokensBurned issues a device credential scoped to usage writes and self-service reads; the client stores it in `~/.burn/credentials.json` with user-only permissions and sends it only in the `Authorization` header.
+
+The plugin's `SessionEnd` hook launches a short-lived detached process because lifecycle hooks have a tight timeout. TokensBurned does not install a cron job, launch agent, daemon, traffic proxy, or recurring Git synchronization task for server ingestion.
+
+Production secrets belong in Cloudflare Worker Secrets and must never be committed.
 
 Please report security issues privately to the maintainers before opening a public issue.

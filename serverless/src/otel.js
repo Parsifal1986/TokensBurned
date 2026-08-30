@@ -132,6 +132,13 @@ export async function parseCodexLogs(payload, deviceId, now = Date.now()) {
         for (const [field, aliases] of Object.entries(TOKEN_KEYS)) {
           counts[field] = count(first(attrs, aliases, 0));
         }
+        // Codex reports cached input as a subset of input and reasoning as a
+        // subset of output. Store non-overlapping categories so totals remain
+        // exact when the aggregate query sums every category.
+        counts.cache_read_tokens = Math.min(counts.input_tokens, counts.cache_read_tokens);
+        counts.reasoning_tokens = Math.min(counts.output_tokens, counts.reasoning_tokens);
+        counts.input_tokens -= counts.cache_read_tokens;
+        counts.output_tokens -= counts.reasoning_tokens;
         counts.request_count = 1;
         if (Object.entries(counts).every(([key, value]) => key === "request_count" || value === 0)) continue;
 
@@ -186,4 +193,3 @@ export async function ingestOtel(env, device, payload, signal, now = Date.now())
   await env.DB.batch(statements);
   return { accepted: events.length, filtered: false };
 }
-

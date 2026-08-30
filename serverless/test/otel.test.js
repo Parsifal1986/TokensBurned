@@ -43,6 +43,7 @@ test("accepts only Codex response.completed token events", async () => {
       attr("input_token_count", 900),
       attr("output_token_count", 100),
       attr("cached_input_token_count", 400),
+      attr("reasoning_output_token_count", 25),
       attr("tool.output", "must-not-survive"),
     ],
   };
@@ -53,9 +54,9 @@ test("accepts only Codex response.completed token events", async () => {
     resourceLogs: [{ scopeLogs: [{ logRecords: [completed, ignored] }] }],
   }, "dev_123");
   assert.equal(events.length, 1);
-  assert.equal(events[0].input_tokens, 900);
-  assert.equal(events[0].output_tokens, 100);
+  assert.equal(events[0].input_tokens, 500);
+  assert.equal(events[0].output_tokens, 75);
   assert.equal(events[0].cache_read_tokens, 400);
+  assert.equal(events[0].reasoning_tokens, 25);
   assert.equal(JSON.stringify(events).includes("must-not-survive"), false);
 });
-

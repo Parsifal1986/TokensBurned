@@ -1,0 +1,12 @@
+{
+  "name": "tokensburned-plugin-runtime",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "tokensburned": "./bin/burn.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

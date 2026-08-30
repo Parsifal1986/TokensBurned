@@ -1,0 +1,17 @@
+{
+  "name": "tokensburned",
+  "owner": {
+    "name": "Parsifal1986"
+  },
+  "description": "TokensBurned plugins for privacy-first AI coding activity and GitHub profile cards.",
+  "plugins": [
+    {
+      "name": "tokensburned",
+      "source": "./plugins/tokensburned",
+      "description": "Privacy-first AI coding token activity with optional history backfill and a live GitHub profile card.",
+      "version": "0.2.0",
+      "category": "developer-tools",
+      "tags": ["tokens", "analytics", "github-profile", "privacy"]
+    }
+  ]
+}
