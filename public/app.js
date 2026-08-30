@@ -1,6 +1,6 @@
 const REPOSITORY = "https://github.com/Parsifal1986/TokensBurned";
 const CARD_ORIGIN = "https://api.tokensburned.com/v1/cards/u";
-const SITE_ORIGIN = "https://parsifal1986.github.io/TokensBurned/";
+const SITE_ORIGIN = "https://tokensburned.com/";
 const DEMO_CARD_VERSION = "theme-2";
 const demoCardCache = new Map();
 
