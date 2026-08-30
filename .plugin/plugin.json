@@ -1,0 +1,15 @@
+{
+  "name": "tokensburned",
+  "version": "0.4.0",
+  "description": "Privacy-first AI coding activity with live GitHub profile cards.",
+  "author": {
+    "name": "Parsifal1986",
+    "url": "https://github.com/Parsifal1986"
+  },
+  "homepage": "https://tokensburned.com/",
+  "repository": "https://github.com/Parsifal1986/TokensBurned",
+  "license": "MIT",
+  "keywords": ["tokens", "github-profile", "copilot-cli", "coding-agents"],
+  "skills": "skills/",
+  "commands": "commands/"
+}

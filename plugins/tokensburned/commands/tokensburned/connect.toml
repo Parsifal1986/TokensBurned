@@ -1,0 +1,2 @@
+description = "Connect GitHub to TokensBurned."
+prompt = "Use the installed TokensBurned connect skill. Connect only after confirming the user requested it. Do not import history unless they separately approve the exact harness and date range."

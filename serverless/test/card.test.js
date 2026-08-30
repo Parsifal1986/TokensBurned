@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderServerCard } from "../src/card.js";
+import { normalizeCardOptions, renderServerCard } from "../src/card.js";
 
 test("renders a safe dynamic profile card", () => {
   const svg = renderServerCard({
@@ -29,4 +29,24 @@ test("renders a safe dynamic profile card", () => {
   assert.doesNotMatch(svg, /class="track"/);
   assert.doesNotMatch(svg, /text-anchor/);
   assert.doesNotMatch(svg, /model<&/);
+});
+
+test("renders compact and meme variants without a heatmap", () => {
+  const summary = {
+    day_tokens: 25_000, week_tokens: 120_000, month_tokens: 500_000, all_time_tokens: 2_500_000,
+    month_requests: 42, by_harness: [], by_provider: [], by_model: [], daily: [], hourly: [],
+    rank: 2, participants: 17, generated_at: "2026-08-30T12:00:00.000Z",
+  };
+  const svg = renderServerCard(summary, "parsifal1986", { layout: "compact", meme: "1", compare: "0" });
+  assert.match(svg, /width="680"/);
+  assert.match(svg, /THIS IS FINE|LOAD-BEARING|ONE MORE PROMPT|PUBLICLY JUDGED/);
+  assert.doesNotMatch(svg, /DAILY HEAT/);
+  assert.doesNotMatch(svg, /HARNESSES \/ 30D/);
+  assert.ok(Number(svg.match(/height="(\d+)"/)[1]) < 400);
+});
+
+test("normalizes public card options", () => {
+  assert.deepEqual(normalizeCardOptions({ layout: "compact", heatmap: "1", compare: "0", rank: "false" }), {
+    layout: "compact", heatmap: false, compare: false, meme: false, rank: false,
+  });
 });

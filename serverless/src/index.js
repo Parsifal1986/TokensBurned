@@ -1,6 +1,6 @@
 import { authenticate, createDeviceCredential } from "./auth.js";
 import { constantTimeEqual, randomId } from "./crypto.js";
-import { refreshUserCard } from "./card.js";
+import { normalizeCardOptions, refreshUserCard, renderServerCard } from "./card.js";
 import { HttpError, json, problem, readJson } from "./http.js";
 import { ingestBatch } from "./ingest.js";
 import { ingestOtel } from "./otel.js";
@@ -101,13 +101,28 @@ async function authenticatedRoute(request, env, ctx, pathname) {
   throw new HttpError(404, "not_found", "Not found.");
 }
 
-async function card(request, env, pathname) {
+async function card(request, env, url) {
   if (!["GET", "HEAD"].includes(request.method)) {
     throw new HttpError(405, "method_not_allowed", "Method not allowed.");
   }
-  const match = pathname.match(/^\/v1\/cards\/u\/([A-Za-z0-9-]+)\.svg$/);
+  const match = url.pathname.match(/^\/v1\/cards\/u\/([A-Za-z0-9-]+)\.svg$/);
   if (!match) throw new HttpError(404, "not_found", "Not found.");
-  const object = await env.CARDS.get(`u/${match[1].toLowerCase()}.svg`);
+  const publicSlug = match[1].toLowerCase();
+  const hasOptions = [...url.searchParams.keys()].some((key) =>
+    ["layout", "heatmap", "compare", "meme", "rank"].includes(key));
+  if (hasOptions) {
+    const user = await env.DB.prepare("SELECT id, public_slug FROM users WHERE public_slug = ?")
+      .bind(publicSlug).first();
+    if (!user) throw new HttpError(404, "card_not_found", "Card not found.");
+    const options = normalizeCardOptions(Object.fromEntries(url.searchParams));
+    const svg = renderServerCard(await summarizeUser(env, user.id), user.public_slug, options);
+    return new Response(request.method === "HEAD" ? null : svg, { headers: {
+      "Content-Type": "image/svg+xml; charset=utf-8",
+      "Cache-Control": "public, max-age=300, s-maxage=900, stale-while-revalidate=86400",
+      "X-Content-Type-Options": "nosniff",
+    } });
+  }
+  const object = await env.CARDS.get(`u/${publicSlug}.svg`);
   if (!object) throw new HttpError(404, "card_not_found", "Card not found.");
   const headers = new Headers();
   object.writeHttpMetadata(headers);
@@ -137,7 +152,7 @@ export async function handleRequest(request, env, ctx) {
   if (url.pathname === "/v1/auth/github/callback" && request.method === "GET") {
     return githubCallback(request, env);
   }
-  if (url.pathname.startsWith("/v1/cards/")) return card(request, env, url.pathname);
+  if (url.pathname.startsWith("/v1/cards/")) return card(request, env, url);
   if (url.pathname.startsWith("/v1/")) return authenticatedRoute(request, env, ctx, url.pathname);
   throw new HttpError(404, "not_found", "Not found.");
 }

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title desc">
+  <title id="title">TokensBurned logo</title><desc id="desc">A burning token receipt in a dark square.</desc>
+  <rect width="160" height="160" rx="26" fill="#171513"/>
+  <path d="M42 31h76v98H42z" fill="none" stroke="#f0e9df" stroke-width="7"/>
+  <path d="M80 114c-18 0-29-12-29-27 0-17 12-26 22-40 .5 11 5 16 10 21 5-7 7-14 6-22 13 11 20 24 20 38 0 18-12 30-29 30Z" fill="#ef6b37"/>
+  <path d="M81 103c-8 0-13-5-13-12 0-6 4-11 10-17 .5 5 3 8 6 11 2-3 3-7 3-10 5 5 8 11 8 16 0 7-6 12-14 12Z" fill="#ffc15b"/>
+</svg>

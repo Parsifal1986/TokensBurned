@@ -1,0 +1,2 @@
+description = "Configure private Gemini CLI token telemetry."
+prompt = "Help the user configure Gemini CLI's official OpenTelemetry JSON exporter for https://api.tokensburned.com. Keep telemetry.logPrompts false. Use the TokensBurned device credential only as an Authorization bearer header and never print it. Explain any shell or settings change before making it, preserve unrelated settings, and run TokensBurned doctor afterward."
