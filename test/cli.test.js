@@ -29,3 +29,48 @@ test("CLI ingests, reports and renders without network", async () => {
   assert.match(svg, /<svg/);
   await fs.rm(home, { recursive: true, force: true });
 });
+
+test("backfill defaults to the current harness and requires explicit cross-harness scope", async () => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "tokensburned-scope-"));
+  const codexRoot = path.join(home, ".codex", "sessions");
+  const claudeRoot = path.join(home, ".claude", "projects");
+  await Promise.all([
+    fs.mkdir(codexRoot, { recursive: true }),
+    fs.mkdir(claudeRoot, { recursive: true }),
+  ]);
+  const timestamp = new Date().toISOString();
+  await fs.writeFile(path.join(codexRoot, "codex.jsonl"), [
+    { timestamp, type: "session_meta", payload: { session_id: "codex-session" } },
+    { timestamp, type: "turn_context", payload: { model: "gpt-test" } },
+    { timestamp, type: "event_msg", payload: { type: "token_count", info: { total_token_usage: { input_tokens: 100, output_tokens: 50 } } } },
+  ].map((line) => JSON.stringify(line)).join("\n") + "\n");
+  await fs.writeFile(path.join(claudeRoot, "claude.jsonl"), `${JSON.stringify({
+    timestamp,
+    type: "assistant",
+    sessionId: "claude-session",
+    message: { id: "message-1", model: "claude-test", usage: { input_tokens: 20, output_tokens: 10 } },
+  })}\n`);
+
+  const baseEnv = {
+    ...process.env,
+    HOME: home,
+    BURN_HOME: path.join(home, ".burn"),
+    NO_COLOR: "1",
+  };
+  const codex = await execFileAsync(process.execPath, [cli, "backfill", "--dry-run", "--days", "1"], {
+    env: { ...baseEnv, CODEX_PLUGIN_ROOT: "/example/codex-plugin" },
+  });
+  assert.match(codex.stdout, /from 1 codex history files/);
+  assert.doesNotMatch(codex.stdout, /claude-code/);
+
+  const all = await execFileAsync(process.execPath, [cli, "backfill", "--dry-run", "--days", "1", "--all-harnesses"], {
+    env: baseEnv,
+  });
+  assert.match(all.stdout, /from 2 claude-code, codex history files/);
+
+  await assert.rejects(
+    execFileAsync(process.execPath, [cli, "backfill", "--dry-run", "--days", "1"], { env: baseEnv }),
+    (error) => /Could not determine the current harness/.test(error.stderr),
+  );
+  await fs.rm(home, { recursive: true, force: true });
+});
