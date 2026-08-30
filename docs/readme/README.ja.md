@@ -1,5 +1,7 @@
 <div align="center"><img src="../../assets/logo.svg" width="112" alt="TokensBurned logo" /><h1>TokensBurned</h1><p><strong>プロンプトやソースコードを送信せず、AI コーディング活動を GitHub Profile に表示します。</strong></p><p><a href="../../README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <strong>日本語</strong> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a> · <a href="README.fr.md">Français</a></p></div>
 
+<div align="center"><h3><a href="https://tokensburned.com/?lang=ja#card-builder">オンラインカード作成ツールを開く →</a></h3><p><sub>レイアウト、ライト/ダーク/自動テーマ、表示項目を選択できます。プレビューは架空のローカルデータです。</sub></p></div>
+
 TokensBurned は各 AI coding harness の token 数とモデル情報だけを収集し、ローカルで 15 分単位に集約します。GitHub Profile 用のライブ SVG には 24 時間、7 日、30 日、累計、ヒートマップ、harness/provider/model 比較、匿名ランキングを表示できます。
 
 <div align="center"><img src="../../assets/demo-card-builder.gif" width="840" alt="TokensBurned card builder demo" /></div>
@@ -22,12 +24,14 @@ Copilot の lifecycle hook は現時点で token 数を提供しないため、�
 [オンライン builder](https://tokensburned.com/#card-builder) でユーザー名と表示要素を選択してください。
 
 ```markdown
-[![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg)](https://tokensburned.com/)
+[![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg?theme=auto)](https://tokensburned.com/)
 ```
 
 - Compact: `?layout=compact&compare=0&rank=1`
 - Meme: `?layout=full&heatmap=0&compare=0&meme=1`
 - ランク非表示: `&rank=0`
+- システムテーマに追従: `&theme=auto`
+- ライトまたはダークに固定: `&theme=light` / `&theme=dark`
 
 ## プライバシー
 

@@ -109,7 +109,7 @@ async function card(request, env, url) {
   if (!match) throw new HttpError(404, "not_found", "Not found.");
   const publicSlug = match[1].toLowerCase();
   const hasOptions = [...url.searchParams.keys()].some((key) =>
-    ["layout", "heatmap", "compare", "meme", "rank"].includes(key));
+    ["layout", "heatmap", "compare", "meme", "rank", "theme"].includes(key));
   if (hasOptions) {
     const user = await env.DB.prepare("SELECT id, public_slug FROM users WHERE public_slug = ?")
       .bind(publicSlug).first();

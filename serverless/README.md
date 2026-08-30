@@ -6,7 +6,7 @@ Worker with D1 for aggregate usage and R2 for pre-rendered SVG cards.
 - API: `https://api.tokensburned.com`
 - Health: `https://api.tokensburned.com/health`
 - GitHub App: `https://github.com/apps/tokensburned`
-- Example card: `https://api.tokensburned.com/v1/cards/u/parsifal1986.svg`
+- Example card: `https://api.tokensburned.com/v1/cards/u/parsifal1986.svg?theme=auto`
 
 ## Boundaries
 
@@ -87,7 +87,7 @@ as keyed hashes.
 | `POST /v1/otel/traces` | Standard GenAI spans containing usage attributes. |
 | `GET /v1/me/summary` | Authenticated aggregate totals. |
 | `DELETE /v1/me/data` | Delete the authenticated user's usage, devices, account, and card. |
-| `GET /v1/cards/u/:slug.svg` | Public cached SVG card. |
+| `GET /v1/cards/u/:slug.svg` | Public SVG card. Supports `layout`, `heatmap`, `compare`, `rank`, `meme`, and `theme=auto|light|dark`. |
 
 All write and self-service endpoints except device authorization require
 `Authorization: Bearer <device-token>`.

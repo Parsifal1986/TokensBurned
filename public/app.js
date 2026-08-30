@@ -1,5 +1,6 @@
 const REPOSITORY = "https://github.com/Parsifal1986/TokensBurned";
 const CARD_ORIGIN = "https://api.tokensburned.com/v1/cards/u";
+const DEMO_CARD_VERSION = "theme-1";
 const demoCardCache = new Map();
 
 const harnesses = {
@@ -68,9 +69,55 @@ const harnesses = {
   },
 };
 
+const supportedLanguages = Object.keys(TOKENSBURNED_LOCALES);
+const languageSelect = document.querySelector("#language-select");
+
+function normalizeLanguage(value) {
+  const requested = String(value || "").toLowerCase();
+  return supportedLanguages.find((language) => language.toLowerCase() === requested)
+    || supportedLanguages.find((language) => language.toLowerCase().split("-")[0] === requested.split("-")[0])
+    || "en";
+}
+
+let savedLanguage;
+try { savedLanguage = localStorage.getItem("tokensburned-language"); } catch { savedLanguage = null; }
+const queryLanguage = new URLSearchParams(window.location.search).get("lang");
+let currentLanguage = normalizeLanguage(queryLanguage || savedLanguage || navigator.languages?.[0] || navigator.language);
+
+function translate(key) {
+  return TOKENSBURNED_LOCALES[currentLanguage]?.[key] ?? TOKENSBURNED_LOCALES.en[key] ?? key;
+}
+
+function translatePage() {
+  document.documentElement.lang = currentLanguage;
+  languageSelect.value = currentLanguage;
+  document.title = translate("metaTitle");
+  document.querySelector('meta[name="description"]').content = translate("metaDescription");
+  document.querySelector('meta[property="og:title"]').content = translate("metaTitle");
+  document.querySelector('meta[property="og:description"]').content = translate("metaDescription");
+  document.querySelectorAll("[data-i18n]").forEach((element) => {
+    element.textContent = translate(element.dataset.i18n);
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+    element.placeholder = translate(element.dataset.i18nPlaceholder);
+  });
+  document.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
+    element.setAttribute("aria-label", translate(element.dataset.i18nAriaLabel));
+  });
+  document.querySelectorAll("[data-i18n-alt]").forEach((element) => {
+    element.alt = translate(element.dataset.i18nAlt);
+  });
+}
+
+translatePage();
+
+let activeHarness = "claude";
+
 function selectHarness(name) {
-  const harness = harnesses[name];
-  if (!harness) return;
+  const baseHarness = harnesses[name];
+  if (!baseHarness) return;
+  activeHarness = name;
+  const harness = { ...baseHarness, ...(TOKENSBURNED_HARNESS_LOCALES[currentLanguage]?.[name] || {}) };
   document.querySelector("[data-install-status]").textContent = harness.status;
   document.querySelector("[data-install-title]").textContent = harness.title;
   document.querySelector("[data-install-confidence]").textContent = harness.confidence;
@@ -100,14 +147,14 @@ function copyValue(button) {
   const target = document.getElementById(name) || (name === "install-command" ? document.querySelector("[data-install-command]") : null);
   const value = target?.value ?? target?.textContent ?? "";
   const done = () => {
-    const previous = button.textContent;
-    button.textContent = "copied";
-    document.querySelector("#copy-status").textContent = "Copied to clipboard.";
-    window.setTimeout(() => { button.textContent = previous; }, 1300);
+    const labelKey = button.dataset.i18n || "copy";
+    button.textContent = translate("copied");
+    document.querySelector("#copy-status").textContent = translate("copiedStatus");
+    window.setTimeout(() => { button.textContent = translate(labelKey); }, 1300);
   };
   navigator.clipboard?.writeText(value).then(done).catch(() => {
     if (target?.select) target.select();
-    document.querySelector("#copy-status").textContent = "Text selected. Press Control C to copy.";
+    document.querySelector("#copy-status").textContent = translate("copySelect");
   });
 }
 
@@ -157,11 +204,12 @@ function selectedCardOptions() {
     compare: form.elements.compare.checked,
     rank: form.elements.rank.checked,
     meme: form.elements.meme.checked,
+    theme: form.elements.cardTheme.value,
   };
 }
 
 function demoCardPath(options) {
-  return `demo/card-${options.layout}-h${Number(options.heatmap)}-c${Number(options.compare)}-r${Number(options.rank)}-m${Number(options.meme)}.svg`;
+  return `demo/card-${options.layout}-h${Number(options.heatmap)}-c${Number(options.compare)}-r${Number(options.rank)}-m${Number(options.meme)}.svg?v=${DEMO_CARD_VERSION}`;
 }
 
 function cardUrlFor(name, options) {
@@ -171,6 +219,7 @@ function cardUrlFor(name, options) {
     compare: options.compare ? "1" : "0",
     rank: options.rank ? "1" : "0",
     meme: options.meme ? "1" : "0",
+    theme: options.theme,
   });
   return `${CARD_ORIGIN}/${name}.svg?${params}`;
 }
@@ -182,7 +231,7 @@ function updateGeneratedLink(options) {
     urlOutput.value = "";
     markdownOutput.value = "";
     outputCopyButtons.forEach((button) => { button.disabled = true; });
-    builderMessage.textContent = "Static fictional preview. Enter a GitHub username to generate the link; no API request is made here.";
+    builderMessage.textContent = translate("builderEmpty");
     return "sample-user";
   }
   if (!validGithubName(name)) {
@@ -190,7 +239,7 @@ function updateGeneratedLink(options) {
     urlOutput.value = "";
     markdownOutput.value = "";
     outputCopyButtons.forEach((button) => { button.disabled = true; });
-    builderMessage.textContent = "Use a valid GitHub username without leading or trailing hyphens.";
+    builderMessage.textContent = translate("builderInvalid");
     return "sample-user";
   }
   const normalizedName = name.toLowerCase();
@@ -199,7 +248,7 @@ function updateGeneratedLink(options) {
   urlOutput.value = cardUrl;
   markdownOutput.value = `[![TokensBurned activity](${cardUrl})](https://tokensburned.com/)`;
   outputCopyButtons.forEach((button) => { button.disabled = false; });
-  builderMessage.textContent = "The preview keeps fictional usage data and substitutes only your username. The copied URL becomes live after TokensBurned is connected.";
+  builderMessage.textContent = translate("builderReady");
   return normalizedName;
 }
 
@@ -208,8 +257,8 @@ async function renderStaticPreview() {
   const options = selectedCardOptions();
   const owner = updateGeneratedLink(options);
   const path = demoCardPath(options);
-  previewState.textContent = "static sample";
-  preview.alt = `Static ${options.layout} TokensBurned preview for ${owner} with fictional usage data`;
+  previewState.textContent = translate("previewSample");
+  preview.alt = `${translate("previewAlt")} (@${owner})`;
   try {
     let svg = demoCardCache.get(path);
     if (!svg) {
@@ -219,12 +268,15 @@ async function renderStaticPreview() {
       demoCardCache.set(path, svg);
     }
     if (revision !== previewRevision) return;
-    const personalizedSvg = svg.replaceAll("sample-user", owner);
+    let personalizedSvg = svg.replaceAll("sample-user", owner);
+    personalizedSvg = personalizedSvg.includes("data-card-theme=")
+      ? personalizedSvg.replace(/data-card-theme="[^"]+"/, `data-card-theme="${options.theme}"`)
+      : personalizedSvg.replace("<svg ", `<svg data-card-theme="${options.theme}" `);
     preview.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(personalizedSvg)}`;
   } catch {
     if (revision !== previewRevision) return;
     preview.src = path;
-    previewState.textContent = "static fallback";
+    previewState.textContent = translate("previewFallback");
   }
 }
 
@@ -239,10 +291,13 @@ setPreset("full");
 renderStaticPreview();
 
 const themeToggle = document.querySelector("[data-theme-toggle]");
+let currentSiteTheme = "dark";
 function applyTheme(theme) {
+  currentSiteTheme = theme;
   document.documentElement.dataset.theme = theme;
-  themeToggle.textContent = theme === "dark" ? "light" : "dark";
-  themeToggle.setAttribute("aria-label", `Switch to ${theme === "dark" ? "light" : "dark"} theme`);
+  const nextTheme = theme === "dark" ? "light" : "dark";
+  themeToggle.textContent = translate(`theme${nextTheme[0].toUpperCase()}${nextTheme.slice(1)}`);
+  themeToggle.setAttribute("aria-label", translate(nextTheme === "light" ? "switchLight" : "switchDark"));
 }
 let savedTheme;
 try { savedTheme = localStorage.getItem("tokensburned-theme"); } catch { savedTheme = null; }
@@ -251,4 +306,17 @@ themeToggle.addEventListener("click", () => {
   const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
   applyTheme(next);
   try { localStorage.setItem("tokensburned-theme", next); } catch { /* storage may be blocked */ }
+});
+
+languageSelect.addEventListener("change", () => {
+  currentLanguage = normalizeLanguage(languageSelect.value);
+  try { localStorage.setItem("tokensburned-language", currentLanguage); } catch { /* storage may be blocked */ }
+  const url = new URL(window.location.href);
+  if (currentLanguage === "en") url.searchParams.delete("lang");
+  else url.searchParams.set("lang", currentLanguage);
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  translatePage();
+  selectHarness(activeHarness);
+  applyTheme(currentSiteTheme);
+  renderStaticPreview();
 });

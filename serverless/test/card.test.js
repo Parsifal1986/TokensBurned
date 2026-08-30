@@ -26,6 +26,8 @@ test("renders a safe dynamic profile card", () => {
   assert.match(svg, /ACTIVE HOURS/);
   assert.match(svg, /SNAPSHOTS OVERRIDE/);
   assert.match(svg, /height="700"/);
+  assert.match(svg, /data-card-theme="dark"/);
+  assert.match(svg, /prefers-color-scheme:light/);
   assert.doesNotMatch(svg, /class="track"/);
   assert.doesNotMatch(svg, /text-anchor/);
   assert.doesNotMatch(svg, /model<&/);
@@ -46,7 +48,9 @@ test("renders compact and meme variants without a heatmap", () => {
 });
 
 test("normalizes public card options", () => {
-  assert.deepEqual(normalizeCardOptions({ layout: "compact", heatmap: "1", compare: "0", rank: "false" }), {
-    layout: "compact", heatmap: false, compare: false, meme: false, rank: false,
+  assert.deepEqual(normalizeCardOptions({ layout: "compact", heatmap: "1", compare: "0", rank: "false", theme: "light" }), {
+    layout: "compact", heatmap: false, compare: false, meme: false, rank: false, theme: "light",
   });
+  assert.equal(normalizeCardOptions({ theme: "auto" }).theme, "auto");
+  assert.equal(normalizeCardOptions({ theme: "invalid" }).theme, "dark");
 });
