@@ -3,10 +3,10 @@
 The server-backed architecture for TokensBurned 0.2. It runs as one Cloudflare
 Worker with D1 for aggregate usage and R2 for pre-rendered SVG cards.
 
-- API: `https://tokensburned-api.burn-ai.workers.dev`
-- Health: `https://tokensburned-api.burn-ai.workers.dev/health`
+- API: `https://api.tokensburned.com`
+- Health: `https://api.tokensburned.com/health`
 - GitHub App: `https://github.com/apps/tokensburned`
-- Example card: `https://tokensburned-api.burn-ai.workers.dev/v1/cards/u/parsifal1986.svg`
+- Example card: `https://api.tokensburned.com/v1/cards/u/parsifal1986.svg`
 
 ## Boundaries
 
@@ -53,7 +53,7 @@ The production device flow also requires `GITHUB_CLIENT_ID` and
 `GITHUB_CLIENT_SECRET`. The deployed GitHub App uses this callback URL:
 
 ```text
-https://tokensburned-api.burn-ai.workers.dev/v1/auth/github/callback
+https://api.tokensburned.com/v1/auth/github/callback
 ```
 
 `GITHUB_CLIENT_ID` is a public identifier and may live in `wrangler.toml`.

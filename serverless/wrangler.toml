@@ -3,10 +3,14 @@ main = "src/index.js"
 compatibility_date = "2026-08-30"
 workers_dev = true
 
+[[routes]]
+pattern = "api.tokensburned.com"
+custom_domain = true
+
 [vars]
-APP_ORIGIN = "https://parsifal1986.github.io"
-API_ORIGIN = "https://tokensburned-api.burn-ai.workers.dev"
-CARD_ORIGIN = "https://tokensburned-api.burn-ai.workers.dev/v1/cards"
+APP_ORIGIN = "https://tokensburned.com"
+API_ORIGIN = "https://api.tokensburned.com"
+CARD_ORIGIN = "https://api.tokensburned.com/v1/cards"
 GITHUB_CLIENT_ID = "Iv23liAuvAy5CLQVmpgd"
 
 [[d1_databases]]

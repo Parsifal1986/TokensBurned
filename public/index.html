@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="TokensBurned tracks AI coding token usage locally and puts it on your GitHub profile. No prompts, no code, no backend." />
+    <meta name="description" content="TokensBurned tracks AI coding token usage and puts a live activity card on your GitHub profile. No prompts or source code uploaded." />
     <title>TokensBurned | AI coding activity for GitHub</title>
     <link rel="stylesheet" href="./styles.css" />
     <script src="./app.js" defer></script>
@@ -69,19 +69,19 @@
       </section>
 
       <section class="manifesto" id="privacy" aria-label="Privacy promises">
-        <ul><li>No prompts.</li><li>No code.</li><li>No daemon.</li><li>No proxy.</li><li>No account.</li></ul>
-        <strong>We literally don't have a database to leak.</strong>
+        <ul><li>No prompts.</li><li>No code.</li><li>No daemon.</li><li>No proxy.</li><li>Aggregates only.</li></ul>
+        <strong>Only usage totals and model metadata leave your machine.</strong>
       </section>
 
       <section class="how" id="how" aria-labelledby="how-title">
         <div class="section-intro">
-          <h2 id="how-title">Your machine does the work.<br />GitHub holds the result.</h2>
+          <h2 id="how-title">Your machine reads the usage.<br />The card stays live.</h2>
         </div>
         <ol class="flow">
           <li><span>CAPTURE</span><strong>Official hook</strong><p>Receives usage metadata from the coding harness.</p></li>
-          <li><span>AGGREGATE</span><strong>Local stats</strong><p>Keeps numbers in <code>~/.burn</code>. Nothing else.</p></li>
-          <li><span>RENDER</span><strong>Local card</strong><p>Turns aggregates into a meme-friendly SVG.</p></li>
-          <li><span>PUBLISH</span><strong>Your GitHub</strong><p>Uses a separate <code>burn</code> branch.</p></li>
+          <li><span>AGGREGATE</span><strong>Local buckets</strong><p>Reduces sessions into 15-minute usage snapshots.</p></li>
+          <li><span>UPLOAD</span><strong>Serverless API</strong><p>Sends counts, harness, provider, and model. Nothing conversational.</p></li>
+          <li><span>PUBLISH</span><strong>Live SVG</strong><p>One profile link updates without noisy Git commits.</p></li>
         </ol>
       </section>
 
@@ -103,7 +103,7 @@
           <code><span>$</span> npm install -g burn-ai</code>
           <button type="button" data-copy="npm install -g burn-ai" aria-label="Copy install command">copy</button>
         </div>
-        <p>MIT licensed. Zero backend. Mildly judgmental.</p>
+        <p>MIT licensed. Serverless by design. Mildly judgmental.</p>
       </section>
     </main>
 
