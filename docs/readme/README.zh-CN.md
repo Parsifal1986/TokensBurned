@@ -5,6 +5,11 @@
   <p><a href="../../README.md">English</a> · <strong>简体中文</strong> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a> · <a href="README.fr.md">Français</a></p>
 </div>
 
+<div align="center">
+  <h3><a href="https://tokensburned.com/?lang=zh-CN#card-builder">打开在线卡片构建器 →</a></h3>
+  <p><sub>选择版式、浅色/深色/自动主题和显示内容。预览只使用本地虚构数据。</sub></p>
+</div>
+
 TokensBurned 从不同 AI coding harness 收集 token 数量和模型元数据，在本地归并为 15 分钟桶，再生成一张持续更新的 GitHub Profile SVG。卡片可以显示过去 24 小时、7 天、30 天和总计用量，日历与时段热力图，harness/provider/model 对比，以及匿名站内排名。
 
 <div align="center"><img src="../../assets/demo-card-builder.gif" width="840" alt="TokensBurned 卡片构建器演示" /></div>
@@ -77,7 +82,7 @@ tokensburned doctor</code></pre>
 打开[在线卡片构建器](https://tokensburned.com/#card-builder)，输入 GitHub 用户名，选择完整版、紧凑版或 meme 版，然后复制生成的 Markdown。
 
 ```markdown
-[![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/你的_GITHUB_用户名.svg)](https://tokensburned.com/)
+[![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/你的_GITHUB_用户名.svg?theme=auto)](https://tokensburned.com/)
 ```
 
 下面使用的是仓库内置的虚构静态数据，浏览 README 不会请求 TokensBurned API。
@@ -93,6 +98,8 @@ tokensburned doctor</code></pre>
 | Meme 小票 | `?layout=full&heatmap=0&compare=0&rank=1&meme=1` |
 | 隐藏排名 | 在任意链接后添加 `&rank=0` |
 | 只保留对比 | `?layout=full&heatmap=0&compare=1` |
+| 跟随系统主题 | `&theme=auto` |
+| 固定浅色或深色 | `&theme=light` 或 `&theme=dark` |
 
 ## CLI fallback
 

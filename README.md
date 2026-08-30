@@ -10,6 +10,8 @@
   <p>
     <strong>English</strong> · <a href="docs/readme/README.zh-CN.md">简体中文</a> · <a href="docs/readme/README.ja.md">日本語</a> · <a href="docs/readme/README.ko.md">한국어</a> · <a href="docs/readme/README.es.md">Español</a> · <a href="docs/readme/README.fr.md">Français</a>
   </p>
+  <h3><a href="https://tokensburned.com/#card-builder">Open the interactive card builder →</a></h3>
+  <p><sub>Choose a layout, light/dark/auto theme, and profile elements. The preview uses fictional local data.</sub></p>
 </div>
 
 TokensBurned collects token counts and model metadata from AI coding harnesses, aggregates them into 15 minute buckets, and serves a live SVG for your GitHub profile. The card can show 24 hour, 7 day, 30 day, and all-time totals, daily and hourly heatmaps, harness/provider/model comparisons, and an anonymous site-wide rank.
@@ -109,7 +111,7 @@ Open the [interactive card builder](https://tokensburned.com/#card-builder), ent
 The full card is the default:
 
 ```markdown
-[![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg)](https://tokensburned.com/)
+[![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg?theme=auto)](https://tokensburned.com/)
 ```
 
 The preview below is bundled fictional data. Rendering this README does not call the TokensBurned API.
@@ -127,6 +129,8 @@ The preview below is bundled fictional data. Rendering this README does not call
 | Meme receipt | `?layout=full&heatmap=0&compare=0&rank=1&meme=1` | A shorter, less serious card |
 | Private rank | Add `&rank=0` | Hide the site-wide rank |
 | Totals + comparison | `?layout=full&heatmap=0&compare=1` | Keep breakdowns, remove heatmaps |
+| Follow system theme | Add `&theme=auto` | Switch with the viewer's light/dark preference |
+| Fixed light or dark | Add `&theme=light` or `&theme=dark` | Keep one appearance everywhere |
 
 Supported query parameters:
 
@@ -135,6 +139,7 @@ Supported query parameters:
 - `compare=0|1`
 - `rank=0|1`
 - `meme=0|1`
+- `theme=auto|light|dark` (`auto` uses `prefers-color-scheme` inside the SVG)
 
 ## CLI fallback
 
