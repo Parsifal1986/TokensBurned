@@ -28,9 +28,9 @@ test("hero and interaction essentials remain present", () => {
   assert.match(html, /data-harness="claude"/);
   assert.match(html, /data-harness="gemini"/);
   assert.match(html, /name="preset" value="compact"/);
-  assert.match(html, /name="cardTheme" value="auto" checked/);
+  assert.match(html, /name="cardTheme" value="dark" checked/);
   assert.match(html, /id="language-select"/);
-  assert.match(html, /src="demo\/card-full\.svg"/);
+  assert.match(html, /id="hero-card-preview" src="demo\/card-full\.svg\?v=theme-2"/);
   assert.doesNotMatch(html, /Preview live card/);
   assert.doesNotMatch(css, /builder-submit/);
   assert.doesNotMatch(html, /v1\/cards\/u\/parsifal1986/);
@@ -40,6 +40,9 @@ test("hero and interaction essentials remain present", () => {
   assert.match(js, /replaceAll\("sample-user"/);
   assert.match(js, /theme: form\.elements\.cardTheme\.value/);
   assert.match(js, /data-card-theme/);
+  assert.match(js, /setSvgTheme\(svg\.replaceAll\("sample-user", owner\), options\.theme\)/);
+  assert.match(js, /renderHeroPreview\(\)/);
+  assert.match(js, /input\[name="cardTheme"\]\[value="\$\{theme\}"\]/);
   assert.doesNotMatch(js, /preview\.src\s*=\s*cardUrl/);
   assert.doesNotMatch(js, /fetch\(cardUrl/);
   assert.match(demoCard, /sample-user/);

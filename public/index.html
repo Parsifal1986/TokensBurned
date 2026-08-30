@@ -10,9 +10,9 @@
     <meta property="og:image" content="https://parsifal1986.github.io/TokensBurned/social-card.svg" />
     <title>TokensBurned | AI coding activity for GitHub</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=theme-1" />
-    <script src="./locales.js?v=theme-1" defer></script>
-    <script src="./app.js?v=theme-1" defer></script>
+    <link rel="stylesheet" href="./styles.css?v=theme-2" />
+    <script src="./locales.js?v=theme-2" defer></script>
+    <script src="./app.js?v=theme-2" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>
@@ -50,7 +50,7 @@
         </div>
         <figure class="live-card">
           <figcaption><span data-i18n="staticExample">Static example</span><span data-i18n="sampleData">sample data</span></figcaption>
-          <img src="demo/card-full.svg" width="840" height="700" alt="Static TokensBurned profile card with fictional sample data" data-i18n-alt="heroCardAlt" fetchpriority="high" />
+          <img id="hero-card-preview" src="demo/card-full.svg?v=theme-2" width="840" height="700" alt="Static TokensBurned profile card with fictional sample data" data-i18n-alt="heroCardAlt" fetchpriority="high" />
         </figure>
       </section>
 
@@ -122,8 +122,8 @@ tokensburned connect</code></pre>
             </fieldset>
             <fieldset class="card-theme-grid">
               <legend data-i18n="cardTheme">Card theme</legend>
-              <label><input type="radio" name="cardTheme" value="auto" checked /><span><strong data-i18n="themeAuto">Auto</strong><small data-i18n="themeAutoNote">Follow system</small></span></label>
-              <label><input type="radio" name="cardTheme" value="dark" /><span><strong data-i18n="themeDark">Dark</strong><small data-i18n="themeDarkNote">Always dark</small></span></label>
+              <label><input type="radio" name="cardTheme" value="auto" /><span><strong data-i18n="themeAuto">Auto</strong><small data-i18n="themeAutoNote">Follow system</small></span></label>
+              <label><input type="radio" name="cardTheme" value="dark" checked /><span><strong data-i18n="themeDark">Dark</strong><small data-i18n="themeDarkNote">Always dark</small></span></label>
               <label><input type="radio" name="cardTheme" value="light" /><span><strong data-i18n="themeLight">Light</strong><small data-i18n="themeLightNote">Always light</small></span></label>
             </fieldset>
             <fieldset class="option-list">
