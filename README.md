@@ -1,62 +1,118 @@
 # 🔥 Burn
 
-**Your AI coding activity, on GitHub.**
+**Put your AI coding activity on GitHub without uploading prompts or source code.**
 
-Burn tracks token usage from AI coding harnesses locally, renders a meme-friendly SVG, and publishes it from a dedicated branch in your own GitHub profile repository.
+Burn collects supported token-usage metadata locally, turns the totals into a shareable SVG card, and can publish that card to your GitHub profile.
 
-> Harness ≠ Provider ≠ Model. Burn keeps them separate.
+[Open the live website](https://parsifal1986.github.io/TokensBurned/) · [View the repository](https://github.com/Parsifal1986/TokensBurned) · [Read the security boundary](./SECURITY.md)
 
-No prompts. No code. No daemon. No proxy. No account.
+> Harness, provider, and model are different identities. Burn keeps them separate.
 
-## Install
+## What Burn does
 
-Burn needs Node.js 20 or newer and the GitHub CLI only when GitHub sync is enabled.
+- Tracks aggregate AI coding activity on your machine.
+- Separates the coding harness from the backend provider and model.
+- Renders `~/.burn/stats.svg` without a server.
+- Publishes through a dedicated `burn` branch in your own GitHub profile repository.
+- Adds one marker-delimited image block to your profile README.
+
+Burn does not collect prompts, source code, transcripts, credentials, or intercepted network traffic. There is no Burn account and no Burn backend.
+
+## Requirements
+
+- Node.js 20 or newer.
+- A supported harness: Claude Code or Codex.
+- The [GitHub CLI](https://cli.github.com/) only if you want to publish the card.
+- A GitHub profile repository named exactly like your username, with a `README.md`, if you want the card on your profile.
+
+## Quick start
+
+Install the CLI from npm:
 
 ```bash
 npm install -g burn-ai
+```
+
+For Claude Code, install the official lifecycle hook:
+
+```bash
 burn hooks install
 ```
 
-During local development:
+Codex uses the hook bundled with the Burn plugin. Burn can also ingest a sanitized usage event manually.
+
+Check the integration and privacy boundaries:
 
 ```bash
-npm link
 burn doctor
 ```
 
-The repository also contains manifests for Codex and Claude Code plugin packaging.
-
-## Use
+After you have used your coding harness, view the local report:
 
 ```bash
-burn                 # current local stats
-burn setup           # initialize the GitHub profile card
-burn sync            # sync immediately
-burn doctor          # disclose every read/write/network boundary
-burn render          # render ~/.burn/stats.svg
-burn privacy private # omit providers from the public card
-burn clean           # remove ~/.burn after confirmation
+burn
 ```
 
-To ingest a sanitized event directly:
+## Put the card on your GitHub profile
+
+Publishing is optional. Local tracking works without GitHub access.
+
+First authenticate the GitHub CLI:
 
 ```bash
-burn ingest examples/usage-event.json
+gh auth login
 ```
 
-Hook payloads are allow-listed down to identity and usage fields. Burn never opens Claude transcripts or Codex rollout/session history, because those files can contain prompt and response content. If a harness version does not expose usage metadata to its lifecycle hook, Burn records nothing rather than reading a transcript.
+Make sure your GitHub profile repository exists. For example, the profile repository for `octocat` is `octocat/octocat` and must contain a `README.md`.
 
-## Data model
+Then run:
 
-Each event preserves three different identities:
-
-```text
-Harness → Provider → Model
+```bash
+burn setup
 ```
 
-Backend attribution has one of four confidence levels: `verified`, `detected`, `reported`, or `unknown`. A Claude Code event is never automatically counted as Anthropic, and a Codex event is never automatically counted as OpenAI.
+Burn shows the exact operations it will perform and asks for confirmation. It creates a `burn` branch, uploads only aggregate `stats.json` and `stats.svg`, and inserts one managed image block into the profile README.
 
-Local state lives only in:
+Future updates can be pushed immediately with:
+
+```bash
+burn sync
+```
+
+Automatic sync is limited to at most once every three hours, with an additional first-session-of-the-day sync.
+
+## Open the website
+
+The project website is already hosted on GitHub Pages. You do not need to clone the repository or run a development server:
+
+**[https://parsifal1986.github.io/TokensBurned/](https://parsifal1986.github.io/TokensBurned/)**
+
+You can also find it from the GitHub repository:
+
+1. Open [Parsifal1986/TokensBurned](https://github.com/Parsifal1986/TokensBurned).
+2. Open the repository's **Deployments** section.
+3. Select the latest `github-pages` deployment.
+4. Choose **View deployment**.
+
+Repository owners can also find the URL under **Settings → Pages**.
+
+## Privacy controls
+
+Provider attribution is included in the public card by default. To keep provider attribution local while still publishing totals, run:
+
+```bash
+burn privacy private
+burn sync
+```
+
+To publish aggregate provider attribution again:
+
+```bash
+burn privacy public
+burn sync
+```
+
+Local state is stored only in:
 
 ```text
 ~/.burn/
@@ -65,21 +121,46 @@ Local state lives only in:
 └── stats.svg
 ```
 
-Public aggregates live on the `burn` branch of the user's profile repository:
+Hook payloads are allow-listed to usage and identity fields. If a supported harness does not expose usage metadata through its lifecycle hook, Burn records nothing instead of reading a transcript or session history.
 
-```text
-burn
-├── stats.json
-└── stats.svg
+See [SECURITY.md](./SECURITY.md) for the complete data and network boundary.
+
+## Commands
+
+| Command | Purpose |
+| --- | --- |
+| `burn` | Show the current local activity report. |
+| `burn hooks install` | Install the Claude Code lifecycle hook. |
+| `burn setup` | Add the Burn card to a GitHub profile. |
+| `burn sync` | Sync the current aggregate card immediately. |
+| `burn render` | Render `~/.burn/stats.svg` locally. |
+| `burn doctor` | Show harness detection and every read, write, and network boundary. |
+| `burn privacy private` | Keep provider attribution out of the public card. |
+| `burn privacy public` | Include aggregate provider attribution in the public card. |
+| `burn clean` | Delete `~/.burn` after confirmation. |
+
+To ingest a sanitized event directly:
+
+```bash
+burn ingest ./event.json
 ```
 
-Setup adds one marker-delimited image block to the profile README. Later syncs update only the `burn` branch.
+See every CLI option with:
 
-## GitHub permissions
+```bash
+burn --help
+```
 
-V1 uses the already-authenticated `gh` CLI. Burn calls GitHub only during setup or a due/manual sync and scopes writes to the configured profile repository. Automatic sync is throttled to at most once every three hours, with an additional first-session-of-the-day sync.
+## Development
 
-## Website
+Run the CLI directly from this repository:
+
+```bash
+npm link
+burn doctor
+```
+
+Run the website locally:
 
 ```bash
 npm run dev
@@ -87,10 +168,12 @@ npm run dev
 
 Then open `http://127.0.0.1:4173`.
 
-## Privacy
+Run the complete test suite:
 
-Read [SECURITY.md](./SECURITY.md) for the concrete boundary. The short version: no prompts, no source code, no credentials, no traffic interception, and no Burn server.
+```bash
+npm run check
+```
 
 ## License
 
-MIT
+[MIT](./LICENSE) © 2026 parsifal1986
