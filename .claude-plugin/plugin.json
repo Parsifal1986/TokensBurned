@@ -1,0 +1,12 @@
+{
+  "name": "burn",
+  "version": "0.1.0",
+  "description": "Privacy-first AI coding activity for your GitHub profile.",
+  "author": {
+    "name": "Burn contributors"
+  },
+  "homepage": "https://burn.lol",
+  "repository": "https://github.com/burn-lol/burn",
+  "license": "MIT",
+  "keywords": ["tokens", "github-profile", "claude-code", "codex"]
+}

@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-08-29T23:18:00-07:00",
+  "harness": {
+    "id": "claude-code",
+    "version": "2.1.251"
+  },
+  "backend": {
+    "provider": "deepseek",
+    "reported_model": "claude-opus-4-1",
+    "resolved_model": "deepseek-v4-pro",
+    "endpoint_type": "known-provider",
+    "confidence": "detected"
+  },
+  "usage": {
+    "input_tokens": 182341,
+    "output_tokens": 23192,
+    "cache_read_tokens": 918233,
+    "cache_write_tokens": 38192
+  }
+}

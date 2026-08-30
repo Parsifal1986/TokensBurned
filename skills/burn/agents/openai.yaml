@@ -1,0 +1,4 @@
+interface:
+  display_name: "Burn"
+  short_description: "Track AI coding usage locally"
+  default_prompt: "Show my Burn stats."

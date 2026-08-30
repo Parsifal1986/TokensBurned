@@ -1,0 +1,41 @@
+{
+  "name": "burn-ai",
+  "version": "0.1.0",
+  "description": "Privacy-first AI coding activity for your GitHub profile.",
+  "type": "module",
+  "bin": {
+    "burn": "./bin/burn.js"
+  },
+  "scripts": {
+    "start": "node ./bin/burn.js",
+    "dev": "node ./scripts/serve.js",
+    "test": "node --test",
+    "check": "node --check ./bin/burn.js && node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "codex",
+    "claude-code",
+    "github-profile",
+    "tokens",
+    "developer-tools"
+  ],
+  "license": "MIT",
+  "files": [
+    "bin",
+    "src",
+    "public",
+    "scripts",
+    "skills",
+    "hooks",
+    ".codex-plugin",
+    ".claude-plugin",
+    "commands",
+    "examples",
+    "README.md",
+    "SECURITY.md",
+    "LICENSE"
+  ]
+}

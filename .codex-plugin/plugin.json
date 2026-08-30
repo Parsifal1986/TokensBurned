@@ -1,0 +1,29 @@
+{
+  "name": "burn",
+  "version": "0.1.0",
+  "description": "Privacy-first AI coding activity for your GitHub profile.",
+  "author": {
+    "name": "Burn contributors",
+    "url": "https://github.com/burn-lol/burn"
+  },
+  "homepage": "https://burn.lol",
+  "repository": "https://github.com/burn-lol/burn",
+  "license": "MIT",
+  "keywords": ["tokens", "github-profile", "claude-code", "codex"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Burn",
+    "shortDescription": "Put local AI coding activity on GitHub.",
+    "longDescription": "Track usage metadata locally, render a meme-friendly GitHub Profile SVG, and sync it without a Burn backend.",
+    "developerName": "Burn contributors",
+    "category": "Productivity",
+    "capabilities": ["Local", "Write"],
+    "websiteURL": "https://burn.lol",
+    "defaultPrompt": [
+      "Show my Burn stats.",
+      "Set up Burn on my GitHub profile.",
+      "Run Burn Doctor and explain the result."
+    ],
+    "brandColor": "#F45B25"
+  }
+}
