@@ -1,5 +1,10 @@
 const REPOSITORY = "https://github.com/Parsifal1986/TokensBurned";
 const CARD_ORIGIN = "https://api.tokensburned.com/v1/cards/u";
+const DEMO_CARDS = {
+  full: "demo/card-full.svg",
+  compact: "demo/card-compact.svg",
+  meme: "demo/card-meme.svg",
+};
 
 const harnesses = {
   claude: {
@@ -121,6 +126,9 @@ const urlOutput = document.querySelector("#card-url");
 const markdownOutput = document.querySelector("#card-markdown");
 const previewState = document.querySelector("#preview-state");
 const builderMessage = document.querySelector("#builder-message");
+const outputCopyButtons = document.querySelectorAll(".builder-output [data-copy-target]");
+let previewMode = "sample";
+let activeUsername = "";
 
 function validGithubName(value) {
   return /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(value);
@@ -146,9 +154,27 @@ function setPreset(value) {
   heatmap.disabled = value === "compact";
 }
 
+function showStaticPreview() {
+  const preset = form.elements.preset.value;
+  previewMode = "sample";
+  activeUsername = "";
+  previewState.textContent = "sample";
+  builderMessage.textContent = "Static sample with fictional data. Submit a connected GitHub username to request one live preview.";
+  preview.alt = `Static ${preset} TokensBurned preview with fictional sample data`;
+  preview.src = DEMO_CARDS[preset];
+  urlOutput.value = "";
+  markdownOutput.value = "";
+  outputCopyButtons.forEach((button) => { button.disabled = true; });
+}
+
 function updateCard() {
   const name = username.value.trim();
   const preset = form.elements.preset.value;
+  if (!name) {
+    username.removeAttribute("aria-invalid");
+    showStaticPreview();
+    return;
+  }
   if (!validGithubName(name)) {
     previewState.textContent = "check username";
     builderMessage.textContent = "Use a valid GitHub username without leading or trailing hyphens.";
@@ -164,31 +190,51 @@ function updateCard() {
     meme: form.elements.meme.checked ? "1" : "0",
   });
   const cardUrl = `${CARD_ORIGIN}/${name.toLowerCase()}.svg?${params}`;
+  previewMode = "live";
+  activeUsername = name.toLowerCase();
   previewState.textContent = "loading";
-  builderMessage.textContent = "Connect TokensBurned first so the public card exists for your username.";
+  builderMessage.textContent = "Requesting one live card. Connect TokensBurned first so this public card exists.";
   preview.alt = `TokensBurned card preview for ${name}`;
   preview.src = cardUrl;
   urlOutput.value = cardUrl;
   markdownOutput.value = `[![TokensBurned activity](${cardUrl})](https://tokensburned.com/)`;
+  outputCopyButtons.forEach((button) => { button.disabled = true; });
 }
 
 preview.addEventListener("load", () => {
+  if (previewMode === "sample") {
+    previewState.textContent = "sample";
+    return;
+  }
   previewState.textContent = "live";
   builderMessage.textContent = "This is the same SVG URL GitHub will render. Copy it once and the card keeps updating.";
+  outputCopyButtons.forEach((button) => { button.disabled = false; });
 });
 preview.addEventListener("error", () => {
+  if (previewMode === "sample") return;
   previewState.textContent = "not connected";
   builderMessage.textContent = "No public card was found. Connect TokensBurned for this username, then try again.";
+  outputCopyButtons.forEach((button) => { button.disabled = true; });
 });
 
 let updateTimer;
 form.addEventListener("input", (event) => {
   if (event.target.name === "preset") setPreset(event.target.value);
   window.clearTimeout(updateTimer);
-  updateTimer = window.setTimeout(updateCard, 160);
+  const currentName = username.value.trim().toLowerCase();
+  if (activeUsername && currentName === activeUsername) {
+    updateTimer = window.setTimeout(updateCard, 220);
+  } else {
+    showStaticPreview();
+  }
+});
+form.addEventListener("submit", (event) => {
+  event.preventDefault();
+  window.clearTimeout(updateTimer);
+  updateCard();
 });
 setPreset("full");
-updateCard();
+showStaticPreview();
 
 const themeToggle = document.querySelector("[data-theme-toggle]");
 function applyTheme(theme) {

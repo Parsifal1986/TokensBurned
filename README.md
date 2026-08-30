@@ -112,8 +112,10 @@ The full card is the default:
 [![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg)](https://tokensburned.com/)
 ```
 
+The preview below is bundled fictional data. Rendering this README does not call the TokensBurned API.
+
 <div align="center">
-  <a href="https://tokensburned.com/"><img src="https://api.tokensburned.com/v1/cards/u/parsifal1986.svg" width="840" alt="Live TokensBurned card for parsifal1986" /></a>
+  <img src="public/demo/card-full.svg" width="840" alt="Static TokensBurned card with fictional sample data" />
 </div>
 
 ### Card presets and options

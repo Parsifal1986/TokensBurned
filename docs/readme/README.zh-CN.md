@@ -80,7 +80,9 @@ tokensburned doctor</code></pre>
 [![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/你的_GITHUB_用户名.svg)](https://tokensburned.com/)
 ```
 
-<div align="center"><a href="https://tokensburned.com/"><img src="https://api.tokensburned.com/v1/cards/u/parsifal1986.svg" width="840" alt="parsifal1986 的实时 TokensBurned 卡片" /></a></div>
+下面使用的是仓库内置的虚构静态数据，浏览 README 不会请求 TokensBurned API。
+
+<div align="center"><img src="../../public/demo/card-full.svg" width="840" alt="使用虚构示例数据的 TokensBurned 静态卡片" /></div>
 
 ### 常用组合
 
