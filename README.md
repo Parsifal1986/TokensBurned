@@ -4,7 +4,7 @@
 
 TokensBurned is a Claude Code and Codex plugin that collects token-usage metadata, aggregates it with a serverless backend, and gives you a live SVG card for your GitHub profile.
 
-[Live website](https://parsifal1986.github.io/TokensBurned/) · [Repository](https://github.com/Parsifal1986/TokensBurned) · [Security boundary](./SECURITY.md)
+[Live website](https://tokensburned.com/) · [Repository](https://github.com/Parsifal1986/TokensBurned) · [Security boundary](./SECURITY.md)
 
 ## Install the plugin
 
@@ -76,7 +76,7 @@ tokensburned server
 Add the returned URL to the `README.md` of your GitHub profile repository:
 
 ```markdown
-[![TokensBurned activity](https://tokensburned-api.burn-ai.workers.dev/v1/cards/u/YOUR_GITHUB_NAME.svg)](https://parsifal1986.github.io/TokensBurned/)
+[![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg)](https://tokensburned.com/)
 ```
 
 For example, GitHub user `octocat` has a special public profile repository named `octocat/octocat`. Edit that repository's `README.md`, paste the Markdown above, replace `YOUR_GITHUB_NAME`, and commit it once. The SVG updates from the server afterward without further README commits.
@@ -100,7 +100,7 @@ Claude Code exposes `/tokensburned:connect`, `/tokensburned:backfill`, `/tokensb
 
 The API runs on a Cloudflare Worker, D1 stores aggregate usage, and R2 stores pre-rendered public SVG cards. The native client uploads revisioned 15-minute snapshots in batches of at most 100. Device tokens are sent only in the `Authorization` header.
 
-- API health: [tokensburned-api.burn-ai.workers.dev/health](https://tokensburned-api.burn-ai.workers.dev/health)
+- API health: [api.tokensburned.com/health](https://api.tokensburned.com/health)
 - GitHub App: [github.com/apps/tokensburned](https://github.com/apps/tokensburned)
 - Backend details: [`serverless/README.md`](./serverless/README.md)
 

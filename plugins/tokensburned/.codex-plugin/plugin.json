@@ -1,12 +1,12 @@
 {
   "name": "tokensburned",
-  "version": "0.2.1+codex.20260830095609",
+  "version": "0.2.1+codex.20260830101433",
   "description": "Privacy-first AI coding activity with serverless aggregation and GitHub profile cards.",
   "author": {
     "name": "Parsifal1986",
     "url": "https://github.com/Parsifal1986"
   },
-  "homepage": "https://parsifal1986.github.io/TokensBurned/",
+  "homepage": "https://tokensburned.com/",
   "repository": "https://github.com/Parsifal1986/TokensBurned",
   "license": "MIT",
   "keywords": [
@@ -27,7 +27,7 @@
       "Network",
       "Write"
     ],
-    "websiteURL": "https://parsifal1986.github.io/TokensBurned/",
+    "websiteURL": "https://tokensburned.com/",
     "privacyPolicyURL": "https://github.com/Parsifal1986/TokensBurned/blob/main/SECURITY.md",
     "defaultPrompt": [
       "Connect TokensBurned and import my token history.",

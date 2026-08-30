@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 const START = "<!-- burn:start -->";
 const END = "<!-- burn:end -->";
-const PROJECT_URL = "https://parsifal1986.github.io/TokensBurned/";
+const PROJECT_URL = "https://tokensburned.com/";
 
 export function profileCardMarkdown(repository, branch = "burn") {
   return `${START}\n[![TokensBurned AI Coding Stats](https://raw.githubusercontent.com/${repository}/${branch}/stats.svg)](${PROJECT_URL})\n${END}`;

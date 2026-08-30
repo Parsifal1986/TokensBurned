@@ -6,7 +6,7 @@
     "name": "Parsifal1986",
     "url": "https://github.com/Parsifal1986"
   },
-  "homepage": "https://parsifal1986.github.io/TokensBurned/",
+  "homepage": "https://tokensburned.com/",
   "repository": "https://github.com/Parsifal1986/TokensBurned",
   "license": "MIT",
   "keywords": ["tokens", "github-profile", "claude-code", "codex"],
@@ -18,7 +18,7 @@
     "developerName": "Parsifal1986",
     "category": "Productivity",
     "capabilities": ["Local", "Network", "Write"],
-    "websiteURL": "https://parsifal1986.github.io/TokensBurned/",
+    "websiteURL": "https://tokensburned.com/",
     "privacyPolicyURL": "https://github.com/Parsifal1986/TokensBurned/blob/main/SECURITY.md",
     "defaultPrompt": [
       "Connect TokensBurned and import my token history.",
