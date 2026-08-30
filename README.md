@@ -1,14 +1,14 @@
-# 🔥 Burn
+# 🔥 TokensBurned
 
 **Put your AI coding activity on GitHub without uploading prompts or source code.**
 
-Burn collects supported token-usage metadata locally, turns the totals into a shareable SVG card, and can publish that card to your GitHub profile.
+TokensBurned collects supported token-usage metadata locally, turns the totals into a shareable SVG card, and can publish that card to your GitHub profile.
 
 [Open the live website](https://parsifal1986.github.io/TokensBurned/) · [View the repository](https://github.com/Parsifal1986/TokensBurned) · [Read the security boundary](./SECURITY.md)
 
-> Harness, provider, and model are different identities. Burn keeps them separate.
+> Harness, provider, and model are different identities. TokensBurned keeps them separate.
 
-## What Burn does
+## What TokensBurned does
 
 - Tracks aggregate AI coding activity on your machine.
 - Separates the coding harness from the backend provider and model.
@@ -16,7 +16,7 @@ Burn collects supported token-usage metadata locally, turns the totals into a sh
 - Publishes through a dedicated `burn` branch in your own GitHub profile repository.
 - Adds one marker-delimited image block to your profile README.
 
-Burn does not collect prompts, source code, transcripts, credentials, or intercepted network traffic. There is no Burn account and no Burn backend.
+TokensBurned does not collect prompts, source code, transcripts, credentials, or intercepted network traffic. There is no TokensBurned account and no TokensBurned backend.
 
 ## Requirements
 
@@ -39,7 +39,7 @@ For Claude Code, install the official lifecycle hook:
 burn hooks install
 ```
 
-Codex uses the hook bundled with the Burn plugin. Burn can also ingest a sanitized usage event manually.
+Codex uses the hook bundled with the TokensBurned plugin. TokensBurned can also ingest a sanitized usage event manually.
 
 Check the integration and privacy boundaries:
 
@@ -71,7 +71,7 @@ Then run:
 burn setup
 ```
 
-Burn shows the exact operations it will perform and asks for confirmation. It creates a `burn` branch, uploads only aggregate `stats.json` and `stats.svg`, and inserts one managed image block into the profile README.
+TokensBurned shows the exact operations it will perform and asks for confirmation. It creates a `burn` branch, uploads only aggregate `stats.json` and `stats.svg`, and inserts one managed image block into the profile README.
 
 Future updates can be pushed immediately with:
 
@@ -121,7 +121,7 @@ Local state is stored only in:
 └── stats.svg
 ```
 
-Hook payloads are allow-listed to usage and identity fields. If a supported harness does not expose usage metadata through its lifecycle hook, Burn records nothing instead of reading a transcript or session history.
+Hook payloads are allow-listed to usage and identity fields. If a supported harness does not expose usage metadata through its lifecycle hook, TokensBurned records nothing instead of reading a transcript or session history.
 
 See [SECURITY.md](./SECURITY.md) for the complete data and network boundary.
 
@@ -131,7 +131,7 @@ See [SECURITY.md](./SECURITY.md) for the complete data and network boundary.
 | --- | --- |
 | `burn` | Show the current local activity report. |
 | `burn hooks install` | Install the Claude Code lifecycle hook. |
-| `burn setup` | Add the Burn card to a GitHub profile. |
+| `burn setup` | Add the TokensBurned card to a GitHub profile. |
 | `burn sync` | Sync the current aggregate card immediately. |
 | `burn render` | Render `~/.burn/stats.svg` locally. |
 | `burn doctor` | Show harness detection and every read, write, and network boundary. |

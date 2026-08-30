@@ -13,6 +13,9 @@ test("landing page stays within the Taste Skill anti-tell budget", () => {
 });
 
 test("hero and interaction essentials remain present", () => {
+  assert.match(html, /<title>TokensBurned \| AI coding activity for GitHub<\/title>/);
+  assert.match(html, /aria-label="TokensBurned home"/);
+  assert.doesNotMatch(html, /<title>Burn \|/);
   assert.match(html, /Burn tokens\.<br \/>Ship code\./);
   assert.equal((html.match(/data-copy=/g) || []).length, 2);
   assert.match(html, /aria-live="polite"/);
