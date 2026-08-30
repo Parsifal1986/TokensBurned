@@ -26,12 +26,15 @@ test("hero and interaction essentials remain present", () => {
   assert.match(html, /data-harness="gemini"/);
   assert.match(html, /name="preset" value="compact"/);
   assert.match(html, /src="demo\/card-full\.svg"/);
-  assert.match(html, /type="submit">Preview live card/);
+  assert.doesNotMatch(html, /Preview live card/);
+  assert.doesNotMatch(css, /builder-submit/);
   assert.doesNotMatch(html, /v1\/cards\/u\/parsifal1986/);
   assert.doesNotMatch(html, /value="parsifal1986"/);
   assert.match(js, /form\.addEventListener\("submit"/);
-  assert.match(js, /setPreset\("full"\);\s*showStaticPreview\(\);/);
-  assert.doesNotMatch(js, /setPreset\("full"\);\s*updateCard\(\)/);
+  assert.match(js, /data:image\/svg\+xml;charset=utf-8/);
+  assert.match(js, /replaceAll\("sample-user"/);
+  assert.doesNotMatch(js, /preview\.src\s*=\s*cardUrl/);
+  assert.doesNotMatch(js, /fetch\(cardUrl/);
   assert.match(demoCard, /sample-user/);
   assert.match(demoCard, /STATIC SAMPLE \/ FICTIONAL DATA/);
   assert.doesNotMatch(demoCard, /parsifal1986/i);
