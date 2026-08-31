@@ -21,7 +21,7 @@ Copilot の lifecycle hook は現時点で token 数を提供しないため、�
 
 ## Profile カード
 
-[オンライン builder](https://tokensburned.com/?lang=ja#card-builder) でユーザー名と表示要素を選択してください。
+公開カードは初期状態で無効です。まず `tokensburned privacy public` で、合計、harness/provider/model、ヒートマップ、ランキング、GitHub ID の公開に明示的に同意してください。その後、[オンライン builder](https://tokensburned.com/?lang=ja#card-builder) で表示要素を選択します。URL パラメータで非表示にはできますが、サーバー側で無効な項目を公開することはできません。
 
 ```markdown
 [![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg?theme=auto)](https://tokensburned.com/?lang=ja)
@@ -35,6 +35,6 @@ Copilot の lifecycle hook は現時点で token 数を提供しないため、�
 
 ## プライバシー
 
-送信するのは token 数、harness、provider、model、ハッシュ化 session ID、15 分 bucket、request 数だけです。プロンプト、応答、コード、repository 名、path、API key は送信しません。cron、daemon、proxy、Git 同期も作成しません。詳細は [SECURITY.md](../../SECURITY.md) を参照してください。
+送信するのは token 数、harness、provider、model、ハッシュ化 session ID、15 分 bucket、request 数だけです。プロンプト、応答、コード、repository 名、path、API key は送信しません。公開カードは明示的な opt-in です。サーバーデータは `tokensburned delete-server-data` まで保持され、端末資格情報は 180 日で失効します。詳細は [SECURITY.md](../../SECURITY.md) を参照してください。
 
 [MIT License](../../LICENSE) © 2026 parsifal1986

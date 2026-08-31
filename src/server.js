@@ -1,7 +1,21 @@
 import { API_ORIGIN } from "./constants.js";
 
 function origin(value = API_ORIGIN) {
-  return String(value || API_ORIGIN).replace(/\/$/, "");
+  let url;
+  try {
+    url = new URL(String(value || API_ORIGIN));
+  } catch {
+    throw new Error("TokensBurned API origin must be a valid URL.");
+  }
+  const local = new Set(["localhost", "127.0.0.1", "::1"]).has(url.hostname);
+  if (url.protocol !== "https:" && !(local && url.protocol === "http:")) {
+    throw new Error("TokensBurned API origin must use HTTPS (except localhost development).");
+  }
+  url.username = "";
+  url.password = "";
+  url.search = "";
+  url.hash = "";
+  return url.toString().replace(/\/$/, "");
 }
 
 async function request(pathname, {
@@ -76,6 +90,31 @@ export async function uploadEntries(entries, { token, ...options } = {}) {
 export function fetchServerSummary({ token, ...options } = {}) {
   if (!token) throw new Error("TokensBurned is not connected. Run `burn connect` first.");
   return request("/v1/me/summary", { ...options, token });
+}
+
+export function fetchServerPrivacy({ token, ...options } = {}) {
+  if (!token) throw new Error("TokensBurned is not connected. Run `burn connect` first.");
+  return request("/v1/me/privacy", { ...options, token });
+}
+
+export function updateServerPrivacy(privacy, { token, ...options } = {}) {
+  if (!token) throw new Error("TokensBurned is not connected. Run `burn connect` first.");
+  return request("/v1/me/privacy", {
+    ...options,
+    method: "PUT",
+    token,
+    body: privacy,
+  });
+}
+
+export function revokeDevice({ token, ...options } = {}) {
+  if (!token) throw new Error("TokensBurned is not connected. Run `burn connect` first.");
+  return request("/v1/me/device", { ...options, method: "DELETE", token });
+}
+
+export function deleteServerData({ token, ...options } = {}) {
+  if (!token) throw new Error("TokensBurned is not connected. Run `burn connect` first.");
+  return request("/v1/me/data", { ...options, method: "DELETE", token });
 }
 
 export const serverInternals = { origin, request };

@@ -3,6 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://api.tokensburned.com; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; upgrade-insecure-requests" />
     <meta name="description" content="TokensBurned turns private AI coding usage metadata into a live GitHub profile card. No prompts or source code uploaded." />
     <meta name="theme-color" content="#171513" />
     <meta property="og:title" content="TokensBurned | AI coding activity for GitHub" />
@@ -108,7 +110,7 @@ tokensburned connect</code></pre>
         <header class="section-heading builder-heading">
           <p data-i18n="builderKicker">PROFILE CARD BUILDER</p>
           <h2 id="builder-title" data-i18n="builderTitle">Make the damage fit.</h2>
-          <p data-i18n="builderLede">Explore fictional samples locally. Your username changes only the card label and generated link; the preview never calls the API.</p>
+          <p data-i18n="builderLede">Explore fictional samples locally. A live link works only after you explicitly enable a public card; the preview never calls the API.</p>
         </header>
 
         <div class="builder-shell">

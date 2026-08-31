@@ -26,6 +26,7 @@ TokensBurned collects token counts and model metadata from AI coding harnesses, 
 - **Observed usage.** Harness, provider, and model stay separate. TokensBurned does not call every Claude Code session “Claude.”
 - **Local reduction.** Raw sessions are reduced on your machine before upload.
 - **Hard privacy boundary.** Prompts, responses, source code, repository names, transcript paths, and API keys are not uploaded.
+- **Private until you publish.** Connecting and uploading aggregates do not create a public card; publishing is a separate explicit command.
 - **Honest compatibility.** Native hooks, official OTLP, and CLI fallback are labeled separately.
 
 ## Install for your harness
@@ -106,7 +107,7 @@ tokensburned doctor</code></pre>
 
 ## Build your profile card
 
-Open the [interactive card builder](https://tokensburned.com/#card-builder), enter your GitHub username, choose a preset, then copy the generated Markdown.
+First opt in with `tokensburned privacy public`. This publishes totals, harness/provider/model breakdowns, activity heatmaps, rank, and your GitHub identity. Then open the [interactive card builder](https://tokensburned.com/#card-builder), enter your GitHub username, choose a preset, and copy the generated Markdown. Query parameters can hide published sections, but cannot enable fields disabled by the account's server-side policy.
 
 The full card is the default:
 
@@ -152,11 +153,15 @@ tokensburned connect
 
 | Command | Purpose |
 | --- | --- |
-| `tokensburned connect` | Authorize GitHub and create a device credential. |
+| `tokensburned connect` | Authorize GitHub and create a 180-day device credential; the public card stays off. |
 | `tokensburned backfill --harness codex --dry-run` | Preview Codex history without uploading. |
 | `tokensburned backfill --harness claude-code --days 30` | Import an approved Claude Code range. |
 | `tokensburned backfill --all-harnesses --days 30` | Explicitly import every recognized local harness. |
 | `tokensburned server` | Show server totals and the public SVG URL. |
+| `tokensburned privacy public` | Explicitly publish aggregate activity tied to your GitHub identity. |
+| `tokensburned privacy private` | Disable the public route and remove the cached SVG. |
+| `tokensburned disconnect` | Revoke this device credential and remove the local connection. |
+| `tokensburned delete-server-data` | Delete server aggregates, devices, identity, and public card. |
 | `tokensburned doctor` | Show detected harnesses and data boundaries. |
 
 `burn` remains a shorter alias for `tokensburned`.
@@ -171,7 +176,7 @@ tokensburned connect
 | 15 minute time bucket | Transcript files and paths |
 | Request count | API keys and provider credentials |
 
-The lifecycle upload is short and best effort. TokensBurned installs no cron job, daemon, proxy, or Git synchronization task. See [SECURITY.md](SECURITY.md) for the complete boundary.
+The lifecycle upload is short and best effort. Server aggregates are retained until you run `tokensburned delete-server-data`; credentials expire after 180 days and can be revoked sooner. TokensBurned installs no cron job, daemon, proxy, or Git synchronization task. See [SECURITY.md](SECURITY.md) for the complete boundary.
 
 ## License
 

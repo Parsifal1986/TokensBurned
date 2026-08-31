@@ -5,11 +5,15 @@ import { HttpError, json, problem, readJson } from "./http.js";
 import { ingestBatch } from "./ingest.js";
 import { ingestOtel } from "./otel.js";
 import {
+  approveDeviceAuthorization,
+  deviceVerificationPage,
   githubCallback,
   pollDeviceAuthorization,
   startDeviceAuthorization,
   verifyDeviceAuthorization,
 } from "./oauth.js";
+import { getPrivacy, updatePrivacy } from "./privacy.js";
+import { enforceRateLimit } from "./rate-limit.js";
 import { summarizeUser } from "./summary.js";
 
 function withCors(response, request, env) {
@@ -18,7 +22,7 @@ function withCors(response, request, env) {
   const headers = new Headers(response.headers);
   headers.set("Access-Control-Allow-Origin", origin);
   headers.set("Access-Control-Allow-Headers", "Authorization, Content-Type, Idempotency-Key");
-  headers.set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+  headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   headers.set("Vary", "Origin");
   return new Response(response.body, { status: response.status, headers });
 }
@@ -58,8 +62,8 @@ async function bootstrap(request, env) {
   await refreshUserCard(env, user);
   return json({
     user: { id: userId, github_login: githubLogin, public_slug: publicSlug },
-    device: { id: credential.deviceId, token: credential.token },
-    card_url: `${env.CARD_ORIGIN || ""}/u/${publicSlug}.svg`,
+    device: { id: credential.deviceId, token: credential.token, expires_at: credential.expiresAt },
+    card_url: null,
   }, 201);
 }
 
@@ -88,6 +92,17 @@ async function authenticatedRoute(request, env, ctx, pathname) {
   if (pathname === "/v1/me/summary" && request.method === "GET") {
     return json(await summarizeUser(env, device.user_id));
   }
+  if (pathname === "/v1/me/privacy" && request.method === "GET") {
+    return getPrivacy(env, device);
+  }
+  if (pathname === "/v1/me/privacy" && request.method === "PUT") {
+    return updatePrivacy(request, env, device);
+  }
+  if (pathname === "/v1/me/device" && request.method === "DELETE") {
+    await env.DB.prepare("UPDATE devices SET revoked_at = ? WHERE id = ?")
+      .bind(new Date().toISOString(), device.id).run();
+    return new Response(null, { status: 204 });
+  }
   if (pathname === "/v1/me/data" && request.method === "DELETE") {
     await env.DB.batch([
       env.DB.prepare("DELETE FROM usage_buckets WHERE device_id IN (SELECT id FROM devices WHERE user_id = ?)").bind(device.user_id),
@@ -108,18 +123,23 @@ async function card(request, env, url) {
   const match = url.pathname.match(/^\/v1\/cards\/u\/([A-Za-z0-9-]+)\.svg$/);
   if (!match) throw new HttpError(404, "not_found", "Not found.");
   const publicSlug = match[1].toLowerCase();
+  const user = await env.DB.prepare(
+    `SELECT id, public_slug, public_card, publish_harness, publish_provider,
+            publish_model, publish_heatmap, publish_rank
+       FROM users WHERE public_slug = ? AND public_card = 1`,
+  ).bind(publicSlug).first();
+  if (!user) throw new HttpError(404, "card_not_found", "Card not found.");
   const hasOptions = [...url.searchParams.keys()].some((key) =>
     ["layout", "heatmap", "compare", "meme", "rank", "theme"].includes(key));
   if (hasOptions) {
-    const user = await env.DB.prepare("SELECT id, public_slug FROM users WHERE public_slug = ?")
-      .bind(publicSlug).first();
-    if (!user) throw new HttpError(404, "card_not_found", "Card not found.");
     const options = normalizeCardOptions(Object.fromEntries(url.searchParams));
-    const svg = renderServerCard(await summarizeUser(env, user.id), user.public_slug, options);
+    const svg = renderServerCard(await summarizeUser(env, user.id), user.public_slug, options, user);
     return new Response(request.method === "HEAD" ? null : svg, { headers: {
       "Content-Type": "image/svg+xml; charset=utf-8",
       "Cache-Control": "public, max-age=300, s-maxage=900, stale-while-revalidate=86400",
       "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+      "Referrer-Policy": "no-referrer",
     } });
   }
   const object = await env.CARDS.get(`u/${publicSlug}.svg`);
@@ -128,6 +148,8 @@ async function card(request, env, url) {
   object.writeHttpMetadata(headers);
   headers.set("ETag", object.httpEtag);
   headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+  headers.set("Referrer-Policy", "no-referrer");
   return new Response(request.method === "HEAD" ? null : object.body, { headers });
 }
 
@@ -141,15 +163,27 @@ export async function handleRequest(request, env, ctx) {
     return bootstrap(request, env);
   }
   if (url.pathname === "/v1/auth/device/start" && request.method === "POST") {
+    await enforceRateLimit(env, request, "device-start", { limit: 10 });
     return startDeviceAuthorization(request, env);
   }
   if (url.pathname === "/v1/auth/device/status" && request.method === "POST") {
+    await enforceRateLimit(env, request, "device-status", { limit: 60 });
     return pollDeviceAuthorization(request, env);
   }
   if (url.pathname === "/v1/auth/device/verify" && request.method === "GET") {
+    await enforceRateLimit(env, request, "device-verify", { limit: 30 });
+    return deviceVerificationPage();
+  }
+  if (url.pathname === "/v1/auth/device/verify" && request.method === "POST") {
+    await enforceRateLimit(env, request, "device-verify", { limit: 30 });
     return verifyDeviceAuthorization(request, env);
   }
+  if (url.pathname === "/v1/auth/device/approve" && request.method === "POST") {
+    await enforceRateLimit(env, request, "device-approve", { limit: 20 });
+    return approveDeviceAuthorization(request, env);
+  }
   if (url.pathname === "/v1/auth/github/callback" && request.method === "GET") {
+    await enforceRateLimit(env, request, "github-callback", { limit: 30 });
     return githubCallback(request, env);
   }
   if (url.pathname.startsWith("/v1/cards/")) return card(request, env, url);

@@ -1,7 +1,7 @@
 name = "tokensburned-api"
 main = "src/index.js"
 compatibility_date = "2026-08-30"
-workers_dev = true
+workers_dev = false
 
 [[routes]]
 pattern = "api.tokensburned.com"

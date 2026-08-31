@@ -46,6 +46,18 @@ export function normalizeCardOptions(input = {}) {
   };
 }
 
+export function normalizeCardPolicy(input = {}, fallback = true) {
+  const enabled = (value) => value === undefined ? fallback : Boolean(Number(value));
+  return {
+    publicCard: enabled(input.public_card),
+    harness: enabled(input.publish_harness),
+    provider: enabled(input.publish_provider),
+    model: enabled(input.publish_model),
+    heatmap: enabled(input.publish_heatmap),
+    rank: enabled(input.publish_rank),
+  };
+}
+
 function calendarHeatmap(days, baseY) {
   const values = days.length ? days : Array.from({ length: 84 }, () => ({ date: "", tokens: 0 }));
   const maximum = Math.max(...values.map((day) => day.tokens), 0);
@@ -88,14 +100,19 @@ function comparison(items, x, title, y, width, labelLength) {
   return `<text x="${x}" y="${y + 20}" class="section">${escapeXml(title)}</text>${body}`;
 }
 
-function comparisonBlock(summary, y, compact) {
-  const columns = compact
-    ? [[32, "HARNESSES / 30D"], [250, "PROVIDERS / 30D"], [468, "MODELS / 30D"]]
-    : [[42, "HARNESSES / 30D"], [310, "PROVIDERS / 30D"], [578, "MODELS / 30D"]];
-  const width = compact ? 174 : 220;
+function comparisonBlock(summary, y, compact, policy) {
+  const available = [
+    [policy.harness, "HARNESSES / 30D", summary.by_harness || []],
+    [policy.provider, "PROVIDERS / 30D", summary.by_provider || []],
+    [policy.model, "MODELS / 30D", summary.by_model || []],
+  ].filter(([visible]) => visible);
+  const start = compact ? 32 : 42;
+  const usable = compact ? 616 : 756;
+  const gap = 24;
+  const width = Math.floor((usable - gap * Math.max(0, available.length - 1)) / Math.max(1, available.length));
   const labelLength = compact ? 16 : 20;
-  return [summary.by_harness || [], summary.by_provider || [], summary.by_model || []]
-    .map((items, index) => comparison(items, columns[index][0], columns[index][1], y, width, labelLength))
+  return available
+    .map(([, title, items], index) => comparison(items, start + index * (width + gap), title, y, width, labelLength))
     .join("");
 }
 
@@ -130,8 +147,15 @@ function statsBlock(summary, compact) {
   }).join("");
 }
 
-export function renderServerCard(summary, slug, rawOptions = {}) {
-  const options = normalizeCardOptions(rawOptions);
+export function renderServerCard(summary, slug, rawOptions = {}, rawPolicy = {}) {
+  const policy = normalizeCardPolicy(rawPolicy);
+  const requested = normalizeCardOptions(rawOptions);
+  const options = {
+    ...requested,
+    heatmap: requested.heatmap && policy.heatmap,
+    compare: requested.compare && (policy.harness || policy.provider || policy.model),
+    rank: requested.rank && policy.rank,
+  };
   const compact = options.layout === "compact";
   const width = compact ? 680 : 840;
   let cursor = compact ? 230 : 180;
@@ -142,7 +166,7 @@ export function renderServerCard(summary, slug, rawOptions = {}) {
   }
   if (options.compare) {
     blocks.push(`<line x1="${compact ? 32 : 42}" x2="${width - (compact ? 32 : 42)}" y1="${cursor - 22}" y2="${cursor - 22}" class="rule"/>`);
-    blocks.push(comparisonBlock(summary, cursor, compact));
+    blocks.push(comparisonBlock(summary, cursor, compact, policy));
     cursor += 195;
   }
   if (options.meme) {
@@ -179,14 +203,26 @@ export function renderServerCard(summary, slug, rawOptions = {}) {
 }
 
 export async function refreshUserCard(env, user, now = Date.now()) {
-  const summary = await summarizeUser(env, user.user_id || user.id, now);
-  const svg = renderServerCard(summary, user.public_slug);
-  await env.CARDS.put(`u/${user.public_slug}.svg`, svg, {
+  const userId = user.user_id || user.id;
+  const stored = user.public_card === undefined
+    ? await env.DB.prepare(
+      `SELECT id, public_slug, public_card, publish_harness, publish_provider,
+              publish_model, publish_heatmap, publish_rank
+         FROM users WHERE id = ?`,
+    ).bind(userId).first()
+    : user;
+  if (!stored || !Number(stored.public_card)) {
+    if (stored?.public_slug) await env.CARDS.delete(`u/${stored.public_slug}.svg`);
+    return { summary: null, svg: null, published: false };
+  }
+  const summary = await summarizeUser(env, userId, now);
+  const svg = renderServerCard(summary, stored.public_slug, {}, stored);
+  await env.CARDS.put(`u/${stored.public_slug}.svg`, svg, {
     httpMetadata: {
       contentType: "image/svg+xml; charset=utf-8",
       cacheControl: "public, max-age=300, s-maxage=900, stale-while-revalidate=86400",
     },
     customMetadata: { generatedAt: summary.generated_at },
   });
-  return { summary, svg };
+  return { summary, svg, published: true };
 }

@@ -54,3 +54,25 @@ test("normalizes public card options", () => {
   assert.equal(normalizeCardOptions({ theme: "auto" }).theme, "auto");
   assert.equal(normalizeCardOptions({ theme: "invalid" }).theme, "dark");
 });
+
+test("server policy prevents query parameters from increasing public disclosure", () => {
+  const svg = renderServerCard({
+    day_tokens: 25_000, week_tokens: 120_000, month_tokens: 500_000, all_time_tokens: 2_500_000,
+    month_requests: 42,
+    by_harness: [{ key: "codex", tokens: 120_000 }],
+    by_provider: [{ key: "private-provider", tokens: 120_000 }],
+    by_model: [{ key: "private-model", tokens: 120_000 }],
+    daily: [{ date: "2026-08-30", tokens: 120_000 }],
+    hourly: [{ hour: 2, tokens: 120_000 }],
+    rank: 1, participants: 2, generated_at: "2026-08-30T12:00:00.000Z",
+  }, "owner", { heatmap: "1", compare: "1", rank: "1" }, {
+    public_card: 1,
+    publish_harness: 0,
+    publish_provider: 0,
+    publish_model: 0,
+    publish_heatmap: 0,
+    publish_rank: 0,
+  });
+  assert.doesNotMatch(svg, /DAILY HEAT|ACTIVE HOURS|HARNESSES|PROVIDERS|MODELS|private-|#1 OF 2/);
+  assert.match(svg, /120\.0K/);
+});

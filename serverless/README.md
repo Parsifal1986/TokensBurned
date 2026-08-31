@@ -68,14 +68,15 @@ Store `GITHUB_CLIENT_SECRET`, `TOKEN_PEPPER`, and `BOOTSTRAP_SECRET` only with
 Harness plugins use a short-lived TokensBurned device code:
 
 1. `POST /v1/auth/device/start` with a display-only `device_name`.
-2. Open the returned `verification_uri_complete` in the user's browser.
-3. The user authorizes the TokensBurned GitHub App, which only verifies identity.
+2. Open the returned `verification_uri`, manually enter the displayed `user_code`, and verify the requesting device name.
+3. Confirm in that browser, then authorize the TokensBurned GitHub App, which only verifies identity.
 4. Poll `POST /v1/auth/device/status` at the returned interval.
 5. Store the returned `tb_live_…` device token in the harness secret store.
 
 The GitHub user access token is used once to read `/user` and is never stored.
-Device tokens are returned only to the waiting client and are stored server-side
-as keyed hashes.
+Device authorizations can be claimed only once. Device tokens are returned only
+to the waiting client, expire after 180 days, and are stored server-side as keyed
+hashes. Public cards remain disabled until a separate authenticated privacy update.
 
 ## Ingestion endpoints
 
@@ -86,6 +87,9 @@ as keyed hashes.
 | `POST /v1/otel/logs` | Codex events or standard GenAI usage logs. |
 | `POST /v1/otel/traces` | Standard GenAI spans containing usage attributes. |
 | `GET /v1/me/summary` | Authenticated aggregate totals. |
+| `GET /v1/me/privacy` | Read the server-enforced public-card policy. |
+| `PUT /v1/me/privacy` | Replace the public-card policy; every field is required. |
+| `DELETE /v1/me/device` | Revoke the current device credential. |
 | `DELETE /v1/me/data` | Delete the authenticated user's usage, devices, account, and card. |
 | `GET /v1/cards/u/:slug.svg` | Public SVG card. Supports `layout`, `heatmap`, `compare`, `rank`, `meme`, and `theme=auto|light|dark`. |
 
@@ -106,11 +110,17 @@ remain append-only; reconnects and backfills cannot inflate public totals.
 
 ## Public card analytics
 
-Cards summarize rolling 24-hour, 7-day and 30-day windows plus all retained
+Cards are unavailable by default. An authenticated user must explicitly enable
+the card and each publishable category. Query parameters may reduce this stored
+policy but cannot expand it. Published cards summarize rolling 24-hour, 7-day and 30-day windows plus all retained
 history. Daily cells cover 12 weeks; hourly cells group the last 30 days by UTC
 hour. Harness, provider and model shares use the same 30-day window. Rank is an
 all-time token rank across users with recorded activity; only the viewer's rank
 and the aggregate participant count are rendered.
+
+Aggregate records are retained until the authenticated user calls
+`DELETE /v1/me/data`. That endpoint removes usage, devices, identity, and the R2
+card. Expired authorization rows are cleaned up opportunistically.
 
 ## Production resources
 

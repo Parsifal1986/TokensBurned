@@ -125,3 +125,24 @@ export function eventFromHookPayload(payload, harnessId, backend) {
     usage,
   });
 }
+
+export function sanitizeHookPayload(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const candidates = [
+    payload.usage,
+    payload.token_usage,
+    payload.message?.usage,
+    payload.response?.usage,
+    payload.event?.usage,
+  ].filter((candidate) => candidate && typeof candidate === "object");
+  const sanitized = { usage: normalizeUsage(candidates[0] || {}) };
+  for (const field of [
+    "event_id", "id", "timestamp", "harness_version", "version", "model", "model_name",
+  ]) {
+    if (["string", "number"].includes(typeof payload[field])) sanitized[field] = payload[field];
+  }
+  if (typeof payload.transcript_path === "string") {
+    sanitized.transcript_path = payload.transcript_path;
+  }
+  return sanitized;
+}

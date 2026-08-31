@@ -34,6 +34,16 @@ export async function readJson(request, limit = 64 * 1024) {
   }
 }
 
+export async function readForm(request, limit = 8 * 1024) {
+  const declared = Number(request.headers.get("content-length") || 0);
+  if (declared > limit) throw new HttpError(413, "payload_too_large", "Payload is too large.");
+  const body = await request.text();
+  if (new TextEncoder().encode(body).byteLength > limit) {
+    throw new HttpError(413, "payload_too_large", "Payload is too large.");
+  }
+  return new URLSearchParams(body);
+}
+
 export class HttpError extends Error {
   constructor(status, code, message) {
     super(message);
@@ -47,4 +57,3 @@ export function methodNotAllowed(allowed) {
     Allow: allowed.join(", "),
   });
 }
-

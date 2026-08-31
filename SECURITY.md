@@ -25,13 +25,19 @@ Native ingestion sends only:
 
 Prompts, responses, tool payloads, source code, repository names, transcript paths, raw session files, machine information, API keys, and GitHub credentials are not included in ingestion requests.
 
-The Worker reduces supported OTLP documents to the same allow-list before persistence. Raw OTLP documents are not persisted. Public SVG cards contain aggregate counters and no device or session identifiers.
+The Worker reduces supported OTLP documents to the same allow-list before persistence. Raw OTLP documents are not persisted.
+
+Profile cards are private by default. Publishing requires the explicit `tokensburned privacy public` command (or `connect --publish-card`). A published card may expose totals, harness/provider/model labels, activity heatmaps, rank, and GitHub identity. The stored server policy is authoritative: URL query parameters can hide fields but cannot publish a field the account has disabled. `tokensburned privacy private` immediately makes the route unavailable and removes the cached SVG.
 
 ## Authentication and local behavior
 
-GitHub OAuth is used to verify account identity. The resulting GitHub user token is used once to read the authenticated identity and is not stored. TokensBurned issues a device credential scoped to usage writes and self-service reads; the client stores it in `~/.burn/credentials.json` with user-only permissions and sends it only in the `Authorization` header.
+GitHub OAuth is used to verify account identity. The browser requires the short code shown by the client, displays the requesting device name, and requires a second confirmation before redirecting to GitHub. The short authorization can be claimed only once. The resulting GitHub user token is used once to read the authenticated identity and is not stored.
 
-The plugin's `SessionEnd` hook launches a short-lived detached process because lifecycle hooks have a tight timeout. TokensBurned does not install a cron job, launch agent, daemon, traffic proxy, or recurring Git synchronization task for server ingestion.
+TokensBurned issues a 180-day device credential scoped to usage writes and self-service reads; the client stores it in `~/.burn/credentials.json` with user-only permissions and sends it only in the `Authorization` header. `tokensburned disconnect` revokes the current device. `tokensburned delete-server-data` deletes the user's aggregates, devices, account identity, and public card. Aggregates are otherwise retained until the user deletes them; expired authorization attempts are cleaned up, and expired device credentials cannot authenticate.
+
+The plugin's `SessionEnd` hook sanitizes the event before launching a short-lived detached process because lifecycle hooks have a tight timeout. It sends the child only an allow-listed environment and the reduced JSON on standard input; it does not copy raw hook payloads or the parent process's credentials into environment variables. TokensBurned does not install a cron job, launch agent, daemon, traffic proxy, or recurring Git synchronization task for server ingestion.
+
+Unauthenticated device-flow endpoints use persistent per-client rate limits. API and authorization responses disable caching and apply restrictive browser security headers.
 
 Production secrets belong in Cloudflare Worker Secrets and must never be committed.
 
