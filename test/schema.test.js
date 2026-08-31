@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { eventFromHookPayload, normalizeEvent } from "../src/schema.js";
+import { eventFromHookPayload, normalizeEvent, sanitizeHookPayload } from "../src/schema.js";
 
 test("normalizes harness, backend confidence and usage aliases", () => {
   const event = normalizeEvent({
@@ -52,4 +52,23 @@ test("hook extraction copies only allow-listed usage and identity", () => {
 
 test("rejects zero-token events", () => {
   assert.throws(() => normalizeEvent({ harness: { id: "codex" }, usage: {} }), /no token/i);
+});
+
+test("hook launcher sanitizes raw payloads before crossing the process boundary", () => {
+  const sanitized = sanitizeHookPayload({
+    prompt: "private prompt",
+    response: { text: "private response", usage: { input_tokens: 12 } },
+    source_code: "private source",
+    transcript_path: "/allowed/by-child-boundary/session.jsonl",
+    model: "gpt-test",
+  });
+  assert.deepEqual(sanitized.usage, {
+    input_tokens: 12,
+    output_tokens: 0,
+    cache_read_tokens: 0,
+    cache_write_tokens: 0,
+  });
+  assert.equal(sanitized.model, "gpt-test");
+  assert.equal(sanitized.transcript_path, "/allowed/by-child-boundary/session.jsonl");
+  assert.doesNotMatch(JSON.stringify(sanitized), /private prompt|private response|private source/);
 });

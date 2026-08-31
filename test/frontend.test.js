@@ -20,6 +20,8 @@ test("landing page stays within the Taste Skill anti-tell budget", () => {
 
 test("hero and interaction essentials remain present", () => {
   assert.match(html, /<title>TokensBurned \| AI coding activity for GitHub<\/title>/);
+  assert.match(html, /Content-Security-Policy/);
+  assert.match(html, /name="referrer" content="no-referrer"/);
   assert.match(html, /aria-label="TokensBurned home"/);
   assert.doesNotMatch(html, /<title>Burn \|/);
   assert.match(html, /Your AI coding receipt\./);

@@ -18,7 +18,7 @@ if (!connected) {
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: {
       hookEventName: "SessionStart",
-      additionalContext: "TokensBurned is installed but not connected. Briefly tell the user they can run the plugin's connect command to authorize GitHub and optionally import up to 90 days of token-only session history. Never claim prompts or responses are uploaded.",
+      additionalContext: "TokensBurned is installed but not connected. Briefly tell the user they can run the plugin's connect command to authorize GitHub and optionally import up to 90 days of token-only session history. The public card stays off unless they explicitly publish it. Never claim prompts or responses are uploaded.",
     },
   }));
 }

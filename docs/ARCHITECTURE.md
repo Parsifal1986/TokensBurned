@@ -8,7 +8,7 @@ TokensBurned separates local collection, server aggregation, and public renderin
 2. The local client keeps only allow-listed counts and identity fields.
 3. Native history is reduced into revisioned 15 minute snapshots. OTLP events are normalized into the same dimensions.
 4. The Cloudflare Worker authenticates a device token and writes aggregates to D1.
-5. R2 stores the default pre-rendered SVG. Custom card combinations render from the same summary data and use CDN caching.
+5. If the user explicitly enables a public policy, R2 stores its default pre-rendered SVG. Custom card combinations render from the same summary data and may only remove server-approved fields.
 
 ## Components
 
@@ -25,8 +25,8 @@ Native snapshots use a stable hashed session, harness, model, bucket, and monoto
 ## Storage
 
 - D1 stores users, device credentials, aggregate snapshots, and accepted OTLP events.
-- R2 stores default public cards.
-- Device bearer tokens stay in `~/.burn/credentials.json` with user-only file permissions.
+- R2 stores default cards only for users who explicitly opt in; disabling publication deletes the object and blocks the public route.
+- Device bearer tokens stay in `~/.burn/credentials.json` with user-only file permissions, expire after 180 days, and can be revoked independently.
 
 ## Trust boundary
 

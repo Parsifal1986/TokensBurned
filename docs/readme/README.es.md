@@ -21,7 +21,7 @@ Los hooks de Copilot todavía no exponen conteos de tokens, por lo que la recopi
 
 ## Tarjeta de perfil
 
-Usa el [constructor interactivo](https://tokensburned.com/?lang=es#card-builder), introduce tu usuario y copia el Markdown generado.
+La tarjeta pública está desactivada por defecto. Primero ejecuta `tokensburned privacy public` para autorizar explícitamente la publicación de totales, harness/provider/model, mapas de actividad, rango e identidad de GitHub. Después usa el [constructor interactivo](https://tokensburned.com/?lang=es#card-builder). Los parámetros de URL solo pueden ocultar campos permitidos por el servidor.
 
 ```markdown
 [![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg?theme=auto)](https://tokensburned.com/?lang=es)
@@ -35,6 +35,6 @@ Usa el [constructor interactivo](https://tokensburned.com/?lang=es#card-builder)
 
 ## Privacidad
 
-Solo salen del equipo los conteos de tokens, harness, provider, model, un session ID con hash, el bloque de 15 minutos y el número de peticiones. Nunca se suben prompts, respuestas, código, nombres o rutas de repositorios ni API keys. TokensBurned tampoco instala cron, daemon, proxy ni sincronización Git. Consulta [SECURITY.md](../../SECURITY.md).
+Solo salen del equipo los conteos de tokens, harness, provider, model, un session ID con hash, el bloque de 15 minutos y el número de peticiones. Nunca se suben prompts, respuestas, código, nombres o rutas de repositorios ni API keys. Los datos del servidor se conservan hasta ejecutar `tokensburned delete-server-data`; la credencial caduca a los 180 días. Consulta [SECURITY.md](../../SECURITY.md).
 
 [MIT License](../../LICENSE) © 2026 parsifal1986

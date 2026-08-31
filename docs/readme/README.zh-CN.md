@@ -20,6 +20,7 @@ TokensBurned 从不同 AI coding harness 收集 token 数量和模型元数据�
 - **区分三层身份。** Claude Code 是 harness，不等于模型一定是 Claude。provider 和 model 会分别记录。
 - **先在本地缩减。** 原始 session 不会被上传，客户端只输出允许的聚合字段。
 - **清晰的隐私边界。** 不上传提示词、回复、源代码、仓库名、transcript 路径和 API key。
+- **连接不等于公开。** 默认关闭公开卡片，只有显式执行发布命令后才会把聚合活动与 GitHub 身份关联展示。
 - **不夸大兼容性。** 原生 hook、官方 OTLP、适配器和 CLI fallback 会明确标注。
 
 ## 按 harness 安装
@@ -79,7 +80,7 @@ tokensburned doctor</code></pre>
 
 ## 生成 GitHub Profile 卡片
 
-打开[在线卡片构建器](https://tokensburned.com/?lang=zh-CN#card-builder)，输入 GitHub 用户名，选择完整版、紧凑版或 meme 版，然后复制生成的 Markdown。
+先运行 `tokensburned privacy public` 明确选择公开。该命令会公开总量、harness/provider/model 明细、活动热力图、排名与 GitHub 身份。之后再打开[在线卡片构建器](https://tokensburned.com/?lang=zh-CN#card-builder)，输入用户名并复制 Markdown。链接参数只能隐藏服务器已允许的字段，不能扩大公开范围。
 
 ```markdown
 [![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/你的_GITHUB_用户名.svg?theme=auto)](https://tokensburned.com/?lang=zh-CN)
@@ -114,6 +115,9 @@ tokensburned connect
 - `tokensburned backfill --harness claude-code --days 30`：导入明确批准的 Claude Code 时间范围。
 - `tokensburned backfill --all-harnesses --days 30`：显式扫描所有已识别 harness。
 - `tokensburned server`：查看服务端统计与公开 SVG 地址。
+- `tokensburned privacy public|private`：显式开启或关闭公开卡片。
+- `tokensburned disconnect`：撤销当前设备凭证。
+- `tokensburned delete-server-data`：删除服务器聚合数据、设备、身份和卡片。
 - `tokensburned doctor`：查看检测结果和所有数据边界。
 
 ## 隐私边界
@@ -126,4 +130,4 @@ tokensburned connect
 | 15 分钟时间桶 | transcript 文件与路径 |
 | 请求次数 | API key 与 provider 凭证 |
 
-TokensBurned 不安装 cron、daemon、proxy 或 Git 同步任务。完整说明见 [SECURITY.md](../../SECURITY.md)。项目采用 [MIT License](../../LICENSE)。
+公开卡片默认关闭。服务端聚合数据会保留到你执行 `tokensburned delete-server-data`；设备凭证 180 天后过期，也可以提前撤销。TokensBurned 不安装 cron、daemon、proxy 或 Git 同步任务。完整说明见 [SECURITY.md](../../SECURITY.md)。项目采用 [MIT License](../../LICENSE)。

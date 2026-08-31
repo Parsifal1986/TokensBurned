@@ -39,6 +39,7 @@ export function defaultConfig() {
       public_slug: null,
       card_url: null,
       connected_at: null,
+      credential_expires_at: null,
       backfill_completed_at: null,
     },
   };

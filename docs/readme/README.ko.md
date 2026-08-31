@@ -21,7 +21,7 @@ Copilot lifecycle hook은 현재 token 수를 제공하지 않으므로 수집�
 
 ## Profile 카드 만들기
 
-[온라인 card builder](https://tokensburned.com/?lang=ko#card-builder)에서 사용자 이름과 요소를 선택한 뒤 Markdown을 복사하세요.
+공개 카드는 기본적으로 꺼져 있습니다. 먼저 `tokensburned privacy public`로 합계, harness/provider/model, 히트맵, 순위와 GitHub ID 공개에 명시적으로 동의한 뒤 [온라인 card builder](https://tokensburned.com/?lang=ko#card-builder)를 사용하세요. URL 매개변수는 서버에서 허용한 항목을 숨길 수만 있고 공개 범위를 늘릴 수 없습니다.
 
 ```markdown
 [![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg?theme=auto)](https://tokensburned.com/?lang=ko)
@@ -35,6 +35,6 @@ Copilot lifecycle hook은 현재 token 수를 제공하지 않으므로 수집�
 
 ## 개인정보 경계
 
-업로드 항목은 token 수, harness, provider, model, 해시된 session ID, 15분 bucket, request 수뿐입니다. 프롬프트, 응답, 코드, repository 이름과 경로, API key는 업로드하지 않습니다. cron, daemon, proxy, Git 동기화도 설치하지 않습니다. 전체 내용은 [SECURITY.md](../../SECURITY.md)를 확인하세요.
+업로드 항목은 token 수, harness, provider, model, 해시된 session ID, 15분 bucket, request 수뿐입니다. 프롬프트, 응답, 코드, repository 이름과 경로, API key는 업로드하지 않습니다. 서버 데이터는 `tokensburned delete-server-data`를 실행할 때까지 보존되고 기기 자격 증명은 180일 후 만료됩니다. 전체 내용은 [SECURITY.md](../../SECURITY.md)를 확인하세요.
 
 [MIT License](../../LICENSE) © 2026 parsifal1986

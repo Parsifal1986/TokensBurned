@@ -20,6 +20,7 @@ import { publicStats, renderSvg } from "./render.js";
 import { eventFromHookPayload, normalizeEvent } from "./schema.js";
 import {
   paths,
+  defaultConfig,
   readConfig,
   readCredentials,
   readStats,
@@ -30,9 +31,13 @@ import {
   writeSvg,
 } from "./storage.js";
 import {
+  deleteServerData,
   fetchServerSummary,
+  fetchServerPrivacy,
   pollDeviceAuthorization,
+  revokeDevice,
   startDeviceAuthorization,
+  updateServerPrivacy,
   uploadEntries,
 } from "./server.js";
 import { formatTokens, localDateKey, percentages } from "./utils.js";
@@ -184,9 +189,7 @@ async function handleHook(args) {
 
   let payload;
   try {
-    const raw = process.env.TOKENSBURNED_HOOK_PAYLOAD
-      ? Buffer.from(process.env.TOKENSBURNED_HOOK_PAYLOAD, "base64").toString("utf8")
-      : await readStdin();
+    const raw = await readStdin(256 * 1024);
     if (!raw.trim()) return;
     payload = JSON.parse(raw);
   } catch {
@@ -273,14 +276,18 @@ async function confirm(question, assumeYes) {
   if (assumeYes) return true;
   if (!process.stdin.isTTY) throw new Error("Confirmation required. Re-run with --yes.");
   const rl = readline.createInterface({ input, output });
-  const answer = await rl.question(`${question} [Y/n] `);
+  const answer = await rl.question(`${question} [y/N] `);
   rl.close();
-  return !/^n(o)?$/i.test(answer.trim());
+  return /^y(es)?$/i.test(answer.trim());
 }
 
 function openBrowser(url) {
-  const command = process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open";
-  const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
+  const command = process.platform === "darwin"
+    ? "open"
+    : process.platform === "win32"
+      ? "rundll32"
+      : "xdg-open";
+  const args = process.platform === "win32" ? ["url.dll,FileProtocolHandler", url] : [url];
   try {
     const child = spawn(command, args, { detached: true, stdio: "ignore" });
     child.on("error", () => {});
@@ -351,9 +358,14 @@ async function connect(args) {
     apiOrigin,
     deviceName: `TokensBurned on ${process.platform}`,
   });
+  const verificationUrl = new URL(authorization.verification_uri);
+  if (verificationUrl.origin !== new URL(apiOrigin).origin) {
+    throw new Error("The server returned a verification URL on a different origin.");
+  }
   console.log(`\n${color("🔥 Connect TokensBurned", "orange")}\n`);
-  console.log(`Open this URL and authorize GitHub:\n\n${authorization.verification_uri_complete}\n`);
-  if (!has(args, "--no-open")) openBrowser(authorization.verification_uri_complete);
+  console.log(`Open this URL, enter the code, and confirm the device name:\n\n${verificationUrl.toString()}\n\nCode: ${authorization.user_code}\n`);
+  console.log("Only continue if you started this request. Public profile cards remain off unless you explicitly enable one.");
+  if (!has(args, "--no-open")) openBrowser(verificationUrl.toString());
 
   const deadline = Date.now() + Number(authorization.expires_in || 600) * 1000;
   const interval = Math.max(2, Number(authorization.interval || 5)) * 1000;
@@ -370,6 +382,7 @@ async function connect(args) {
   await writeCredentials({
     version: 1,
     device_token: result.token,
+    expires_at: result.expires_at || null,
   });
   const config = await readConfig();
   config.server = {
@@ -380,10 +393,18 @@ async function connect(args) {
     public_slug: result.user?.public_slug || null,
     card_url: result.card_url || null,
     connected_at: new Date().toISOString(),
+    credential_expires_at: result.expires_at || null,
   };
   await writeConfig(config);
   console.log(`${color("✓", "green")} Connected as ${result.user?.github_login || "GitHub user"}.`);
-  console.log(`Card: ${result.card_url}`);
+  console.log("Public card: off by default.");
+
+  if (has(args, "--publish-card")) {
+    const privacy = await setServerPrivacy(true, { config, credentials: { device_token: result.token } });
+    console.log(`Public card enabled: ${privacy.card_url}`);
+  } else {
+    console.log("Run `tokensburned privacy public` only when you want totals, tool/model breakdowns, activity heatmaps, and rank tied to your GitHub name to be public.");
+  }
 
   let shouldBackfill = has(args, "--backfill");
   if (!has(args, "--backfill") && !has(args, "--no-backfill")) {
@@ -417,14 +438,15 @@ async function serverStatus() {
     console.log("TokensBurned server: not connected");
     return;
   }
-  const summary = await fetchServerSummary({
-    token: credentials.device_token,
-    apiOrigin: config.server.api_origin || API_ORIGIN,
-  });
+  const options = { token: credentials.device_token, apiOrigin: config.server.api_origin || API_ORIGIN };
+  const [summary, privacy] = await Promise.all([
+    fetchServerSummary(options),
+    fetchServerPrivacy(options),
+  ]);
   console.log(`TokensBurned server: connected as ${config.server.github_login}`);
   console.log(`All time: ${formatTokens(summary.all_time_tokens)} tokens`);
   console.log(`Last 7 days: ${formatTokens(summary.week_tokens)} tokens`);
-  console.log(`Card: ${config.server.card_url}`);
+  console.log(`Public card: ${privacy.public_card ? privacy.card_url : "off"}`);
 }
 
 async function setup(args) {
@@ -473,13 +495,40 @@ async function doctor() {
     : config.sync.enabled ? "✓ GitHub only when sync is due" : "✓ None (sync disabled)";
   console.log(`Network\n${network}\n`);
   console.log(`Server credential\n${credentials.device_token ? "✓ Stored locally with user-only permissions" : "○ Not connected"}\n`);
-  console.log("Privacy\n✓ Session history is read only after explicit backfill consent or at SessionEnd\n✓ Only allow-listed numeric usage metadata is retained\n✓ Prompts, responses, tool payloads, source code and paths are never uploaded\n✓ No API keys read\n✓ No traffic interception\n");
+  if (credentials.device_token) {
+    console.log(`  expires: ${credentials.expires_at || config.server.credential_expires_at || "unknown; reconnect recommended"}\n`);
+  }
+  console.log(`Privacy\n✓ Public server card: ${config.server.card_url ? config.server.card_url : "off"}\n✓ Session history is read only after explicit backfill consent or at SessionEnd\n✓ Only allow-listed numeric usage metadata is retained\n✓ Prompts, responses, tool payloads, source code and paths are never uploaded\n✓ No API keys read\n✓ No traffic interception\n`);
 }
 
 async function installHooks(args) {
   const result = await installClaudeHook(option(args, "--command") || "burn hook claude");
   console.log(`${result.changed ? color("✓", "green") : "○"} Claude Code hook ${result.changed ? "installed" : "already installed"}: ${result.file}`);
   console.log(`\n${hookInstallNotice()}\n`);
+}
+
+function publicPrivacy(enabled) {
+  return {
+    public_card: enabled,
+    publish_harness: enabled,
+    publish_provider: enabled,
+    publish_model: enabled,
+    publish_heatmap: enabled,
+    publish_rank: enabled,
+  };
+}
+
+async function setServerPrivacy(enabled, { config, credentials } = {}) {
+  const storedConfig = config || await readConfig();
+  const storedCredentials = credentials || await readCredentials();
+  if (!storedConfig.server.enabled || !storedCredentials.device_token) return null;
+  const privacy = await updateServerPrivacy(publicPrivacy(enabled), {
+    token: storedCredentials.device_token,
+    apiOrigin: storedConfig.server.api_origin || API_ORIGIN,
+  });
+  storedConfig.server.card_url = privacy.card_url;
+  await writeConfig(storedConfig);
+  return privacy;
 }
 
 async function setPrivacy(args) {
@@ -490,7 +539,53 @@ async function setPrivacy(args) {
   const config = await readConfig();
   config.privacy.publish_provider = value === "public";
   await writeConfig(config);
-  console.log(`Provider visibility: ${value === "public" ? "Public" : "Private"}`);
+  const privacy = await setServerPrivacy(value === "public", { config });
+  if (value === "public") {
+    console.log("Public visibility enabled for totals, harness/provider/model breakdowns, activity heatmaps, and rank.");
+    if (privacy?.card_url) console.log(`Card: ${privacy.card_url}`);
+  } else {
+    console.log("Public visibility disabled. The server card is no longer accessible.");
+  }
+}
+
+async function disconnect(args) {
+  const config = await readConfig();
+  const credentials = await readCredentials();
+  if (!config.server.enabled || !credentials.device_token) {
+    console.log("TokensBurned is already disconnected.");
+    return;
+  }
+  if (!(await confirm("Revoke this device credential and disconnect?", has(args, "--yes")))) return;
+  await revokeDevice({
+    token: credentials.device_token,
+    apiOrigin: config.server.api_origin || API_ORIGIN,
+  });
+  config.server = defaultConfig().server;
+  await Promise.all([
+    writeConfig(config),
+    writeCredentials({ version: 1, device_token: null, expires_at: null }),
+  ]);
+  console.log("Device credential revoked and local connection removed.");
+}
+
+async function deleteRemoteData(args) {
+  const config = await readConfig();
+  const credentials = await readCredentials();
+  if (!config.server.enabled || !credentials.device_token) {
+    throw new Error("TokensBurned is not connected.");
+  }
+  console.log("This permanently deletes server usage, devices, account identity, and the public card. Local stats remain on this machine.");
+  if (!(await confirm("Delete all TokensBurned server data?", has(args, "--yes")))) return;
+  await deleteServerData({
+    token: credentials.device_token,
+    apiOrigin: config.server.api_origin || API_ORIGIN,
+  });
+  config.server = defaultConfig().server;
+  await Promise.all([
+    writeConfig(config),
+    writeCredentials({ version: 1, device_token: null, expires_at: null }),
+  ]);
+  console.log("All TokensBurned server data was deleted.");
 }
 
 async function clean(args) {
@@ -515,8 +610,10 @@ Usage
   tokensburned connect             Connect to the serverless collector with GitHub
   tokensburned backfill            Import current-harness session token totals
   tokensburned server              Show authenticated server totals and card URL
-  tokensburned privacy public      Publish aggregate provider attribution
-  tokensburned privacy private     Keep provider attribution local
+  tokensburned privacy public      Explicitly publish aggregate activity tied to GitHub
+  tokensburned privacy private     Disable and remove the public server card
+  tokensburned disconnect          Revoke this device credential
+  tokensburned delete-server-data  Permanently delete server data and identity
   tokensburned clean               Delete ~/.burn after confirmation
 
 Connect options
@@ -525,6 +622,7 @@ Connect options
   --harness <id>           Scope import to codex or claude-code
   --all-harnesses          Explicitly import every recognized harness
   --no-open                 Print the authorization URL without opening it
+  --publish-card            Explicitly enable the full public card after connection
   --api-origin <url>        Use a self-hosted TokensBurned API endpoint
 
 Ingest options
@@ -557,6 +655,8 @@ export async function runCli(args) {
     case "render": return render();
     case "doctor": return doctor();
     case "privacy": return setPrivacy(rest);
+    case "disconnect": return disconnect(rest);
+    case "delete-server-data": return deleteRemoteData(rest);
     case "clean": return clean(rest);
     case "hooks":
       if (rest[0] === "install") return installHooks(rest.slice(1));
