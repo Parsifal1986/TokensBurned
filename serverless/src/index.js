@@ -8,6 +8,7 @@ import {
   approveDeviceAuthorization,
   deviceVerificationPage,
   githubCallback,
+  oauthErrorPage,
   pollDeviceAuthorization,
   startDeviceAuthorization,
   verifyDeviceAuthorization,
@@ -16,6 +17,12 @@ import { getPrivacy, updatePrivacy } from "./privacy.js";
 import { enforceRateLimit } from "./rate-limit.js";
 import { clientRelease } from "./release.js";
 import { summarizeUser } from "./summary.js";
+
+const BROWSER_AUTH_ROUTES = new Set([
+  "/v1/auth/device/verify",
+  "/v1/auth/device/approve",
+  "/v1/auth/github/callback",
+]);
 
 function withCors(response, request, env) {
   const origin = request.headers.get("origin");
@@ -201,6 +208,10 @@ export default {
       return withCors(await handleRequest(request, env, ctx), request, env);
     } catch (error) {
       if (error instanceof HttpError) {
+        const pathname = new URL(request.url).pathname;
+        if (BROWSER_AUTH_ROUTES.has(pathname)) {
+          return withCors(oauthErrorPage(error), request, env);
+        }
         return withCors(problem(error.status, error.code, error.message), request, env);
       }
       console.error("Unhandled TokensBurned Worker error", error?.message || error);

@@ -75,7 +75,10 @@ Harness plugins use a short-lived TokensBurned device code:
 
 The confirmation page carries a one-time, server-hashed nonce in its approval
 form, so the flow also works in privacy-focused and embedded browsers that do
-not persist cookies between form submissions.
+not persist cookies between form submissions. Older or stale confirmation pages
+are recovered by issuing a fresh nonce and asking the user to review the device
+once more; browser-facing OAuth failures render an HTML recovery page rather
+than a JSON API error.
 
 The GitHub user access token is used once to read `/user` and is never stored.
 Device authorizations can be claimed only once. Device tokens are returned only
