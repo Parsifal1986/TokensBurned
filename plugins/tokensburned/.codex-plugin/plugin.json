@@ -1,6 +1,6 @@
 {
   "name": "tokensburned",
-  "version": "0.4.1+codex.20260901100523",
+  "version": "0.5.0+codex.20260901105711",
   "description": "Privacy-first AI coding activity with serverless aggregation and GitHub profile cards.",
   "author": {
     "name": "Parsifal1986",
@@ -33,7 +33,8 @@
     "privacyPolicyURL": "https://github.com/Parsifal1986/TokensBurned/blob/main/SECURITY.md",
     "defaultPrompt": [
       "Connect TokensBurned and import my token history.",
-      "Show my TokensBurned server totals.",
+      "Show my TokensBurned server totals and privacy status.",
+      "Check whether my TokensBurned plugin is current.",
       "Run TokensBurned Doctor and explain the privacy boundary."
     ],
     "brandColor": "#F45B25"

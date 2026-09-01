@@ -30,7 +30,7 @@ import {
   writeStats,
   writeSvg,
 } from "./storage.js";
-import { checkForUpdate } from "./update.js";
+import { checkForUpdate, pluginUpdateCommand } from "./update.js";
 import {
   deleteServerData,
   fetchServerSummary,
@@ -312,7 +312,9 @@ async function reportAvailableUpdate(config, { force = false } = {}) {
     if (result.notice) {
       console.log(`\n${color("↑", "orange")} ${result.notice}`);
       if (result.release?.update_url) console.log(`  ${result.release.update_url}`);
-      console.log("  Update from your plugin manager, then start a new session.\n");
+      const command = pluginUpdateCommand(currentHarness());
+      if (command) console.log(`  ${command}`);
+      console.log(`  Update from your plugin manager, then start a new ${currentHarness() === "codex" ? "task" : "session"}.\n`);
     } else if (force) {
       console.log(`${color("✓", "green")} TokensBurned ${VERSION} is current.\n`);
     }
@@ -556,20 +558,42 @@ async function setServerPrivacy(enabled, { config, credentials } = {}) {
 }
 
 async function setPrivacy(args) {
-  const value = args[0];
-  if (!new Set(["public", "private"]).has(value)) {
-    throw new Error("Use `burn privacy public` or `burn privacy private`.");
-  }
+  const value = args[0] || "status";
   const config = await readConfig();
+  const credentials = await readCredentials();
+  if (!config.server.enabled || !credentials.device_token) {
+    throw new Error("TokensBurned is not connected. Run `burn connect` first.");
+  }
+  if (value === "status") {
+    const privacy = await fetchServerPrivacy({
+      token: credentials.device_token,
+      apiOrigin: config.server.api_origin || API_ORIGIN,
+    });
+    console.log(`Public card: ${privacy.public_card ? privacy.card_url : "off"}`);
+    console.log(`Harness breakdown: ${privacy.publish_harness ? "public" : "private"}`);
+    console.log(`Provider breakdown: ${privacy.publish_provider ? "public" : "private"}`);
+    console.log(`Model breakdown: ${privacy.publish_model ? "public" : "private"}`);
+    console.log(`Activity heatmap: ${privacy.publish_heatmap ? "public" : "private"}`);
+    console.log(`Anonymous rank: ${privacy.publish_rank ? "public" : "private"}`);
+    await reportAvailableUpdate(config);
+    return;
+  }
+  if (!new Set(["public", "private"]).has(value)) {
+    throw new Error("Use `burn privacy`, `burn privacy public`, or `burn privacy private`.");
+  }
   config.privacy.publish_provider = value === "public";
-  await writeConfig(config);
-  const privacy = await setServerPrivacy(value === "public", { config });
+  const privacy = await setServerPrivacy(value === "public", { config, credentials });
   if (value === "public") {
     console.log("Public visibility enabled for totals, harness/provider/model breakdowns, activity heatmaps, and rank.");
     if (privacy?.card_url) console.log(`Card: ${privacy.card_url}`);
   } else {
     console.log("Public visibility disabled. The server card is no longer accessible.");
   }
+}
+
+async function updateStatus() {
+  const config = await readConfig();
+  await reportAvailableUpdate(config, { force: true });
 }
 
 async function disconnect(args) {
@@ -634,6 +658,8 @@ Usage
   tokensburned connect             Connect to the serverless collector with GitHub
   tokensburned backfill            Import current-harness session token totals
   tokensburned server              Show authenticated server totals and card URL
+  tokensburned update              Check for a newer plugin release
+  tokensburned privacy             Show the current server privacy policy
   tokensburned privacy public      Explicitly publish aggregate activity tied to GitHub
   tokensburned privacy private     Disable and remove the public server card
   tokensburned disconnect          Revoke this device credential
@@ -690,6 +716,7 @@ export async function runCli(args) {
     case "connect": return connect(rest);
     case "backfill": return backfillCommand(rest);
     case "server": return serverStatus();
+    case "update": return updateStatus();
     case "help":
     case "--help":
     case "-h": return help();

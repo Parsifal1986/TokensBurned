@@ -1,0 +1,4 @@
+interface:
+  display_name: "TokensBurned Privacy"
+  short_description: "View or change public card visibility"
+  default_prompt: "Use $tokensburned:privacy to show my current TokensBurned privacy status without changing it."

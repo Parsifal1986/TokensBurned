@@ -1,0 +1,2 @@
+description = "View or change TokensBurned public-card privacy."
+prompt = "Use the installed TokensBurned privacy skill. Treat an ambiguous request as a read-only status check. Publish only after the user explicitly asks and acknowledges the public fields; make private only after an explicit request. Never expose device credentials."

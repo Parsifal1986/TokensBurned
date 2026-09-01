@@ -1,0 +1,4 @@
+interface:
+  display_name: "TokensBurned Doctor"
+  short_description: "Diagnose setup, privacy, and updates"
+  default_prompt: "Use $tokensburned:doctor to diagnose my TokensBurned setup without changing anything."

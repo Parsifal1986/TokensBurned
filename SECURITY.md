@@ -37,6 +37,8 @@ TokensBurned issues a 180-day device credential scoped to usage writes and self-
 
 The plugin's `SessionEnd` hook sanitizes the event before launching a short-lived detached process because lifecycle hooks have a tight timeout. It sends the child only an allow-listed environment and the reduced JSON on standard input; it does not copy raw hook payloads or the parent process's credentials into environment variables. TokensBurned does not install a cron job, launch agent, daemon, traffic proxy, or recurring Git synchronization task for server ingestion.
 
+At `SessionStart`, the plugin may query the public TokensBurned release endpoint at most once every 24 hours. It stores only the last-check time and public release metadata in `~/.burn/config.json`. A failed check never blocks startup, and the plugin never installs an update without an explicit user request.
+
 Unauthenticated device-flow endpoints use persistent per-client rate limits. API and authorization responses disable caching and apply restrictive browser security headers.
 
 Production secrets belong in Cloudflare Worker Secrets and must never be committed.

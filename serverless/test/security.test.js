@@ -239,7 +239,7 @@ test("client version metadata is public and cache-safe", async () => {
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.deepEqual(await response.json(), {
-    latest_version: "0.4.1",
+    latest_version: "0.5.0",
     minimum_supported_version: "0.4.0",
     update_url: "https://github.com/Parsifal1986/TokensBurned#install",
     check_interval_seconds: 86400,

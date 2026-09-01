@@ -36,10 +36,10 @@ test("client release check uses the public version endpoint", async () => {
     apiOrigin: "https://api.example",
     fetchImpl: async (url, init) => {
       calls.push({ url, init });
-      return response({ latest_version: "0.4.1", minimum_supported_version: "0.4.0" });
+      return response({ latest_version: "0.5.0", minimum_supported_version: "0.4.0" });
     },
   });
-  assert.equal(release.latest_version, "0.4.1");
+  assert.equal(release.latest_version, "0.5.0");
   assert.equal(calls[0].url, "https://api.example/v1/client/version");
   assert.equal(calls[0].init.method, "GET");
 });
