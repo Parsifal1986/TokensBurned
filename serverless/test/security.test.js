@@ -75,6 +75,10 @@ test("device verification works without persistent browser cookies", async () =>
   assert.match(cookie, /Secure; HttpOnly; SameSite=Strict/);
   const verificationHtml = await verified.text();
   assert.match(verificationHtml, /My laptop/);
+  assert.match(
+    verified.headers.get("content-security-policy"),
+    /form-action 'self' https:\/\/github\.com(?:;|$)/,
+  );
   const confirmation = verificationHtml.match(/approve\?confirmation=([^"]+)/)?.[1];
   assert.ok(confirmation);
   assert.doesNotMatch(verificationHtml, /name="confirmation"/);
