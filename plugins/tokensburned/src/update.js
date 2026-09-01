@@ -36,17 +36,37 @@ export function updateNotice(release, currentVersion = VERSION) {
   return null;
 }
 
+export function pluginUpdateCommand(harness) {
+  if (harness === "codex") return "codex plugin add tokensburned@tokensburned";
+  if (harness === "claude-code") return "claude plugin update tokensburned@tokensburned";
+  return null;
+}
+
+export function updatePrompt(release, {
+  currentVersion = VERSION,
+  harness,
+} = {}) {
+  const notice = updateNotice(release, currentVersion);
+  if (!notice) return null;
+  const command = pluginUpdateCommand(harness);
+  const action = command
+    ? `If the user explicitly asks to update, run \`${command}\`, then tell them to start a new ${harness === "codex" ? "task" : "session"}.`
+    : "If the user explicitly asks to update, open the release URL and use the current harness plugin manager.";
+  return `${notice} Briefly notify the user. ${action} Do not update silently.`;
+}
+
 export async function checkForUpdate(config, {
   apiOrigin = config.server?.api_origin || API_ORIGIN,
   currentVersion = VERSION,
   fetchImpl,
   force = false,
   now = Date.now(),
+  timeoutMs = 3_000,
 } = {}) {
   if (!force && !updateCheckDue(config.updates?.last_checked_at, now)) {
     return { checked: false, notice: null, release: null };
   }
-  const release = await fetchClientRelease({ apiOrigin, fetchImpl });
+  const release = await fetchClientRelease({ apiOrigin, fetchImpl, timeoutMs });
   config.updates = {
     ...config.updates,
     last_checked_at: new Date(now).toISOString(),

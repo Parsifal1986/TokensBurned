@@ -1,0 +1,2 @@
+description = "Diagnose TokensBurned without changing settings."
+prompt = "Use the installed TokensBurned doctor skill. Report harness, backend, credential, privacy, and update findings without connecting, importing history, publishing, installing hooks, or deleting data."

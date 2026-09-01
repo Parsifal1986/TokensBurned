@@ -1,0 +1,2 @@
+description = "Preview or import token-only harness history."
+prompt = "Use the installed TokensBurned backfill skill. Default to a dry run and the current harness. Upload only after explicit consent for the exact harness and day range; never inspect or upload prompts, replies, code, paths, or transcript contents."

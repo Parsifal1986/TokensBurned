@@ -1,0 +1,4 @@
+interface:
+  display_name: "Update TokensBurned"
+  short_description: "Check for and apply plugin updates"
+  default_prompt: "Use $tokensburned:update to check whether my TokensBurned plugin is current."

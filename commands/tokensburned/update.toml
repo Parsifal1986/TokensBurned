@@ -1,0 +1,2 @@
+description = "Check for a TokensBurned plugin update."
+prompt = "Use the installed TokensBurned update skill to check the public release endpoint. Never install silently; use the current harness extension manager only after the user explicitly asks to apply an update."

@@ -73,7 +73,10 @@ export function pollDeviceAuthorization(deviceCode, options = {}) {
 }
 
 export function fetchClientRelease(options = {}) {
-  return request("/v1/client/version", { ...options, timeoutMs: 3_000 });
+  return request("/v1/client/version", {
+    ...options,
+    timeoutMs: options.timeoutMs ?? 3_000,
+  });
 }
 
 export async function uploadEntries(entries, { token, ...options } = {}) {

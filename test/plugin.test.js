@@ -8,10 +8,10 @@ const root = path.resolve(import.meta.dirname, "..");
 const sourceSkills = path.join(root, "skills");
 const pluginSkills = path.join(root, "plugins", "tokensburned", "skills");
 
-test("plugin exposes only the three focused TokensBurned skills", async () => {
+test("plugin exposes focused TokensBurned management skills", async () => {
   const entries = await fs.readdir(pluginSkills, { withFileTypes: true });
   const names = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
-  assert.deepEqual(names, ["backfill", "connect", "server"]);
+  assert.deepEqual(names, ["backfill", "connect", "doctor", "privacy", "server", "update"]);
 
   for (const name of names) {
     const [source, bundled] = await Promise.all([
@@ -57,5 +57,13 @@ test("Cline integration uploads only aggregate usage fields", async () => {
 
 test("Gemini extension ships focused setup commands", async () => {
   const entries = await fs.readdir(path.join(root, "commands", "tokensburned"));
-  assert.deepEqual(entries.sort(), ["connect.toml", "server.toml", "telemetry.toml"]);
+  assert.deepEqual(entries.sort(), [
+    "backfill.toml",
+    "connect.toml",
+    "doctor.toml",
+    "privacy.toml",
+    "server.toml",
+    "telemetry.toml",
+    "update.toml",
+  ]);
 });
