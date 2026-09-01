@@ -24,8 +24,9 @@ function statement(first, run = async () => ({ meta: { changes: 1 } })) {
   };
 }
 
-test("device verification requires a manually entered code and a matching browser confirmation", async () => {
+test("device verification works without persistent browser cookies", async () => {
   const writes = [];
+  let expectedConfirmationHash = null;
   const env = {
     API_ORIGIN: "https://api.example",
     GITHUB_CLIENT_ID: "client-id",
@@ -36,9 +37,14 @@ test("device verification requires a manually entered code and a matching browse
           return statement(async () => ({ id: "auth_1", user_code: "ABCD-2345", device_name: "My laptop" }));
         }
         if (sql.includes("SELECT id FROM device_authorizations")) {
-          return statement(async () => ({ id: "auth_1" }));
+          return statement(async (params) => (
+            params[1] === expectedConfirmationHash ? { id: "auth_1" } : null
+          ));
         }
         return statement(async () => null, async (params) => {
+          if (sql.includes("SET confirmation_hash = ?")) {
+            [expectedConfirmationHash] = params;
+          }
           writes.push({ sql, params });
           return { meta: { changes: 1 } };
         });
@@ -56,7 +62,10 @@ test("device verification requires a manually entered code and a matching browse
   }), env);
   const cookie = verified.headers.get("set-cookie");
   assert.match(cookie, /Secure; HttpOnly; SameSite=Strict/);
-  assert.match(await verified.text(), /My laptop/);
+  const verificationHtml = await verified.text();
+  assert.match(verificationHtml, /My laptop/);
+  const confirmation = verificationHtml.match(/name="confirmation" value="([^"]+)"/)?.[1];
+  assert.ok(confirmation);
   assert.ok(writes.some(({ sql }) => sql.includes("confirmation_hash")));
 
   await assert.rejects(
@@ -69,11 +78,8 @@ test("device verification requires a manually entered code and a matching browse
 
   const approved = await approveDeviceAuthorization(new Request("https://api.example/v1/auth/device/approve", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Cookie: cookie.split(";")[0],
-    },
-    body: "user_code=ABCD-2345",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ user_code: "ABCD-2345", confirmation }),
   }), env);
   assert.equal(approved.status, 302);
   assert.equal(new URL(approved.headers.get("location")).hostname, "github.com");

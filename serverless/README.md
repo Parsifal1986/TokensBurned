@@ -73,6 +73,10 @@ Harness plugins use a short-lived TokensBurned device code:
 4. Poll `POST /v1/auth/device/status` at the returned interval.
 5. Store the returned `tb_live_…` device token in the harness secret store.
 
+The confirmation page carries a one-time, server-hashed nonce in its approval
+form, so the flow also works in privacy-focused and embedded browsers that do
+not persist cookies between form submissions.
+
 The GitHub user access token is used once to read `/user` and is never stored.
 Device authorizations can be claimed only once. Device tokens are returned only
 to the waiting client, expire after 180 days, and are stored server-side as keyed
