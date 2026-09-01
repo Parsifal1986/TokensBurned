@@ -12,6 +12,7 @@ import {
 } from "../src/oauth.js";
 import { updatePrivacy } from "../src/privacy.js";
 import { enforceRateLimit } from "../src/rate-limit.js";
+import { handleRequest } from "../src/index.js";
 
 function statement(first, run = async () => ({ meta: { changes: 1 } })) {
   return {
@@ -55,6 +56,14 @@ test("device verification works without persistent browser cookies", async () =>
   assert.match(await landing.text(), /Enter the code shown/);
   assert.equal(landing.headers.get("Referrer-Policy"), "no-referrer");
 
+  const completeLanding = deviceVerificationPage(
+    new Request("https://api.example/v1/auth/device/verify?user_code=abcd-2345"),
+  );
+  const completeHtml = await completeLanding.text();
+  assert.match(completeHtml, /Code: <b>ABCD-2345<\/b>/);
+  assert.match(completeHtml, /type="hidden" name="user_code" value="ABCD-2345"/);
+  assert.doesNotMatch(completeHtml, /autocomplete="one-time-code"/);
+
   const verified = await verifyDeviceAuthorization(new Request("https://api.example/v1/auth/device/verify", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -86,7 +95,7 @@ test("device verification works without persistent browser cookies", async () =>
   assert.match(approved.headers.get("set-cookie"), /Max-Age=0/);
 });
 
-test("device start returns no auto-authorizing URL and authorization can be claimed only once", async () => {
+test("complete verification URL still requires confirmation and can be claimed only once", async () => {
   const state = { authorization: null, deviceId: null };
   const env = {
     API_ORIGIN: "https://api.example",
@@ -143,7 +152,10 @@ test("device start returns no auto-authorizing URL and authorization can be clai
   }), env, Date.now());
   const body = await started.json();
   assert.equal(body.verification_uri, "https://api.example/v1/auth/device/verify");
-  assert.equal(body.verification_uri_complete, undefined);
+  assert.equal(
+    body.verification_uri_complete,
+    `https://api.example/v1/auth/device/verify?user_code=${body.user_code}`,
+  );
 
   const first = await pollDeviceAuthorization(new Request("https://api.example/v1/auth/device/status", {
     method: "POST",
@@ -162,6 +174,22 @@ test("device start returns no auto-authorizing URL and authorization can be clai
     }), env),
     (error) => error instanceof HttpError && error.code === "invalid_grant",
   );
+});
+
+test("client version metadata is public and cache-safe", async () => {
+  const response = await handleRequest(
+    new Request("https://api.example/v1/client/version"),
+    {},
+    { waitUntil() {} },
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await response.json(), {
+    latest_version: "0.4.1",
+    minimum_supported_version: "0.4.0",
+    update_url: "https://github.com/Parsifal1986/TokensBurned#install",
+    check_interval_seconds: 86400,
+  });
 });
 
 test("expired device tokens are rejected", async () => {

@@ -56,6 +56,7 @@ codex plugin add tokensburned@tokensburned</code></pre>
       <pre><code>$tokensburned:connect
 $tokensburned:backfill
 $tokensburned:server</code></pre>
+      <p>The client checks for a newer release at most once per day and asks you to update through the plugin manager.</p>
     </td>
   </tr>
   <tr>
