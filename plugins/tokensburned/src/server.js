@@ -24,6 +24,7 @@ async function request(pathname, {
   body,
   token,
   fetchImpl = globalThis.fetch,
+  timeoutMs = 15_000,
 } = {}) {
   const headers = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
@@ -34,7 +35,7 @@ async function request(pathname, {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {
     throw new Error(`TokensBurned server is unavailable: ${error.message}`);
@@ -69,6 +70,10 @@ export function pollDeviceAuthorization(deviceCode, options = {}) {
     method: "POST",
     body: { device_code: deviceCode },
   });
+}
+
+export function fetchClientRelease(options = {}) {
+  return request("/v1/client/version", { ...options, timeoutMs: 3_000 });
 }
 
 export async function uploadEntries(entries, { token, ...options } = {}) {

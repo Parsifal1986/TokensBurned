@@ -42,6 +42,12 @@ export function defaultConfig() {
       credential_expires_at: null,
       backfill_completed_at: null,
     },
+    updates: {
+      last_checked_at: null,
+      latest_version: null,
+      minimum_supported_version: null,
+      update_url: null,
+    },
   };
 }
 
@@ -84,6 +90,7 @@ export async function readConfig() {
     sync: { ...defaults.sync, ...stored.sync },
     privacy: { ...defaults.privacy, ...stored.privacy },
     server: { ...defaults.server, ...stored.server },
+    updates: { ...defaults.updates, ...stored.updates },
   };
 }
 
