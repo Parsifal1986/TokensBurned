@@ -46,6 +46,16 @@ function page(body, status = 200, headers = {}) {
   });
 }
 
+export function oauthErrorPage(error) {
+  const expired = new Set([
+    "invalid_user_code",
+    "invalid_confirmation",
+    "invalid_oauth_state",
+  ]).has(error?.code);
+  const title = expired ? "Connection expired" : "Connection interrupted";
+  return page(`<h1>${title}</h1><p>${escapeHtml(error?.message || "The connection could not be completed.")}</p><p>Return to Codex or Claude Code and run the TokensBurned connect command again. The terminal waits for authorization and will continue automatically after GitHub succeeds.</p><form method="get" action="/v1/auth/device/verify"><button type="submit">Enter a new device code</button></form>`, Number(error?.status || 400));
+}
+
 function cookieValue(request, name) {
   const cookie = request.headers.get("cookie") || "";
   for (const part of cookie.split(";")) {
@@ -93,9 +103,7 @@ export function deviceVerificationPage(request) {
   return page(`<h1>Connect TokensBurned</h1><form method="post" action="/v1/auth/device/verify">${codeField}<button type="submit">Continue</button></form>`);
 }
 
-export async function verifyDeviceAuthorization(request, env, now = Date.now()) {
-  const form = await readForm(request);
-  const userCode = String(form.get("user_code") || "").trim().toUpperCase();
+async function createDeviceConfirmation(userCode, env, now, notice = "") {
   const auth = await env.DB.prepare(
     `SELECT id, user_code, device_name FROM device_authorizations
       WHERE user_code = ? AND status = 'pending' AND expires_at > ?`,
@@ -107,9 +115,16 @@ export async function verifyDeviceAuthorization(request, env, now = Date.now()) 
     "UPDATE device_authorizations SET confirmation_hash = ? WHERE id = ?",
   ).bind(confirmationHash, auth.id).run();
 
-  return page(`<h1>Confirm this device</h1><p>Code: <b>${escapeHtml(auth.user_code)}</b></p><p>Device: <b>${escapeHtml(auth.device_name)}</b></p><p class="warning">Continue only if you personally started this connection on that device. TokensBurned will verify your GitHub identity; publishing a profile card remains off by default.</p><form method="post" action="/v1/auth/device/approve"><input type="hidden" name="user_code" value="${escapeHtml(auth.user_code)}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}"><button type="submit">Authorize with GitHub</button></form>`, 200, {
+  const recoveryNotice = notice ? `<p class="warning">${escapeHtml(notice)}</p>` : "";
+  return page(`<h1>Confirm this device</h1>${recoveryNotice}<p>Code: <b>${escapeHtml(auth.user_code)}</b></p><p>Device: <b>${escapeHtml(auth.device_name)}</b></p><p class="warning">Continue only if you personally started this connection on that device. TokensBurned will verify your GitHub identity; publishing a profile card remains off by default.</p><form method="post" action="/v1/auth/device/approve"><input type="hidden" name="user_code" value="${escapeHtml(auth.user_code)}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}"><button type="submit">Authorize with GitHub</button></form>`, 200, {
     "Set-Cookie": `${CONFIRMATION_COOKIE}=${encodeURIComponent(confirmation)}; Path=/v1/auth/device; Max-Age=600; Secure; HttpOnly; SameSite=Strict`,
   });
+}
+
+export async function verifyDeviceAuthorization(request, env, now = Date.now()) {
+  const form = await readForm(request);
+  const userCode = String(form.get("user_code") || "").trim().toUpperCase();
+  return createDeviceConfirmation(userCode, env, now);
 }
 
 export async function approveDeviceAuthorization(request, env, now = Date.now()) {
@@ -120,14 +135,28 @@ export async function approveDeviceAuthorization(request, env, now = Date.now())
   // while retaining the cookie as a fallback for pages opened before rollout.
   const confirmation = String(form.get("confirmation") || "")
     || cookieValue(request, CONFIRMATION_COOKIE);
-  if (!confirmation) throw new HttpError(400, "invalid_confirmation", "Device confirmation is missing or expired.");
+  if (!confirmation) {
+    return createDeviceConfirmation(
+      userCode,
+      env,
+      now,
+      "This browser lost its confirmation. Review the device and authorize once more.",
+    );
+  }
   const confirmationHash = await hashDeviceSecret(confirmation, env.TOKEN_PEPPER);
   const auth = await env.DB.prepare(
     `SELECT id FROM device_authorizations
       WHERE user_code = ? AND confirmation_hash = ?
         AND status = 'pending' AND expires_at > ?`,
   ).bind(userCode, confirmationHash, new Date(now).toISOString()).first();
-  if (!auth) throw new HttpError(400, "invalid_confirmation", "Device confirmation is invalid or expired.");
+  if (!auth) {
+    return createDeviceConfirmation(
+      userCode,
+      env,
+      now,
+      "This confirmation was stale or already used. Review the device and authorize once more.",
+    );
+  }
 
   const state = randomId(32);
   const stateHash = await hashDeviceSecret(state, env.TOKEN_PEPPER);
@@ -221,7 +250,7 @@ export async function githubCallback(request, env, now = Date.now()) {
       WHERE id = ?`,
   ).bind(user.id, timestamp, auth.id).run();
 
-  return page("<h1>TokensBurned connected</h1><p>You can close this tab and return to your coding harness.</p>");
+  return page("<h1>TokensBurned connected</h1><p>You can close this tab and return to Codex or Claude Code. The waiting connect command will continue automatically.</p>");
 }
 
 export async function pollDeviceAuthorization(request, env, now = Date.now()) {

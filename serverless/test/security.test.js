@@ -6,13 +6,14 @@ import { HttpError } from "../src/http.js";
 import {
   approveDeviceAuthorization,
   deviceVerificationPage,
+  oauthErrorPage,
   pollDeviceAuthorization,
   startDeviceAuthorization,
   verifyDeviceAuthorization,
 } from "../src/oauth.js";
 import { updatePrivacy } from "../src/privacy.js";
 import { enforceRateLimit } from "../src/rate-limit.js";
-import { handleRequest } from "../src/index.js";
+import worker, { handleRequest } from "../src/index.js";
 
 function statement(first, run = async () => ({ meta: { changes: 1 } })) {
   return {
@@ -77,22 +78,57 @@ test("device verification works without persistent browser cookies", async () =>
   assert.ok(confirmation);
   assert.ok(writes.some(({ sql }) => sql.includes("confirmation_hash")));
 
-  await assert.rejects(
-    () => approveDeviceAuthorization(new Request("https://api.example/v1/auth/device/approve", {
-      method: "POST",
-      body: "user_code=ABCD-2345",
-    }), env),
-    (error) => error instanceof HttpError && error.code === "invalid_confirmation",
-  );
+  const recovered = await approveDeviceAuthorization(new Request("https://api.example/v1/auth/device/approve", {
+    method: "POST",
+    body: "user_code=ABCD-2345",
+  }), env);
+  const recoveryHtml = await recovered.text();
+  assert.match(recoveryHtml, /browser lost its confirmation/);
+  const recoveredConfirmation = recoveryHtml.match(/name="confirmation" value="([^"]+)"/)?.[1];
+  assert.ok(recoveredConfirmation);
+  assert.notEqual(recoveredConfirmation, confirmation);
 
   const approved = await approveDeviceAuthorization(new Request("https://api.example/v1/auth/device/approve", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ user_code: "ABCD-2345", confirmation }),
+    body: new URLSearchParams({ user_code: "ABCD-2345", confirmation: recoveredConfirmation }),
   }), env);
   assert.equal(approved.status, 302);
   assert.equal(new URL(approved.headers.get("location")).hostname, "github.com");
   assert.match(approved.headers.get("set-cookie"), /Max-Age=0/);
+});
+
+test("browser OAuth failures render recovery HTML instead of JSON", async () => {
+  const direct = oauthErrorPage(new HttpError(
+    400,
+    "invalid_confirmation",
+    "Device confirmation is missing or expired.",
+  ));
+  assert.match(direct.headers.get("content-type"), /text\/html/);
+  assert.match(await direct.text(), /Connection expired/);
+
+  const env = {
+    TOKEN_PEPPER: "pepper",
+    DB: {
+      prepare(sql) {
+        if (sql.includes("INSERT INTO rate_limits")) {
+          return statement(async () => ({ count: 1 }));
+        }
+        return statement(async () => null);
+      },
+    },
+  };
+  const response = await worker.fetch(
+    new Request("https://api.example/v1/auth/github/callback"),
+    env,
+    { waitUntil() {} },
+  );
+  assert.equal(response.status, 400);
+  assert.match(response.headers.get("content-type"), /text\/html/);
+  const html = await response.text();
+  assert.match(html, /Connection interrupted/);
+  assert.match(html, /return to Codex or Claude Code/i);
+  assert.doesNotMatch(html, /"error"/);
 });
 
 test("complete verification URL still requires confirmation and can be claimed only once", async () => {
