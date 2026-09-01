@@ -30,6 +30,7 @@ import {
   writeStats,
   writeSvg,
 } from "./storage.js";
+import { checkForUpdate } from "./update.js";
 import {
   deleteServerData,
   fetchServerSummary,
@@ -302,6 +303,24 @@ function wait(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+async function reportAvailableUpdate(config, { force = false } = {}) {
+  if (process.env.TOKENSBURNED_DISABLE_UPDATE_CHECK === "1") return;
+  try {
+    const result = await checkForUpdate(config, { force });
+    if (!result.checked) return;
+    await writeConfig(config);
+    if (result.notice) {
+      console.log(`\n${color("↑", "orange")} ${result.notice}`);
+      if (result.release?.update_url) console.log(`  ${result.release.update_url}`);
+      console.log("  Update from your plugin manager, then start a new session.\n");
+    } else if (force) {
+      console.log(`${color("✓", "green")} TokensBurned ${VERSION} is current.\n`);
+    }
+  } catch (error) {
+    if (force) console.log(`○ Update check unavailable: ${error.message}\n`);
+  }
+}
+
 async function backfillHistory({
   harnesses,
   filesByHarness,
@@ -358,12 +377,14 @@ async function connect(args) {
     apiOrigin,
     deviceName: `TokensBurned on ${process.platform}`,
   });
-  const verificationUrl = new URL(authorization.verification_uri);
+  const verificationUrl = new URL(
+    authorization.verification_uri_complete || authorization.verification_uri,
+  );
   if (verificationUrl.origin !== new URL(apiOrigin).origin) {
     throw new Error("The server returned a verification URL on a different origin.");
   }
   console.log(`\n${color("🔥 Connect TokensBurned", "orange")}\n`);
-  console.log(`Open this URL, enter the code, and confirm the device name:\n\n${verificationUrl.toString()}\n\nCode: ${authorization.user_code}\n`);
+  console.log(`Open this URL and confirm the device name:\n\n${verificationUrl.toString()}\n\nManual fallback code: ${authorization.user_code}\n`);
   console.log("Only continue if you started this request. Public profile cards remain off unless you explicitly enable one.");
   if (!has(args, "--no-open")) openBrowser(verificationUrl.toString());
 
@@ -396,6 +417,7 @@ async function connect(args) {
     credential_expires_at: result.expires_at || null,
   };
   await writeConfig(config);
+  await reportAvailableUpdate(config);
   console.log(`${color("✓", "green")} Connected as ${result.user?.github_login || "GitHub user"}.`);
   console.log("Public card: off by default.");
 
@@ -447,6 +469,7 @@ async function serverStatus() {
   console.log(`All time: ${formatTokens(summary.all_time_tokens)} tokens`);
   console.log(`Last 7 days: ${formatTokens(summary.week_tokens)} tokens`);
   console.log(`Public card: ${privacy.public_card ? privacy.card_url : "off"}`);
+  await reportAvailableUpdate(config);
 }
 
 async function setup(args) {
@@ -499,6 +522,7 @@ async function doctor() {
     console.log(`  expires: ${credentials.expires_at || config.server.credential_expires_at || "unknown; reconnect recommended"}\n`);
   }
   console.log(`Privacy\n✓ Public server card: ${config.server.card_url ? config.server.card_url : "off"}\n✓ Session history is read only after explicit backfill consent or at SessionEnd\n✓ Only allow-listed numeric usage metadata is retained\n✓ Prompts, responses, tool payloads, source code and paths are never uploaded\n✓ No API keys read\n✓ No traffic interception\n`);
+  await reportAvailableUpdate(config, { force: true });
 }
 
 async function installHooks(args) {
@@ -646,6 +670,8 @@ export async function runCli(args) {
   switch (command) {
     case "status": {
       printStatus(summarize(await readStats()));
+      const config = await readConfig();
+      if (config.server.enabled) await reportAvailableUpdate(config);
       return;
     }
     case "ingest": return ingest(rest);

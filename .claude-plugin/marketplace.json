@@ -9,7 +9,7 @@
       "name": "tokensburned",
       "source": "./plugins/tokensburned",
       "description": "Privacy-first AI coding token activity with optional history backfill and a live GitHub profile card.",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "category": "developer-tools",
       "tags": ["tokens", "analytics", "github-profile", "privacy"]
     }

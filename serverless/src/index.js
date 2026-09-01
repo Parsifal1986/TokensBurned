@@ -14,6 +14,7 @@ import {
 } from "./oauth.js";
 import { getPrivacy, updatePrivacy } from "./privacy.js";
 import { enforceRateLimit } from "./rate-limit.js";
+import { clientRelease } from "./release.js";
 import { summarizeUser } from "./summary.js";
 
 function withCors(response, request, env) {
@@ -159,6 +160,9 @@ export async function handleRequest(request, env, ctx) {
   if (url.pathname === "/health" && request.method === "GET") {
     return json({ ok: true, service: "tokensburned-api", version: 2 });
   }
+  if (url.pathname === "/v1/client/version" && request.method === "GET") {
+    return json(clientRelease());
+  }
   if (url.pathname === "/v1/admin/bootstrap" && request.method === "POST") {
     return bootstrap(request, env);
   }
@@ -172,7 +176,7 @@ export async function handleRequest(request, env, ctx) {
   }
   if (url.pathname === "/v1/auth/device/verify" && request.method === "GET") {
     await enforceRateLimit(env, request, "device-verify", { limit: 30 });
-    return deviceVerificationPage();
+    return deviceVerificationPage(request);
   }
   if (url.pathname === "/v1/auth/device/verify" && request.method === "POST") {
     await enforceRateLimit(env, request, "device-verify", { limit: 30 });

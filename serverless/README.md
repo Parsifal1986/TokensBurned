@@ -68,7 +68,7 @@ Store `GITHUB_CLIENT_SECRET`, `TOKEN_PEPPER`, and `BOOTSTRAP_SECRET` only with
 Harness plugins use a short-lived TokensBurned device code:
 
 1. `POST /v1/auth/device/start` with a display-only `device_name`.
-2. Open the returned `verification_uri`, manually enter the displayed `user_code`, and verify the requesting device name.
+2. Open the returned `verification_uri_complete`, which fills the short code automatically, and verify the requesting device name. The plain `verification_uri` and displayed `user_code` remain available as a manual fallback.
 3. Confirm in that browser, then authorize the TokensBurned GitHub App, which only verifies identity.
 4. Poll `POST /v1/auth/device/status` at the returned interval.
 5. Store the returned `tb_live_…` device token in the harness secret store.
@@ -81,6 +81,10 @@ The GitHub user access token is used once to read `/user` and is never stored.
 Device authorizations can be claimed only once. Device tokens are returned only
 to the waiting client, expire after 180 days, and are stored server-side as keyed
 hashes. Public cards remain disabled until a separate authenticated privacy update.
+
+Clients can check `GET /v1/client/version` at most once per day for the latest
+and minimum supported release. The check only reports an available update;
+the user's plugin manager remains responsible for installing it.
 
 ## Ingestion endpoints
 
@@ -95,6 +99,7 @@ hashes. Public cards remain disabled until a separate authenticated privacy upda
 | `PUT /v1/me/privacy` | Replace the public-card policy; every field is required. |
 | `DELETE /v1/me/device` | Revoke the current device credential. |
 | `DELETE /v1/me/data` | Delete the authenticated user's usage, devices, account, and card. |
+| `GET /v1/client/version` | Public latest/minimum client release metadata for daily update checks. |
 | `GET /v1/cards/u/:slug.svg` | Public SVG card. Supports `layout`, `heatmap`, `compare`, `rank`, `meme`, and `theme=auto|light|dark`. |
 
 All write and self-service endpoints except device authorization require

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  fetchClientRelease,
   pollDeviceAuthorization,
   startDeviceAuthorization,
   uploadEntries,
@@ -27,6 +28,20 @@ test("device flow sends only the device name and opaque device code", async () =
     { device_name: "Codex" },
     { device_code: "opaque" },
   ]);
+});
+
+test("client release check uses the public version endpoint", async () => {
+  const calls = [];
+  const release = await fetchClientRelease({
+    apiOrigin: "https://api.example",
+    fetchImpl: async (url, init) => {
+      calls.push({ url, init });
+      return response({ latest_version: "0.4.1", minimum_supported_version: "0.4.0" });
+    },
+  });
+  assert.equal(release.latest_version, "0.4.1");
+  assert.equal(calls[0].url, "https://api.example/v1/client/version");
+  assert.equal(calls[0].init.method, "GET");
 });
 
 test("batch uploader chunks entries and keeps the bearer token out of payloads", async () => {

@@ -71,17 +71,26 @@ export async function startDeviceAuthorization(request, env, now = Date.now()) {
   await env.DB.prepare("DELETE FROM device_authorizations WHERE expires_at <= ?")
     .bind(createdAt).run();
   const apiOrigin = required(env, "API_ORIGIN").replace(/\/$/, "");
+  const verificationUri = `${apiOrigin}/v1/auth/device/verify`;
   return json({
     device_code: deviceCode,
     user_code: userCode,
-    verification_uri: `${apiOrigin}/v1/auth/device/verify`,
+    verification_uri: verificationUri,
+    verification_uri_complete: `${verificationUri}?user_code=${encodeURIComponent(userCode)}`,
     expires_in: 600,
     interval: 5,
   }, 201);
 }
 
-export function deviceVerificationPage() {
-  return page(`<h1>Connect TokensBurned</h1><p>Enter the code shown by the TokensBurned client. Never use a code sent by another person.</p><form method="post" action="/v1/auth/device/verify"><label>Device code<input name="user_code" autocomplete="one-time-code" inputmode="text" maxlength="9" required></label><button type="submit">Continue</button></form>`);
+export function deviceVerificationPage(request) {
+  const suppliedCode = request
+    ? String(new URL(request.url).searchParams.get("user_code") || "").trim().toUpperCase()
+    : "";
+  const userCode = /^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(suppliedCode) ? suppliedCode : "";
+  const codeField = userCode
+    ? `<p>Code: <b>${escapeHtml(userCode)}</b></p><input type="hidden" name="user_code" value="${escapeHtml(userCode)}">`
+    : `<p>Enter the code shown by the TokensBurned client. Never use a code sent by another person.</p><label>Device code<input name="user_code" autocomplete="one-time-code" inputmode="text" maxlength="9" required></label>`;
+  return page(`<h1>Connect TokensBurned</h1><form method="post" action="/v1/auth/device/verify">${codeField}<button type="submit">Continue</button></form>`);
 }
 
 export async function verifyDeviceAuthorization(request, env, now = Date.now()) {
