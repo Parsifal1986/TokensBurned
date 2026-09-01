@@ -65,6 +65,20 @@ function cookieValue(request, name) {
   return "";
 }
 
+function isSameOriginBrowserPost(request, env) {
+  const expectedOrigin = new URL(required(env, "API_ORIGIN")).origin;
+  const presentedOrigin = request.headers.get("origin");
+  if (presentedOrigin) {
+    try {
+      return new URL(presentedOrigin).origin === expectedOrigin;
+    } catch {
+      return false;
+    }
+  }
+  return request.headers.get("sec-fetch-site") === "same-origin"
+    && new URL(request.url).origin === expectedOrigin;
+}
+
 export async function startDeviceAuthorization(request, env, now = Date.now()) {
   const body = await readJson(request, 8 * 1024);
   const id = `auth_${randomId(12)}`;
@@ -116,7 +130,7 @@ async function createDeviceConfirmation(userCode, env, now, notice = "") {
   ).bind(confirmationHash, auth.id).run();
 
   const recoveryNotice = notice ? `<p class="warning">${escapeHtml(notice)}</p>` : "";
-  return page(`<h1>Confirm this device</h1>${recoveryNotice}<p>Code: <b>${escapeHtml(auth.user_code)}</b></p><p>Device: <b>${escapeHtml(auth.device_name)}</b></p><p class="warning">Continue only if you personally started this connection on that device. TokensBurned will verify your GitHub identity; publishing a profile card remains off by default.</p><form method="post" action="/v1/auth/device/approve"><input type="hidden" name="user_code" value="${escapeHtml(auth.user_code)}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}"><button type="submit">Authorize with GitHub</button></form>`, 200, {
+  return page(`<h1>Confirm this device</h1>${recoveryNotice}<p>Code: <b>${escapeHtml(auth.user_code)}</b></p><p>Device: <b>${escapeHtml(auth.device_name)}</b></p><p class="warning">Continue only if you personally started this connection on that device. TokensBurned will verify your GitHub identity; publishing a profile card remains off by default.</p><form method="post" action="/v1/auth/device/approve?confirmation=${encodeURIComponent(confirmation)}"><input type="hidden" name="user_code" value="${escapeHtml(auth.user_code)}"><button type="submit">Authorize with GitHub</button></form>`, 200, {
     "Set-Cookie": `${CONFIRMATION_COOKIE}=${encodeURIComponent(confirmation)}; Path=/v1/auth/device; Max-Age=600; Secure; HttpOnly; SameSite=Strict`,
   });
 }
@@ -130,31 +144,37 @@ export async function verifyDeviceAuthorization(request, env, now = Date.now()) 
 export async function approveDeviceAuthorization(request, env, now = Date.now()) {
   const form = await readForm(request);
   const userCode = String(form.get("user_code") || "").trim().toUpperCase();
-  // Some in-app browsers do not persist cookies between these two form posts.
-  // Bind approval to the one-time nonce embedded in the server-rendered page,
-  // while retaining the cookie as a fallback for pages opened before rollout.
-  const confirmation = String(form.get("confirmation") || "")
+  // Put the primary nonce in the form action because some in-app browsers lose
+  // hidden fields and cookies. Keep both older transports as rollout fallbacks.
+  const confirmation = String(new URL(request.url).searchParams.get("confirmation") || "")
+    || String(form.get("confirmation") || "")
     || cookieValue(request, CONFIRMATION_COOKIE);
-  if (!confirmation) {
-    return createDeviceConfirmation(
-      userCode,
-      env,
-      now,
-      "This browser lost its confirmation. Review the device and authorize once more.",
-    );
+  let auth = null;
+  if (confirmation) {
+    const confirmationHash = await hashDeviceSecret(confirmation, env.TOKEN_PEPPER);
+    auth = await env.DB.prepare(
+      `SELECT id FROM device_authorizations
+        WHERE user_code = ? AND confirmation_hash = ?
+          AND status = 'pending' AND expires_at > ?`,
+    ).bind(userCode, confirmationHash, new Date(now).toISOString()).first();
   }
-  const confirmationHash = await hashDeviceSecret(confirmation, env.TOKEN_PEPPER);
-  const auth = await env.DB.prepare(
-    `SELECT id FROM device_authorizations
-      WHERE user_code = ? AND confirmation_hash = ?
-        AND status = 'pending' AND expires_at > ?`,
-  ).bind(userCode, confirmationHash, new Date(now).toISOString()).first();
+
+  // Legacy confirmation pages may have no usable nonce. A same-origin browser
+  // POST proves the click came from our review page, so it can continue without
+  // forcing a confusing second confirmation. Cross-origin posts still require
+  // a valid one-time nonce.
+  if (!auth && isSameOriginBrowserPost(request, env)) {
+    auth = await env.DB.prepare(
+      `SELECT id FROM device_authorizations
+        WHERE user_code = ? AND status = 'pending' AND expires_at > ?`,
+    ).bind(userCode, new Date(now).toISOString()).first();
+  }
   if (!auth) {
     return createDeviceConfirmation(
       userCode,
       env,
       now,
-      "This confirmation was stale or already used. Review the device and authorize once more.",
+      "This browser could not prove the previous confirmation. Review the device and authorize once more.",
     );
   }
 

@@ -39,9 +39,10 @@ test("device verification works without persistent browser cookies", async () =>
           return statement(async () => ({ id: "auth_1", user_code: "ABCD-2345", device_name: "My laptop" }));
         }
         if (sql.includes("SELECT id FROM device_authorizations")) {
-          return statement(async (params) => (
-            params[1] === expectedConfirmationHash ? { id: "auth_1" } : null
-          ));
+          return statement(async (params) => {
+            if (!sql.includes("confirmation_hash")) return { id: "auth_1" };
+            return params[1] === expectedConfirmationHash ? { id: "auth_1" } : null;
+          });
         }
         return statement(async () => null, async (params) => {
           if (sql.includes("SET confirmation_hash = ?")) {
@@ -74,28 +75,41 @@ test("device verification works without persistent browser cookies", async () =>
   assert.match(cookie, /Secure; HttpOnly; SameSite=Strict/);
   const verificationHtml = await verified.text();
   assert.match(verificationHtml, /My laptop/);
-  const confirmation = verificationHtml.match(/name="confirmation" value="([^"]+)"/)?.[1];
+  const confirmation = verificationHtml.match(/approve\?confirmation=([^"]+)/)?.[1];
   assert.ok(confirmation);
+  assert.doesNotMatch(verificationHtml, /name="confirmation"/);
   assert.ok(writes.some(({ sql }) => sql.includes("confirmation_hash")));
 
   const recovered = await approveDeviceAuthorization(new Request("https://api.example/v1/auth/device/approve", {
     method: "POST",
+    headers: { Origin: "https://evil.example" },
     body: "user_code=ABCD-2345",
   }), env);
   const recoveryHtml = await recovered.text();
-  assert.match(recoveryHtml, /browser lost its confirmation/);
-  const recoveredConfirmation = recoveryHtml.match(/name="confirmation" value="([^"]+)"/)?.[1];
+  assert.match(recoveryHtml, /could not prove the previous confirmation/);
+  const recoveredConfirmation = recoveryHtml.match(/approve\?confirmation=([^"]+)/)?.[1];
   assert.ok(recoveredConfirmation);
   assert.notEqual(recoveredConfirmation, confirmation);
 
-  const approved = await approveDeviceAuthorization(new Request("https://api.example/v1/auth/device/approve", {
+  const approved = await approveDeviceAuthorization(new Request(`https://api.example/v1/auth/device/approve?confirmation=${recoveredConfirmation}`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ user_code: "ABCD-2345", confirmation: recoveredConfirmation }),
+    body: new URLSearchParams({ user_code: "ABCD-2345" }),
   }), env);
   assert.equal(approved.status, 302);
   assert.equal(new URL(approved.headers.get("location")).hostname, "github.com");
   assert.match(approved.headers.get("set-cookie"), /Max-Age=0/);
+
+  const legacyApproved = await approveDeviceAuthorization(new Request("https://api.example/v1/auth/device/approve", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Origin: "https://api.example",
+    },
+    body: new URLSearchParams({ user_code: "ABCD-2345" }),
+  }), env);
+  assert.equal(legacyApproved.status, 302);
+  assert.equal(new URL(legacyApproved.headers.get("location")).hostname, "github.com");
 });
 
 test("browser OAuth failures render recovery HTML instead of JSON", async () => {
