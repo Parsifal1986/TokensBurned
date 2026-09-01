@@ -78,7 +78,9 @@ URL, so the first click proceeds even in privacy-focused and embedded browsers
 that lose cookies or hidden form fields between submissions. Same-origin posts
 from older confirmation pages also proceed without an extra review click;
 cross-origin posts still require a valid nonce. Browser-facing OAuth failures
-render an HTML recovery page rather than a JSON API error.
+render an HTML recovery page rather than a JSON API error. The page CSP allows
+form navigation only to TokensBurned and GitHub so Safari can follow the OAuth
+redirect without broadening the destination policy.
 
 The GitHub user access token is used once to read `/user` and is never stored.
 Device authorizations can be claimed only once. Device tokens are returned only
