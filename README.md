@@ -114,7 +114,7 @@ tokensburned doctor</code></pre>
 
 ## Build your profile card
 
-First opt in with `tokensburned privacy public`. This publishes totals, harness/provider/model breakdowns, activity heatmaps, rank, and your GitHub identity. Then open the [interactive card builder](https://tokensburned.com/#card-builder), enter your GitHub username, choose a preset, and copy the generated Markdown. Query parameters can hide published sections, but cannot enable fields disabled by the account's server-side policy.
+First opt in with `tokensburned privacy public`. This publishes totals, harness/provider/model breakdowns, activity heatmaps, rank, and your GitHub identity. The policy belongs to the verified GitHub account, so every connected device inherits the same choice without asking again. Then open the [interactive card builder](https://tokensburned.com/#card-builder), enter your GitHub username, choose a preset, and copy the generated Markdown. Query parameters can hide published sections, but cannot enable fields disabled by the account's server-side policy.
 
 The full card is the default:
 
@@ -166,7 +166,7 @@ tokensburned connect
 | `tokensburned backfill --all-harnesses --days 30` | Explicitly import every recognized local harness. |
 | `tokensburned server` | Show server totals and the public SVG URL. |
 | `tokensburned update` | Force a release check and print the current harness's plugin-manager command when an update is available. |
-| `tokensburned privacy` | Show the current public-card policy without changing it. |
+| `tokensburned privacy` | Show the GitHub account's current public-card policy without changing it. |
 | `tokensburned privacy public` | Explicitly publish aggregate activity tied to your GitHub identity. |
 | `tokensburned privacy private` | Disable the public route and remove the cached SVG. |
 | `tokensburned disconnect` | Revoke this device credential and remove the local connection. |

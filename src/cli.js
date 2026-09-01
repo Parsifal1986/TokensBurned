@@ -407,6 +407,10 @@ async function connect(args) {
     device_token: result.token,
     expires_at: result.expires_at || null,
   });
+  const accountPrivacy = result.privacy || await fetchServerPrivacy({
+    token: result.token,
+    apiOrigin,
+  });
   const config = await readConfig();
   config.server = {
     ...config.server,
@@ -414,20 +418,24 @@ async function connect(args) {
     api_origin: apiOrigin,
     github_login: result.user?.github_login || null,
     public_slug: result.user?.public_slug || null,
-    card_url: result.card_url || null,
+    card_url: accountPrivacy.card_url,
     connected_at: new Date().toISOString(),
     credential_expires_at: result.expires_at || null,
+    privacy: null,
   };
+  rememberAccountPrivacy(config, accountPrivacy);
   await writeConfig(config);
   await reportAvailableUpdate(config);
   console.log(`${color("✓", "green")} Connected as ${result.user?.github_login || "GitHub user"}.`);
-  console.log("Public card: off by default.");
 
   if (has(args, "--publish-card")) {
     const privacy = await setServerPrivacy(true, { config, credentials: { device_token: result.token } });
     console.log(`Public card enabled: ${privacy.card_url}`);
   } else {
-    console.log("Run `tokensburned privacy public` only when you want totals, tool/model breakdowns, activity heatmaps, and rank tied to your GitHub name to be public.");
+    console.log(`Public card: ${accountPrivacy.public_card ? accountPrivacy.card_url : "off"} (synced from this GitHub account).`);
+    if (!accountPrivacy.public_card) {
+      console.log("Run `tokensburned privacy public` only when you want totals, tool/model breakdowns, activity heatmaps, and rank tied to your GitHub name to be public.");
+    }
   }
 
   let shouldBackfill = has(args, "--backfill");
@@ -467,6 +475,8 @@ async function serverStatus() {
     fetchServerSummary(options),
     fetchServerPrivacy(options),
   ]);
+  rememberAccountPrivacy(config, privacy);
+  await writeConfig(config);
   console.log(`TokensBurned server: connected as ${config.server.github_login}`);
   console.log(`All time: ${formatTokens(summary.all_time_tokens)} tokens`);
   console.log(`Last 7 days: ${formatTokens(summary.week_tokens)} tokens`);
@@ -523,7 +533,24 @@ async function doctor() {
   if (credentials.device_token) {
     console.log(`  expires: ${credentials.expires_at || config.server.credential_expires_at || "unknown; reconnect recommended"}\n`);
   }
-  console.log(`Privacy\n✓ Public server card: ${config.server.card_url ? config.server.card_url : "off"}\n✓ Session history is read only after explicit backfill consent or at SessionEnd\n✓ Only allow-listed numeric usage metadata is retained\n✓ Prompts, responses, tool payloads, source code and paths are never uploaded\n✓ No API keys read\n✓ No traffic interception\n`);
+  let accountPrivacy = config.server.privacy;
+  if (config.server.enabled && credentials.device_token) {
+    try {
+      accountPrivacy = await fetchServerPrivacy({
+        token: credentials.device_token,
+        apiOrigin: config.server.api_origin || API_ORIGIN,
+      });
+      rememberAccountPrivacy(config, accountPrivacy);
+      await writeConfig(config);
+    } catch {
+      // Doctor remains useful offline and labels cached account state below.
+    }
+  }
+  const privacySource = accountPrivacy ? "GitHub account" : "local cache";
+  const publicCard = accountPrivacy?.public_card
+    ? accountPrivacy.card_url
+    : (!accountPrivacy && config.server.card_url ? config.server.card_url : "off");
+  console.log(`Privacy\n✓ Public server card: ${publicCard} (${privacySource})\n✓ Account privacy is shared by every device connected to the same GitHub account\n✓ Session history is read only after explicit backfill consent or at SessionEnd\n✓ Only allow-listed numeric usage metadata is retained\n✓ Prompts, responses, tool payloads, source code and paths are never uploaded\n✓ No API keys read\n✓ No traffic interception\n`);
   await reportAvailableUpdate(config, { force: true });
 }
 
@@ -544,6 +571,19 @@ function publicPrivacy(enabled) {
   };
 }
 
+function rememberAccountPrivacy(config, privacy) {
+  config.server.card_url = privacy.card_url;
+  config.server.privacy = {
+    public_card: privacy.public_card,
+    publish_harness: privacy.publish_harness,
+    publish_provider: privacy.publish_provider,
+    publish_model: privacy.publish_model,
+    publish_heatmap: privacy.publish_heatmap,
+    publish_rank: privacy.publish_rank,
+    card_url: privacy.card_url,
+  };
+}
+
 async function setServerPrivacy(enabled, { config, credentials } = {}) {
   const storedConfig = config || await readConfig();
   const storedCredentials = credentials || await readCredentials();
@@ -552,7 +592,7 @@ async function setServerPrivacy(enabled, { config, credentials } = {}) {
     token: storedCredentials.device_token,
     apiOrigin: storedConfig.server.api_origin || API_ORIGIN,
   });
-  storedConfig.server.card_url = privacy.card_url;
+  rememberAccountPrivacy(storedConfig, privacy);
   await writeConfig(storedConfig);
   return privacy;
 }
@@ -569,6 +609,8 @@ async function setPrivacy(args) {
       token: credentials.device_token,
       apiOrigin: config.server.api_origin || API_ORIGIN,
     });
+    rememberAccountPrivacy(config, privacy);
+    await writeConfig(config);
     console.log(`Public card: ${privacy.public_card ? privacy.card_url : "off"}`);
     console.log(`Harness breakdown: ${privacy.publish_harness ? "public" : "private"}`);
     console.log(`Provider breakdown: ${privacy.publish_provider ? "public" : "private"}`);
@@ -581,7 +623,6 @@ async function setPrivacy(args) {
   if (!new Set(["public", "private"]).has(value)) {
     throw new Error("Use `burn privacy`, `burn privacy public`, or `burn privacy private`.");
   }
-  config.privacy.publish_provider = value === "public";
   const privacy = await setServerPrivacy(value === "public", { config, credentials });
   if (value === "public") {
     console.log("Public visibility enabled for totals, harness/provider/model breakdowns, activity heatmaps, and rank.");
