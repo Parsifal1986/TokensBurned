@@ -1,6 +1,7 @@
 import { createDeviceCredential } from "./auth.js";
 import { hashDeviceSecret, randomId } from "./crypto.js";
 import { HttpError, json, readForm, readJson } from "./http.js";
+import { privacyResponse } from "./privacy.js";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const CONFIRMATION_COOKIE = "tb_device_confirm";
@@ -133,7 +134,7 @@ async function createDeviceConfirmation(userCode, env, now, notice = "") {
   ).bind(confirmationHash, auth.id).run();
 
   const recoveryNotice = notice ? `<p class="warning">${escapeHtml(notice)}</p>` : "";
-  return page(`<h1>Confirm this device</h1>${recoveryNotice}<p>Code: <b>${escapeHtml(auth.user_code)}</b></p><p>Device: <b>${escapeHtml(auth.device_name)}</b></p><p class="warning">Continue only if you personally started this connection on that device. TokensBurned will verify your GitHub identity; publishing a profile card remains off by default.</p><form method="post" action="/v1/auth/device/approve?confirmation=${encodeURIComponent(confirmation)}"><input type="hidden" name="user_code" value="${escapeHtml(auth.user_code)}"><button type="submit">Authorize with GitHub</button></form>`, 200, {
+  return page(`<h1>Confirm this device</h1>${recoveryNotice}<p>Code: <b>${escapeHtml(auth.user_code)}</b></p><p>Device: <b>${escapeHtml(auth.device_name)}</b></p><p class="warning">Continue only if you personally started this connection on that device. TokensBurned will verify your GitHub identity. Connecting does not change the account's existing privacy policy; new accounts start private.</p><form method="post" action="/v1/auth/device/approve?confirmation=${encodeURIComponent(confirmation)}"><input type="hidden" name="user_code" value="${escapeHtml(auth.user_code)}"><button type="submit">Authorize with GitHub</button></form>`, 200, {
     "Set-Cookie": `${CONFIRMATION_COOKIE}=${encodeURIComponent(confirmation)}; Path=/v1/auth/device; Max-Age=600; Secure; HttpOnly; SameSite=Strict`,
   });
 }
@@ -281,7 +282,9 @@ export async function pollDeviceAuthorization(request, env, now = Date.now()) {
   const deviceCode = String(body.device_code || "");
   const codeHash = await hashDeviceSecret(deviceCode, env.TOKEN_PEPPER);
   const auth = await env.DB.prepare(
-    `SELECT a.*, u.github_login, u.public_slug
+    `SELECT a.*, u.github_login, u.public_slug, u.public_card,
+            u.publish_harness, u.publish_provider, u.publish_model,
+            u.publish_heatmap, u.publish_rank
        FROM device_authorizations a
        LEFT JOIN users u ON u.id = a.user_id
       WHERE a.device_code_hash = ?`,
@@ -314,12 +317,16 @@ export async function pollDeviceAuthorization(request, env, now = Date.now()) {
         SET status = 'claimed', device_id = ?
       WHERE id = ? AND status = 'claiming'`,
   ).bind(credential.deviceId, auth.id).run();
+  const privacy = privacyResponse(auth, env);
   return json({
     status: "authorized",
     token: credential.token,
     expires_at: credential.expiresAt,
     user: { github_login: auth.github_login, public_slug: auth.public_slug },
-    card_url: null,
-    public_card: false,
+    privacy,
+    // Keep the two original top-level fields accurate for older clients while
+    // newer clients consume the complete account-scoped policy above.
+    card_url: privacy.card_url,
+    public_card: privacy.public_card,
   });
 }

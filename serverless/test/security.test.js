@@ -149,10 +149,11 @@ test("browser OAuth failures render recovery HTML instead of JSON", async () => 
   assert.doesNotMatch(html, /"error"/);
 });
 
-test("complete verification URL still requires confirmation and can be claimed only once", async () => {
+test("device connection inherits account privacy and can be claimed only once", async () => {
   const state = { authorization: null, deviceId: null };
   const env = {
     API_ORIGIN: "https://api.example",
+    CARD_ORIGIN: "https://api.example/v1/cards",
     TOKEN_PEPPER: "pepper",
     DB: {
       prepare(sql) {
@@ -168,6 +169,12 @@ test("complete verification URL still requires confirmation and can be claimed o
               user_id: "usr_1",
               github_login: "octocat",
               public_slug: "octocat",
+              public_card: 1,
+              publish_harness: 1,
+              publish_provider: 0,
+              publish_model: 1,
+              publish_heatmap: 0,
+              publish_rank: 1,
               claimed_at: null,
               device_id: null,
             };
@@ -216,8 +223,17 @@ test("complete verification URL still requires confirmation and can be claimed o
     body: JSON.stringify({ device_code: body.device_code }),
   }), env);
   const credential = await first.json();
-  assert.equal(credential.public_card, false);
-  assert.equal(credential.card_url, null);
+  assert.equal(credential.public_card, true);
+  assert.equal(credential.card_url, "https://api.example/v1/cards/u/octocat.svg");
+  assert.deepEqual(credential.privacy, {
+    public_card: true,
+    publish_harness: true,
+    publish_provider: false,
+    publish_model: true,
+    publish_heatmap: false,
+    publish_rank: true,
+    card_url: "https://api.example/v1/cards/u/octocat.svg",
+  });
   assert.ok(credential.expires_at);
   assert.ok(state.deviceId);
 
@@ -239,7 +255,7 @@ test("client version metadata is public and cache-safe", async () => {
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.deepEqual(await response.json(), {
-    latest_version: "0.5.0",
+    latest_version: "0.5.1",
     minimum_supported_version: "0.4.0",
     update_url: "https://github.com/Parsifal1986/TokensBurned#install",
     check_interval_seconds: 86400,

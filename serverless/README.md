@@ -85,7 +85,9 @@ redirect without broadening the destination policy.
 The GitHub user access token is used once to read `/user` and is never stored.
 Device authorizations can be claimed only once. Device tokens are returned only
 to the waiting client, expire after 180 days, and are stored server-side as keyed
-hashes. Public cards remain disabled until a separate authenticated privacy update.
+hashes. New accounts start private. Privacy policy is stored on the GitHub-backed
+user record, returned to each newly connected device, and is never reset by a
+later device connection.
 
 Clients can check `GET /v1/client/version` at most once per day for the latest
 and minimum supported release. The check only reports an available update;
