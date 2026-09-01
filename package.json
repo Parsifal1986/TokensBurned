@@ -1,6 +1,6 @@
 {
   "name": "burn-ai",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Privacy-first AI coding activity for your GitHub profile.",
   "type": "module",
   "bin": {

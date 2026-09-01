@@ -74,3 +74,14 @@ test("backfill defaults to the current harness and requires explicit cross-harne
   );
   await fs.rm(home, { recursive: true, force: true });
 });
+
+test("privacy commands refuse to claim success before connection", async () => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "tokensburned-privacy-"));
+  const env = { ...process.env, BURN_HOME: home, NO_COLOR: "1" };
+  await assert.rejects(
+    execFileAsync(process.execPath, [cli, "privacy", "public"], { env }),
+    (error) => /TokensBurned is not connected/.test(error.stderr)
+      && !/Public visibility enabled/.test(error.stdout),
+  );
+  await fs.rm(home, { recursive: true, force: true });
+});

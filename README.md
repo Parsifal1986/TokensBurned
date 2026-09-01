@@ -55,8 +55,11 @@ codex plugin add tokensburned@tokensburned</code></pre>
       <p>Start a new task, then use:</p>
       <pre><code>$tokensburned:connect
 $tokensburned:backfill
-$tokensburned:server</code></pre>
-      <p>The client checks for a newer release at most once per day and asks you to update through the plugin manager.</p>
+$tokensburned:server
+$tokensburned:privacy
+$tokensburned:update
+$tokensburned:doctor</code></pre>
+      <p>SessionStart checks for a newer release at most once per day. It prompts with the native plugin-manager command but never installs silently.</p>
     </td>
   </tr>
   <tr>
@@ -66,7 +69,10 @@ $tokensburned:server</code></pre>
       <pre><code>gemini extensions install https://github.com/Parsifal1986/TokensBurned
 gemini
 /tokensburned:connect
-/tokensburned:telemetry</code></pre>
+/tokensburned:telemetry
+/tokensburned:privacy
+/tokensburned:update
+/tokensburned:doctor</code></pre>
       <p>The telemetry command keeps <code>logPrompts</code> disabled and configures the authenticated JSON exporter.</p>
     </td>
     <td width="50%" valign="top">
@@ -159,6 +165,8 @@ tokensburned connect
 | `tokensburned backfill --harness claude-code --days 30` | Import an approved Claude Code range. |
 | `tokensburned backfill --all-harnesses --days 30` | Explicitly import every recognized local harness. |
 | `tokensburned server` | Show server totals and the public SVG URL. |
+| `tokensburned update` | Force a release check and print the current harness's plugin-manager command when an update is available. |
+| `tokensburned privacy` | Show the current public-card policy without changing it. |
 | `tokensburned privacy public` | Explicitly publish aggregate activity tied to your GitHub identity. |
 | `tokensburned privacy private` | Disable the public route and remove the cached SVG. |
 | `tokensburned disconnect` | Revoke this device credential and remove the local connection. |
@@ -166,6 +174,10 @@ tokensburned connect
 | `tokensburned doctor` | Show detected harnesses and data boundaries. |
 
 `burn` remains a shorter alias for `tokensburned`.
+
+Installed harness plugins also perform a best-effort release check at SessionStart,
+throttled to once every 24 hours. Update failures never block startup, and applying
+an available update always requires an explicit user request.
 
 ## Privacy boundary
 

@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import {
   checkForUpdate,
   compareVersions,
+  pluginUpdateCommand,
   updateCheckDue,
   updateNotice,
+  updatePrompt,
 } from "../src/update.js";
 
 test("semantic version checks distinguish optional and required updates", () => {
@@ -13,6 +15,16 @@ test("semantic version checks distinguish optional and required updates", () => 
   assert.match(updateNotice({ latest_version: "0.5.0", minimum_supported_version: "0.4.0" }, "0.4.1"), /available/);
   assert.match(updateNotice({ latest_version: "1.0.0", minimum_supported_version: "0.5.0" }, "0.4.1"), /no longer supported/);
   assert.equal(updateNotice({ latest_version: "0.4.1", minimum_supported_version: "0.4.0" }, "0.4.1"), null);
+});
+
+test("update guidance uses the active harness plugin manager", () => {
+  const release = { latest_version: "0.5.0", minimum_supported_version: "0.4.0" };
+  assert.equal(pluginUpdateCommand("codex"), "codex plugin add tokensburned@tokensburned");
+  assert.equal(pluginUpdateCommand("claude-code"), "claude plugin update tokensburned@tokensburned");
+  assert.equal(pluginUpdateCommand("gemini"), null);
+  assert.match(updatePrompt(release, { currentVersion: "0.4.1", harness: "codex" }), /Do not update silently/);
+  assert.match(updatePrompt(release, { currentVersion: "0.4.1", harness: "claude-code" }), /start a new session/);
+  assert.equal(updatePrompt(release, { currentVersion: "0.5.0", harness: "codex" }), null);
 });
 
 test("update checks are throttled and persist release metadata", async () => {
