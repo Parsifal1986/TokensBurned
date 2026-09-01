@@ -74,11 +74,11 @@ Harness plugins use a short-lived TokensBurned device code:
 5. Store the returned `tb_live_…` device token in the harness secret store.
 
 The confirmation page carries a one-time, server-hashed nonce in its approval
-form, so the flow also works in privacy-focused and embedded browsers that do
-not persist cookies between form submissions. Older or stale confirmation pages
-are recovered by issuing a fresh nonce and asking the user to review the device
-once more; browser-facing OAuth failures render an HTML recovery page rather
-than a JSON API error.
+URL, so the first click proceeds even in privacy-focused and embedded browsers
+that lose cookies or hidden form fields between submissions. Same-origin posts
+from older confirmation pages also proceed without an extra review click;
+cross-origin posts still require a valid nonce. Browser-facing OAuth failures
+render an HTML recovery page rather than a JSON API error.
 
 The GitHub user access token is used once to read `/user` and is never stored.
 Device authorizations can be claimed only once. Device tokens are returned only
