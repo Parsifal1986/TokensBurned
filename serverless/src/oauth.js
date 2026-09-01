@@ -98,7 +98,7 @@ export async function verifyDeviceAuthorization(request, env, now = Date.now()) 
     "UPDATE device_authorizations SET confirmation_hash = ? WHERE id = ?",
   ).bind(confirmationHash, auth.id).run();
 
-  return page(`<h1>Confirm this device</h1><p>Code: <b>${escapeHtml(auth.user_code)}</b></p><p>Device: <b>${escapeHtml(auth.device_name)}</b></p><p class="warning">Continue only if you personally started this connection on that device. TokensBurned will verify your GitHub identity; publishing a profile card remains off by default.</p><form method="post" action="/v1/auth/device/approve"><input type="hidden" name="user_code" value="${escapeHtml(auth.user_code)}"><button type="submit">Authorize with GitHub</button></form>`, 200, {
+  return page(`<h1>Confirm this device</h1><p>Code: <b>${escapeHtml(auth.user_code)}</b></p><p>Device: <b>${escapeHtml(auth.device_name)}</b></p><p class="warning">Continue only if you personally started this connection on that device. TokensBurned will verify your GitHub identity; publishing a profile card remains off by default.</p><form method="post" action="/v1/auth/device/approve"><input type="hidden" name="user_code" value="${escapeHtml(auth.user_code)}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}"><button type="submit">Authorize with GitHub</button></form>`, 200, {
     "Set-Cookie": `${CONFIRMATION_COOKIE}=${encodeURIComponent(confirmation)}; Path=/v1/auth/device; Max-Age=600; Secure; HttpOnly; SameSite=Strict`,
   });
 }
@@ -106,7 +106,11 @@ export async function verifyDeviceAuthorization(request, env, now = Date.now()) 
 export async function approveDeviceAuthorization(request, env, now = Date.now()) {
   const form = await readForm(request);
   const userCode = String(form.get("user_code") || "").trim().toUpperCase();
-  const confirmation = cookieValue(request, CONFIRMATION_COOKIE);
+  // Some in-app browsers do not persist cookies between these two form posts.
+  // Bind approval to the one-time nonce embedded in the server-rendered page,
+  // while retaining the cookie as a fallback for pages opened before rollout.
+  const confirmation = String(form.get("confirmation") || "")
+    || cookieValue(request, CONFIRMATION_COOKIE);
   if (!confirmation) throw new HttpError(400, "invalid_confirmation", "Device confirmation is missing or expired.");
   const confirmationHash = await hashDeviceSecret(confirmation, env.TOKEN_PEPPER);
   const auth = await env.DB.prepare(
