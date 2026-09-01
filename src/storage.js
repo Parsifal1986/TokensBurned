@@ -41,6 +41,7 @@ export function defaultConfig() {
       connected_at: null,
       credential_expires_at: null,
       backfill_completed_at: null,
+      privacy: null,
     },
     updates: {
       last_checked_at: null,

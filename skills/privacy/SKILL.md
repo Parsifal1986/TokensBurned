@@ -8,6 +8,7 @@ description: View or change TokensBurned public-card privacy. Use for checking v
 Resolve the plugin root from this skill's location and use `node <plugin-root>/bin/burn.js privacy [status|public|private]`.
 
 - Use `privacy status` for read-only visibility questions. Report the card URL only when the server says the card is public.
+- Treat the server response as the GitHub account's authoritative policy. A change made from one device applies to every device connected to that GitHub account; never ask the user to repeat it per device.
 - Treat ambiguous requests as status checks. Never publish merely because the user asks to preview, build, or discuss a card.
 - Run `privacy public` only after the user explicitly asks to publish. Before running it, state that totals, GitHub identity, harness/provider/model breakdowns, activity heatmaps, and anonymous rank will become public.
 - Run `privacy private` only after the user explicitly asks to make the card private. Explain that the public route and cached SVG are removed while private aggregate data remains in the account.
