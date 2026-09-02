@@ -334,9 +334,10 @@ The public card lifecycle is:
 2. After TTL expiry, the request reaches the card Worker/origin.
 3. If the R2 object is still inside the plan's minimum regeneration interval,
    return it without a D1 query.
-4. Otherwise, enter the per-user singleflight, rebuild through the TTL-backed
-   summary read model, and write one R2 object.
-5. Concurrent requests serve the existing SVG rather than starting duplicate rebuilds.
+4. Otherwise, enter the per-user singleflight, synchronously rebuild through
+   the TTL-backed summary read model, write one R2 object, and return that new SVG.
+5. Concurrent requests in the same isolate join the singleflight and receive the
+   refreshed SVG rather than starting duplicate rebuilds.
 
 When no one requests a card, no SVG is regenerated.
 
@@ -346,7 +347,11 @@ Privacy changes to private must delete the R2 object before the privacy update i
 
 Use standard Workers/CDN caching or an R2 custom domain rather than manually populating per-data-center Cache API entries.
 
-Use asynchronous stale-while-revalidate so the first request after expiry receives the previous SVG while regeneration happens in the background. Do not combine `s-maxage` with `stale-while-revalidate`; current Cloudflare behavior disables stale serving in that combination. Use the appropriate Worker/CDN cache headers and test `CF-Cache-Status` in production.
+Use synchronous revalidation after expiry so the first request receives the
+new SVG. Send `must-revalidate` and do not advertise `stale-while-revalidate`;
+otherwise an intermediary may continue serving the expired object without
+waiting for the Worker. Test the cache headers and first-request response in
+production.
 
 Suggested product policy defaults:
 
@@ -355,7 +360,7 @@ Suggested product policy defaults:
 | Upload cadence | hourly + SessionEnd | 15 minutes + SessionEnd |
 | Card minimum regeneration interval | 60 minutes | 15 minutes |
 | CDN freshness TTL | about 60 minutes | short, but bounded |
-| Stale-while-revalidate window | 24 hours | 1-24 hours |
+| Stale-while-revalidate window | disabled | disabled |
 | No card requests | no regeneration | no regeneration |
 
 The product can promise origin freshness bounds. It cannot guarantee that third-party image proxies immediately discard their own cached copies.

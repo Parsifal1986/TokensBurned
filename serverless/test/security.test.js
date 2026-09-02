@@ -384,7 +384,90 @@ test("public card query options never trigger a live summary rebuild", async () 
   assert.equal(await response.text(), "<svg>cached</svg>");
   assert.equal(waited.length, 0);
   assert.match(response.headers.get("cache-control"), /max-age=3600/);
-  assert.doesNotMatch(response.headers.get("cache-control"), /s-maxage/);
+  assert.match(response.headers.get("cache-control"), /must-revalidate/);
+  assert.doesNotMatch(response.headers.get("cache-control"), /stale-while-revalidate/);
+});
+
+test("the first request for an expired card synchronously returns the refreshed SVG", async () => {
+  const generatedAt = new Date().toISOString();
+  const summary = {
+    day_tokens: 42,
+    week_tokens: 84,
+    month_tokens: 126,
+    all_time_tokens: 168,
+    month_requests: 1,
+    week_requests: 1,
+    by_harness: [],
+    by_provider: [],
+    by_model: [],
+    daily: [],
+    hourly: [],
+    rank: 0,
+    participants: 0,
+    generated_at: generatedAt,
+  };
+  const puts = [];
+  const waited = [];
+  const env = {
+    DB: {
+      prepare(sql) {
+        return {
+          bind() {
+            if (sql.includes("FROM users WHERE public_slug")) {
+              return { first: async () => ({
+                id: "usr_expired",
+                public_slug: "octocat",
+                public_card: 1,
+                publish_harness: 1,
+                publish_provider: 1,
+                publish_model: 1,
+                publish_heatmap: 1,
+                publish_rank: 1,
+              }) };
+            }
+            if (sql.includes("FROM user_summaries")) {
+              return { first: async () => ({
+                summary_json: JSON.stringify({ cache_version: 2, summary }),
+                generated_at: generatedAt,
+              }) };
+            }
+            if (sql.includes("UPDATE device_daily_usage")) {
+              return { run: async () => ({ meta: { changes: 0 } }) };
+            }
+            if (sql.includes("SELECT usage.device_id")) {
+              return { all: async () => ({ results: [] }) };
+            }
+            throw new Error(`Unexpected SQL: ${sql}`);
+          },
+        };
+      },
+    },
+    CARDS: {
+      async get() {
+        return {
+          body: "<svg>stale</svg>",
+          customMetadata: { generatedAt: new Date(Date.now() - 3_600_001).toISOString() },
+        };
+      },
+      async put(key, svg, options) {
+        puts.push({ key, svg, options });
+      },
+    },
+  };
+  const response = await handleRequest(
+    new Request("https://api.example/v1/cards/u/octocat.svg"),
+    env,
+    { waitUntil(promise) { waited.push(promise); } },
+  );
+  const svg = await response.text();
+  assert.match(svg, /PAST 24 HOURS/);
+  assert.match(svg, />42<\/text>/);
+  assert.doesNotMatch(svg, /stale/);
+  assert.equal(puts.length, 1);
+  assert.equal(puts[0].key, "u/octocat.svg");
+  assert.match(puts[0].options.httpMetadata.cacheControl, /must-revalidate/);
+  assert.equal(waited.length, 1);
+  await Promise.all(waited);
 });
 
 test("card regeneration is singleflight per user within one isolate", async () => {

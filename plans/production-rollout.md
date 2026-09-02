@@ -141,7 +141,8 @@ the canary.
 - Ingest logs show one changed usage row per changed v2 day and zero changed
   usage rows for an equal revision.
 - No ingest request triggers card generation.
-- R2 card requests regenerate only after the one-hour interval.
+- R2 card requests regenerate only after the one-hour interval, and the first
+  expired request synchronously receives the refreshed SVG.
 - `rows_read`, `rows_written`, R2 Class A, and Worker requests remain below the
   release budget for at least one full active-day cycle.
 
