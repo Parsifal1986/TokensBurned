@@ -152,13 +152,7 @@ export function singleflightCard(key, work) {
 }
 
 function regenerateCard(env, user) {
-  return singleflightCard(user.id, async () => {
-    const [cardResult] = await Promise.all([
-      refreshUserCard(env, user),
-      compactUserUsage(env, user.id),
-    ]);
-    return cardResult;
-  });
+  return singleflightCard(user.id, () => refreshUserCard(env, user));
 }
 
 function cardResponse(request, object, body) {
@@ -166,7 +160,7 @@ function cardResponse(request, object, body) {
   object?.writeHttpMetadata?.(headers);
   if (object?.httpEtag) headers.set("ETag", object.httpEtag);
   headers.set("Content-Type", "image/svg+xml; charset=utf-8");
-  headers.set("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+  headers.set("Cache-Control", "public, max-age=3600, must-revalidate");
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox");
   headers.set("Referrer-Policy", "no-referrer");
@@ -193,12 +187,16 @@ async function card(request, env, ctx, url) {
     }
     const refreshed = await regenerateCard(env, user);
     if (!refreshed.svg) throw new HttpError(404, "card_not_found", "Card not found.");
+    ctx.waitUntil(compactUserUsage(env, user.id));
     return cardResponse(request, null, refreshed.svg);
   }
   const generatedAt = Date.parse(object.customMetadata?.generatedAt || "");
   if (featureEnabled(env, "CARD_REGENERATION_ENABLED")
       && (!Number.isFinite(generatedAt) || Date.now() - generatedAt >= CARD_REGENERATION_INTERVAL_MS)) {
-    ctx.waitUntil(regenerateCard(env, user));
+    const refreshed = await regenerateCard(env, user);
+    if (!refreshed.svg) throw new HttpError(404, "card_not_found", "Card not found.");
+    ctx.waitUntil(compactUserUsage(env, user.id));
+    return cardResponse(request, null, refreshed.svg);
   }
   return cardResponse(request, object, object.body);
 }
