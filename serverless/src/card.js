@@ -48,14 +48,62 @@ export function normalizeCardOptions(input = {}) {
 
 export function normalizeCardPolicy(input = {}, fallback = true) {
   const enabled = (value) => value === undefined ? fallback : Boolean(Number(value));
+  const value = (stored, normalized) => input[stored] === undefined
+    ? input[normalized]
+    : input[stored];
   return {
-    publicCard: enabled(input.public_card),
-    harness: enabled(input.publish_harness),
-    provider: enabled(input.publish_provider),
-    model: enabled(input.publish_model),
-    heatmap: enabled(input.publish_heatmap),
-    rank: enabled(input.publish_rank),
+    publicCard: enabled(value("public_card", "publicCard")),
+    harness: enabled(value("publish_harness", "harness")),
+    provider: enabled(value("publish_provider", "provider")),
+    model: enabled(value("publish_model", "model")),
+    heatmap: enabled(value("publish_heatmap", "heatmap")),
+    rank: enabled(value("publish_rank", "rank")),
   };
+}
+
+export function resolveCardVariant(rawOptions = {}, rawPolicy = {}) {
+  const policy = normalizeCardPolicy(rawPolicy);
+  const requested = normalizeCardOptions(rawOptions);
+  const options = {
+    ...requested,
+    heatmap: requested.heatmap && policy.heatmap,
+    compare: requested.compare && (policy.harness || policy.provider || policy.model),
+    rank: requested.rank && policy.rank,
+  };
+  const key = [
+    "v1",
+    `layout-${options.layout}`,
+    `heatmap-${Number(options.heatmap)}`,
+    `compare-${Number(options.compare)}`,
+    `rank-${Number(options.rank)}`,
+    `meme-${Number(options.meme)}`,
+    `theme-${options.theme}`,
+    `harness-${Number(policy.harness)}`,
+    `provider-${Number(policy.provider)}`,
+    `model-${Number(policy.model)}`,
+    `policy-heatmap-${Number(policy.heatmap)}`,
+    `policy-rank-${Number(policy.rank)}`,
+  ].join("_");
+  return { key, options, policy };
+}
+
+export function cardObjectKey(slug, rawOptions = {}, rawPolicy = {}) {
+  return `u/${slug}/${resolveCardVariant(rawOptions, rawPolicy).key}.svg`;
+}
+
+export async function deleteUserCards(env, slug) {
+  await env.CARDS.delete(`u/${slug}.svg`);
+  const keys = [];
+  let cursor;
+  do {
+    const page = await env.CARDS.list({
+      prefix: `u/${slug}/`,
+      ...(cursor ? { cursor } : {}),
+    });
+    keys.push(...(page.objects || []).map((object) => object.key));
+    cursor = page.truncated ? page.cursor : null;
+  } while (cursor);
+  if (keys.length > 0) await env.CARDS.delete(keys);
 }
 
 function calendarHeatmap(days, baseY) {
@@ -148,14 +196,7 @@ function statsBlock(summary, compact) {
 }
 
 export function renderServerCard(summary, slug, rawOptions = {}, rawPolicy = {}) {
-  const policy = normalizeCardPolicy(rawPolicy);
-  const requested = normalizeCardOptions(rawOptions);
-  const options = {
-    ...requested,
-    heatmap: requested.heatmap && policy.heatmap,
-    compare: requested.compare && (policy.harness || policy.provider || policy.model),
-    rank: requested.rank && policy.rank,
-  };
+  const { options, policy } = resolveCardVariant(rawOptions, rawPolicy);
   const compact = options.layout === "compact";
   const width = compact ? 680 : 840;
   let cursor = compact ? 230 : 180;
@@ -202,7 +243,7 @@ export function renderServerCard(summary, slug, rawOptions = {}, rawPolicy = {})
 </svg>`;
 }
 
-export async function refreshUserCard(env, user, now = Date.now()) {
+export async function refreshUserCard(env, user, now = Date.now(), rawOptions = {}) {
   const userId = user.user_id || user.id;
   const stored = user.public_card === undefined
     ? await env.DB.prepare(
@@ -212,17 +253,19 @@ export async function refreshUserCard(env, user, now = Date.now()) {
     ).bind(userId).first()
     : user;
   if (!stored || !Number(stored.public_card)) {
-    if (stored?.public_slug) await env.CARDS.delete(`u/${stored.public_slug}.svg`);
+    if (stored?.public_slug) await deleteUserCards(env, stored.public_slug);
     return { summary: null, svg: null, published: false };
   }
+  const variant = resolveCardVariant(rawOptions, stored);
+  const objectKey = `u/${stored.public_slug}/${variant.key}.svg`;
   const summary = await summarizeUser(env, userId, now);
-  const svg = renderServerCard(summary, stored.public_slug, {}, stored);
-  await env.CARDS.put(`u/${stored.public_slug}.svg`, svg, {
+  const svg = renderServerCard(summary, stored.public_slug, variant.options, variant.policy);
+  await env.CARDS.put(objectKey, svg, {
     httpMetadata: {
       contentType: "image/svg+xml; charset=utf-8",
       cacheControl: "public, max-age=3600, must-revalidate",
     },
-    customMetadata: { generatedAt: summary.generated_at },
+    customMetadata: { generatedAt: summary.generated_at, variant: variant.key },
   });
-  return { summary, svg, published: true };
+  return { summary, svg, published: true, objectKey, variant: variant.key };
 }

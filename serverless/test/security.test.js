@@ -317,7 +317,10 @@ test("making a card private deletes the public object and rejects partial polici
   const deleted = [];
   const env = {
     CARD_ORIGIN: "https://api.example/v1/cards",
-    CARDS: { delete: async (key) => deleted.push(key) },
+    CARDS: {
+      list: async () => ({ objects: [], truncated: false }),
+      delete: async (keys) => deleted.push(...(Array.isArray(keys) ? keys : [keys])),
+    },
     DB: { prepare: () => statement(async () => null) },
   };
   const device = { user_id: "usr_1", public_slug: "octocat" };
@@ -347,6 +350,7 @@ test("making a card private deletes the public object and rejects partial polici
 
 test("public card query options never trigger a live summary rebuild", async () => {
   const waited = [];
+  const gets = [];
   const env = {
     DB: {
       prepare(sql) {
@@ -364,7 +368,8 @@ test("public card query options never trigger a live summary rebuild", async () 
       },
     },
     CARDS: {
-      async get() {
+      async get(key) {
+        gets.push(key);
         return {
           body: "<svg>cached</svg>",
           httpEtag: "etag",
@@ -382,6 +387,7 @@ test("public card query options never trigger a live summary rebuild", async () 
     { waitUntil(promise) { waited.push(promise); } },
   );
   assert.equal(await response.text(), "<svg>cached</svg>");
+  assert.match(gets[0], /^u\/octocat\/v1_.*theme-light.*\.svg$/);
   assert.equal(waited.length, 0);
   assert.match(response.headers.get("cache-control"), /max-age=3600/);
   assert.match(response.headers.get("cache-control"), /must-revalidate/);
@@ -464,7 +470,7 @@ test("the first request for an expired card synchronously returns the refreshed 
   assert.match(svg, />42<\/text>/);
   assert.doesNotMatch(svg, /stale/);
   assert.equal(puts.length, 1);
-  assert.equal(puts[0].key, "u/octocat.svg");
+  assert.match(puts[0].key, /^u\/octocat\/v1_.*theme-dark.*\.svg$/);
   assert.match(puts[0].options.httpMetadata.cacheControl, /must-revalidate/);
   assert.equal(waited.length, 1);
   await Promise.all(waited);

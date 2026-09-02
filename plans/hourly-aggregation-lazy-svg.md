@@ -255,6 +255,11 @@ CREATE TABLE device_daily_usage (
 - May be merged with `user_summaries` if doing so avoids an extra write and query.
 - Cross-POP singleflight should use a per-user Durable Object without persistent
   lease writes when possible. A D1 lease is the fallback, not the default.
+- R2 stores one object per normalized, policy-constrained presentation variant.
+  Equivalent query strings share a key; different layouts or themes refresh
+  independently. The policy fingerprint prevents a privacy change from reading
+  an older, more permissive object. The normalized option space is finite and
+  currently permits at most 72 presentation variants per policy state.
 
 ### Freshness without a per-upload state read or write
 
@@ -334,9 +339,9 @@ The public card lifecycle is:
 2. After TTL expiry, the request reaches the card Worker/origin.
 3. If the R2 object is still inside the plan's minimum regeneration interval,
    return it without a D1 query.
-4. Otherwise, enter the per-user singleflight, synchronously rebuild through
+4. Otherwise, enter the per-user-and-variant singleflight, synchronously rebuild through
    the TTL-backed summary read model, write one R2 object, and return that new SVG.
-5. Concurrent requests in the same isolate join the singleflight and receive the
+5. Concurrent requests for the same variant in the same isolate join the singleflight and receive the
    refreshed SVG rather than starting duplicate rebuilds.
 
 When no one requests a card, no SVG is regenerated.

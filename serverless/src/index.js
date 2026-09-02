@@ -1,6 +1,6 @@
 import { authenticate, createDeviceCredential } from "./auth.js";
 import { constantTimeEqual, randomId } from "./crypto.js";
-import { refreshUserCard } from "./card.js";
+import { cardObjectKey, deleteUserCards, refreshUserCard, resolveCardVariant } from "./card.js";
 import { HttpError, json, problem, readJson } from "./http.js";
 import { ingestBatch } from "./ingest.js";
 import { ingestOtel } from "./otel.js";
@@ -130,7 +130,7 @@ async function authenticatedRoute(request, env, ctx, pathname) {
       env.DB.prepare("DELETE FROM devices WHERE user_id = ?").bind(device.user_id),
       env.DB.prepare("DELETE FROM users WHERE id = ?").bind(device.user_id),
     ]);
-    await env.CARDS.delete(`u/${device.public_slug}.svg`);
+    await deleteUserCards(env, device.public_slug);
     return new Response(null, { status: 204 });
   }
   throw new HttpError(404, "not_found", "Not found.");
@@ -151,8 +151,11 @@ export function singleflightCard(key, work) {
   return pending;
 }
 
-function regenerateCard(env, user) {
-  return singleflightCard(user.id, () => refreshUserCard(env, user));
+function regenerateCard(env, user, rawOptions, variantKey) {
+  return singleflightCard(
+    `${user.id}:${variantKey}`,
+    () => refreshUserCard(env, user, Date.now(), rawOptions),
+  );
 }
 
 function cardResponse(request, object, body) {
@@ -180,12 +183,15 @@ async function card(request, env, ctx, url) {
        FROM users WHERE public_slug = ? AND public_card = 1`,
   ).bind(publicSlug).first();
   if (!user) throw new HttpError(404, "card_not_found", "Card not found.");
-  const object = await env.CARDS.get(`u/${publicSlug}.svg`);
+  const rawOptions = Object.fromEntries(url.searchParams);
+  const variant = resolveCardVariant(rawOptions, user);
+  const objectKey = cardObjectKey(publicSlug, rawOptions, user);
+  const object = await env.CARDS.get(objectKey);
   if (!object) {
     if (!featureEnabled(env, "CARD_REGENERATION_ENABLED")) {
       throw new HttpError(503, "card_regeneration_paused", "Card generation is temporarily paused; retry later.");
     }
-    const refreshed = await regenerateCard(env, user);
+    const refreshed = await regenerateCard(env, user, rawOptions, variant.key);
     if (!refreshed.svg) throw new HttpError(404, "card_not_found", "Card not found.");
     ctx.waitUntil(compactUserUsage(env, user.id));
     return cardResponse(request, null, refreshed.svg);
@@ -193,7 +199,7 @@ async function card(request, env, ctx, url) {
   const generatedAt = Date.parse(object.customMetadata?.generatedAt || "");
   if (featureEnabled(env, "CARD_REGENERATION_ENABLED")
       && (!Number.isFinite(generatedAt) || Date.now() - generatedAt >= CARD_REGENERATION_INTERVAL_MS)) {
-    const refreshed = await regenerateCard(env, user);
+    const refreshed = await regenerateCard(env, user, rawOptions, variant.key);
     if (!refreshed.svg) throw new HttpError(404, "card_not_found", "Card not found.");
     ctx.waitUntil(compactUserUsage(env, user.id));
     return cardResponse(request, null, refreshed.svg);

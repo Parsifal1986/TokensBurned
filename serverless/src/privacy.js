@@ -1,4 +1,4 @@
-import { normalizeCardPolicy, refreshUserCard } from "./card.js";
+import { deleteUserCards, normalizeCardPolicy, refreshUserCard } from "./card.js";
 import { HttpError, json, readJson } from "./http.js";
 
 const FIELDS = [
@@ -59,6 +59,7 @@ export async function updatePrivacy(request, env, device) {
     public_slug: device.public_slug,
     ...values,
   };
-  await refreshUserCard(env, user);
+  await deleteUserCards(env, user.public_slug);
+  if (values.public_card) await refreshUserCard(env, user);
   return json(privacyResponse(user, env));
 }

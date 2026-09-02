@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeCardOptions, renderServerCard } from "../src/card.js";
+import {
+  cardObjectKey,
+  deleteUserCards,
+  normalizeCardOptions,
+  renderServerCard,
+  resolveCardVariant,
+} from "../src/card.js";
 
 test("renders a safe dynamic profile card", () => {
   const svg = renderServerCard({
@@ -55,8 +61,64 @@ test("normalizes public card options", () => {
   assert.equal(normalizeCardOptions({ theme: "invalid" }).theme, "dark");
 });
 
+test("normalizes equivalent card requests to one policy-aware R2 variant", () => {
+  const policy = {
+    public_card: 1,
+    publish_harness: 1,
+    publish_provider: 0,
+    publish_model: 1,
+    publish_heatmap: 1,
+    publish_rank: 0,
+  };
+  const first = resolveCardVariant({
+    rank: "true", theme: "light", heatmap: "1", layout: "compact", unknown: "ignored",
+  }, policy);
+  const second = resolveCardVariant({
+    layout: "compact", heatmap: "0", rank: "0", theme: "light",
+  }, policy);
+  assert.equal(first.key, second.key);
+  assert.equal(first.options.heatmap, false);
+  assert.equal(first.options.rank, false);
+  assert.equal(
+    cardObjectKey("octocat", first.options, first.policy),
+    `u/octocat/${first.key}.svg`,
+  );
+  const morePublic = resolveCardVariant(first.options, { ...policy, publish_provider: 1 });
+  assert.notEqual(first.key, morePublic.key);
+});
+
+test("deletes legacy and paginated per-user card variants", async () => {
+  const deleted = [];
+  const cursors = [];
+  const env = {
+    CARDS: {
+      async list(options) {
+        cursors.push(options.cursor || null);
+        return options.cursor
+          ? { objects: [{ key: "u/octocat/v1-c.svg" }], truncated: false }
+          : {
+              objects: [{ key: "u/octocat/v1-a.svg" }, { key: "u/octocat/v1-b.svg" }],
+              truncated: true,
+              cursor: "next",
+            };
+      },
+      async delete(keys) {
+        deleted.push(...(Array.isArray(keys) ? keys : [keys]));
+      },
+    },
+  };
+  await deleteUserCards(env, "octocat");
+  assert.deepEqual(cursors, [null, "next"]);
+  assert.deepEqual(deleted, [
+    "u/octocat.svg",
+    "u/octocat/v1-a.svg",
+    "u/octocat/v1-b.svg",
+    "u/octocat/v1-c.svg",
+  ]);
+});
+
 test("server policy prevents query parameters from increasing public disclosure", () => {
-  const svg = renderServerCard({
+  const summary = {
     day_tokens: 25_000, week_tokens: 120_000, month_tokens: 500_000, all_time_tokens: 2_500_000,
     month_requests: 42,
     by_harness: [{ key: "codex", tokens: 120_000 }],
@@ -65,7 +127,8 @@ test("server policy prevents query parameters from increasing public disclosure"
     daily: [{ date: "2026-08-30", tokens: 120_000 }],
     hourly: [{ hour: 2, tokens: 120_000 }],
     rank: 1, participants: 2, generated_at: "2026-08-30T12:00:00.000Z",
-  }, "owner", { heatmap: "1", compare: "1", rank: "1" }, {
+  };
+  const variant = resolveCardVariant({ heatmap: "1", compare: "1", rank: "1" }, {
     public_card: 1,
     publish_harness: 0,
     publish_provider: 0,
@@ -73,6 +136,7 @@ test("server policy prevents query parameters from increasing public disclosure"
     publish_heatmap: 0,
     publish_rank: 0,
   });
+  const svg = renderServerCard(summary, "owner", variant.options, variant.policy);
   assert.doesNotMatch(svg, /DAILY HEAT|ACTIVE HOURS|HARNESSES|PROVIDERS|MODELS|private-|#1 OF 2/);
   assert.match(svg, /120\.0K/);
 });
