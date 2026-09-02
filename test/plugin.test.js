@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { CLIENT_RELEASE } from "../serverless/src/release.js";
 
 const root = path.resolve(import.meta.dirname, "..");
 const sourceSkills = path.join(root, "skills");
@@ -37,7 +36,6 @@ test("repository exposes manifests for the supported plugin ecosystems", async (
   assert.equal(codex.version, pkg.version);
   assert.equal(copilot.version, pkg.version);
   assert.equal(gemini.version, pkg.version);
-  assert.equal(CLIENT_RELEASE.latest_version, pkg.version);
   assert.equal(copilot.name, "tokensburned");
   assert.equal(copilot.skills, "skills/");
   assert.equal(copilot.commands, "commands/");

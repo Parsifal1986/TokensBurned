@@ -20,8 +20,7 @@ Native ingestion sends only:
 
 - input, output, cache-read, cache-write, and reasoning token counts;
 - harness, provider, and model labels;
-- a one-way hashed session identifier;
-- a 15-minute time bucket, revision, and request count.
+- a device/day revision with hourly aggregate slots and request counts.
 
 Prompts, responses, tool payloads, source code, repository names, transcript paths, raw session files, machine information, API keys, and GitHub credentials are not included in ingestion requests.
 
@@ -41,6 +40,6 @@ At `SessionStart`, the plugin may query the public TokensBurned release endpoint
 
 Unauthenticated device-flow endpoints use persistent per-client rate limits. API and authorization responses disable caching and apply restrictive browser security headers.
 
-Production secrets belong in Cloudflare Worker Secrets and must never be committed.
+Production service credentials are maintained outside this client repository and must never be committed.
 
 Please report security issues privately to the maintainers before opening a public issue.

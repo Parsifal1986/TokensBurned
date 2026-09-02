@@ -10,16 +10,6 @@
   "scripts": {
     "start": "node ./bin/burn.js",
     "dev": "node ./scripts/serve.js",
-    "worker:dev": "wrangler dev --config ./serverless/wrangler.toml",
-    "worker:migrate:local": "wrangler d1 migrations apply tokensburned --local --config ./serverless/wrangler.toml",
-    "worker:preflight": "node ./scripts/production-preflight.mjs",
-    "worker:backfill:legacy": "node ./scripts/backfill-legacy-d1.mjs",
-    "worker:totals:rebuild": "node ./scripts/rebuild-materialized-totals.mjs",
-    "worker:rankings": "node ./scripts/materialize-rankings.mjs",
-    "worker:version:upload": "wrangler versions upload --strict --keep-vars --config ./serverless/wrangler.toml",
-    "worker:versions:list": "wrangler versions list --config ./serverless/wrangler.toml",
-    "worker:deploy": "wrangler deploy --config ./serverless/wrangler.toml",
-    "demo:cards": "node ./scripts/build-demo-cards.js",
     "plugin:sync": "node ./scripts/sync-plugin-runtime.js",
     "test": "node --test",
     "check": "node --check ./bin/burn.js && node --test"
@@ -82,8 +72,5 @@
     "README.md",
     "SECURITY.md",
     "LICENSE"
-  ],
-  "devDependencies": {
-    "wrangler": "^4.127.1"
-  }
+  ]
 }
