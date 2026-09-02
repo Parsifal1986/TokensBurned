@@ -1,4 +1,5 @@
 import { API_ORIGIN } from "./constants.js";
+import { deviceProofHeaders, generateDeviceProofKeys } from "./device-proof.js";
 
 function origin(value = API_ORIGIN) {
   let url;
@@ -23,15 +24,26 @@ async function request(pathname, {
   method = "GET",
   body,
   token,
+  devicePrivateKeyJwk,
+  proofSubject,
   fetchImpl = globalThis.fetch,
   timeoutMs = 15_000,
 } = {}) {
   const headers = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (token) headers.Authorization = `Bearer ${token}`;
+  const target = `${origin(apiOrigin)}${pathname}`;
+  const tokenDeviceId = token?.match(/^tb_live_([A-Za-z0-9_-]{8,64})\./)?.[1];
+  Object.assign(headers, await deviceProofHeaders({
+    privateKeyJwk: devicePrivateKeyJwk,
+    subject: proofSubject || tokenDeviceId,
+    method,
+    url: target,
+    body,
+  }));
   let response;
   try {
-    response = await fetchImpl(`${origin(apiOrigin)}${pathname}`, {
+    response = await fetchImpl(target, {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -56,12 +68,17 @@ async function request(pathname, {
   return payload;
 }
 
-export function startDeviceAuthorization(options = {}) {
-  return request("/v1/auth/device/start", {
+export async function startDeviceAuthorization(options = {}) {
+  const keys = await generateDeviceProofKeys();
+  const authorization = await request("/v1/auth/device/start", {
     ...options,
     method: "POST",
-    body: { device_name: options.deviceName || "TokensBurned plugin" },
+    body: {
+      device_name: options.deviceName || "TokensBurned plugin",
+      public_key_jwk: keys.publicKeyJwk,
+    },
   });
+  return { ...authorization, device_proof_keys: keys };
 }
 
 export function pollDeviceAuthorization(deviceCode, options = {}) {
@@ -69,6 +86,7 @@ export function pollDeviceAuthorization(deviceCode, options = {}) {
     ...options,
     method: "POST",
     body: { device_code: deviceCode },
+    proofSubject: deviceCode,
   });
 }
 

@@ -1,7 +1,7 @@
 import os from "node:os";
 import path from "node:path";
 
-export const VERSION = "0.6.0";
+export const VERSION = "0.6.1";
 export const STATS_VERSION = 2;
 export const SYNC_INTERVAL_MS = 3 * 60 * 60 * 1000;
 export const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;

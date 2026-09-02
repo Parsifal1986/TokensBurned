@@ -355,6 +355,7 @@ async function backfillHistory({
   if (!dryRun && result.entries.length) {
     await syncUsageEntries(result.entries, {
       token: credentials.device_token,
+      devicePrivateKeyJwk: credentials.device_private_key_jwk,
       apiOrigin: config.server.api_origin || API_ORIGIN,
       force: true,
     });
@@ -396,7 +397,10 @@ async function connect(args) {
   let result;
   while (Date.now() < deadline) {
     await wait(interval);
-    result = await pollDeviceAuthorization(authorization.device_code, { apiOrigin });
+    result = await pollDeviceAuthorization(authorization.device_code, {
+      apiOrigin,
+      devicePrivateKeyJwk: authorization.device_proof_keys?.privateKeyJwk,
+    });
     if (result.status === "authorized") break;
   }
   if (result?.status !== "authorized" || !result.token) {
@@ -404,12 +408,15 @@ async function connect(args) {
   }
 
   await writeCredentials({
-    version: 1,
+    version: 2,
     device_token: result.token,
     expires_at: result.expires_at || null,
+    device_private_key_jwk: authorization.device_proof_keys?.privateKeyJwk || null,
+    device_public_key_jwk: authorization.device_proof_keys?.publicKeyJwk || null,
   });
   const accountPrivacy = result.privacy || await fetchServerPrivacy({
     token: result.token,
+    devicePrivateKeyJwk: authorization.device_proof_keys?.privateKeyJwk,
     apiOrigin,
   });
   const config = await readConfig();
@@ -430,7 +437,13 @@ async function connect(args) {
   console.log(`${color("✓", "green")} Connected as ${result.user?.github_login || "GitHub user"}.`);
 
   if (has(args, "--publish-card")) {
-    const privacy = await setServerPrivacy(true, { config, credentials: { device_token: result.token } });
+    const privacy = await setServerPrivacy(true, {
+      config,
+      credentials: {
+        device_token: result.token,
+        device_private_key_jwk: authorization.device_proof_keys?.privateKeyJwk,
+      },
+    });
     console.log(`Public card enabled: ${privacy.card_url}`);
   } else {
     console.log(`Public card: ${accountPrivacy.public_card ? accountPrivacy.card_url : "off"} (synced from this GitHub account).`);
@@ -471,7 +484,11 @@ async function serverStatus() {
     console.log("TokensBurned server: not connected");
     return;
   }
-  const options = { token: credentials.device_token, apiOrigin: config.server.api_origin || API_ORIGIN };
+  const options = {
+    token: credentials.device_token,
+    devicePrivateKeyJwk: credentials.device_private_key_jwk,
+    apiOrigin: config.server.api_origin || API_ORIGIN,
+  };
   const [summary, privacy] = await Promise.all([
     fetchServerSummary(options),
     fetchServerPrivacy(options),
@@ -539,6 +556,7 @@ async function doctor() {
     try {
       accountPrivacy = await fetchServerPrivacy({
         token: credentials.device_token,
+        devicePrivateKeyJwk: credentials.device_private_key_jwk,
         apiOrigin: config.server.api_origin || API_ORIGIN,
       });
       rememberAccountPrivacy(config, accountPrivacy);
@@ -591,6 +609,7 @@ async function setServerPrivacy(enabled, { config, credentials } = {}) {
   if (!storedConfig.server.enabled || !storedCredentials.device_token) return null;
   const privacy = await updateServerPrivacy(publicPrivacy(enabled), {
     token: storedCredentials.device_token,
+    devicePrivateKeyJwk: storedCredentials.device_private_key_jwk,
     apiOrigin: storedConfig.server.api_origin || API_ORIGIN,
   });
   rememberAccountPrivacy(storedConfig, privacy);
@@ -608,6 +627,7 @@ async function setPrivacy(args) {
   if (value === "status") {
     const privacy = await fetchServerPrivacy({
       token: credentials.device_token,
+      devicePrivateKeyJwk: credentials.device_private_key_jwk,
       apiOrigin: config.server.api_origin || API_ORIGIN,
     });
     rememberAccountPrivacy(config, privacy);
@@ -648,12 +668,13 @@ async function disconnect(args) {
   if (!(await confirm("Revoke this device credential and disconnect?", has(args, "--yes")))) return;
   await revokeDevice({
     token: credentials.device_token,
+    devicePrivateKeyJwk: credentials.device_private_key_jwk,
     apiOrigin: config.server.api_origin || API_ORIGIN,
   });
   config.server = defaultConfig().server;
   await Promise.all([
     writeConfig(config),
-    writeCredentials({ version: 1, device_token: null, expires_at: null }),
+    writeCredentials({ version: 2, device_token: null, expires_at: null }),
   ]);
   console.log("Device credential revoked and local connection removed.");
 }
@@ -668,12 +689,13 @@ async function deleteRemoteData(args) {
   if (!(await confirm("Delete all TokensBurned server data?", has(args, "--yes")))) return;
   await deleteServerData({
     token: credentials.device_token,
+    devicePrivateKeyJwk: credentials.device_private_key_jwk,
     apiOrigin: config.server.api_origin || API_ORIGIN,
   });
   config.server = defaultConfig().server;
   await Promise.all([
     writeConfig(config),
-    writeCredentials({ version: 1, device_token: null, expires_at: null }),
+    writeCredentials({ version: 2, device_token: null, expires_at: null }),
   ]);
   console.log("All TokensBurned server data was deleted.");
 }

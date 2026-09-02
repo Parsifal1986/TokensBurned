@@ -272,6 +272,7 @@ async function mutateOutbox(file, callback) {
 
 export async function syncUsageEntries(entries, {
   token,
+  devicePrivateKeyJwk,
   apiOrigin,
   fetchImpl,
   timeoutMs,
@@ -294,6 +295,7 @@ export async function syncUsageEntries(entries, {
   }
   const result = await uploadDailyEnvelopes(snapshot.days, {
     token,
+    devicePrivateKeyJwk,
     apiOrigin,
     fetchImpl,
     timeoutMs,
