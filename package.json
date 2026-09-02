@@ -1,11 +1,11 @@
 {
-  "name": "burn-ai",
+  "name": "tokensburned",
   "version": "0.6.0",
   "description": "Privacy-first AI coding activity for your GitHub profile.",
   "type": "module",
   "bin": {
-    "burn": "./bin/burn.js",
-    "tokensburned": "./bin/burn.js"
+    "burn": "bin/burn.js",
+    "tokensburned": "bin/burn.js"
   },
   "scripts": {
     "start": "node ./bin/burn.js",
@@ -34,12 +34,24 @@
     "tokens",
     "developer-tools"
   ],
+  "homepage": "https://tokensburned.com/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Parsifal1986/TokensBurned.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Parsifal1986/TokensBurned/issues"
+  },
   "license": "MIT",
   "cline": {
     "plugins": [
       {
-        "paths": ["./integrations/cline/plugin.js"],
-        "capabilities": ["hooks"]
+        "paths": [
+          "./integrations/cline/plugin.js"
+        ],
+        "capabilities": [
+          "hooks"
+        ]
       }
     ]
   },
