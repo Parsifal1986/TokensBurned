@@ -15,7 +15,7 @@ function response(body, status = 200) {
   });
 }
 
-test("device flow sends only the device name and opaque device code", async () => {
+test("device flow registers a per-device public key and signs polling", async () => {
   const calls = [];
   const fetchImpl = async (url, init) => {
     calls.push({ url, init, body: JSON.parse(init.body) });
@@ -23,12 +23,22 @@ test("device flow sends only the device name and opaque device code", async () =
       ? response({ device_code: "opaque", verification_uri_complete: "https://example.test/connect" }, 201)
       : response({ status: "authorization_pending" }, 202);
   };
-  await startDeviceAuthorization({ apiOrigin: "https://api.example", deviceName: "Codex", fetchImpl });
-  await pollDeviceAuthorization("opaque", { apiOrigin: "https://api.example", fetchImpl });
-  assert.deepEqual(calls.map((call) => call.body), [
-    { device_name: "Codex" },
-    { device_code: "opaque" },
-  ]);
+  const authorization = await startDeviceAuthorization({
+    apiOrigin: "https://api.example",
+    deviceName: "Codex",
+    fetchImpl,
+  });
+  await pollDeviceAuthorization("opaque", {
+    apiOrigin: "https://api.example",
+    fetchImpl,
+    devicePrivateKeyJwk: authorization.device_proof_keys.privateKeyJwk,
+  });
+  assert.equal(calls[0].body.device_name, "Codex");
+  assert.equal(calls[0].init.headers["X-TokensBurned-Client-Version"], "0.6.1");
+  assert.deepEqual(Object.keys(calls[0].body.public_key_jwk).sort(), ["crv", "kty", "x", "y"]);
+  assert.deepEqual(calls[1].body, { device_code: "opaque" });
+  assert.match(calls[1].init.headers["X-TokensBurned-Timestamp"], /^\d{10}$/);
+  assert.match(calls[1].init.headers["X-TokensBurned-Proof"], /^[A-Za-z0-9_-]{80,96}$/);
 });
 
 test("client release check uses the public version endpoint", async () => {
@@ -43,6 +53,7 @@ test("client release check uses the public version endpoint", async () => {
   assert.equal(release.latest_version, "0.5.0");
   assert.equal(calls[0].url, "https://api.example/v1/client/version");
   assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.headers["X-TokensBurned-Client-Version"], "0.6.1");
 });
 
 test("batch uploader chunks entries and keeps the bearer token out of payloads", async () => {
