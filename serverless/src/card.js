@@ -220,7 +220,7 @@ export async function refreshUserCard(env, user, now = Date.now()) {
   await env.CARDS.put(`u/${stored.public_slug}.svg`, svg, {
     httpMetadata: {
       contentType: "image/svg+xml; charset=utf-8",
-      cacheControl: "public, max-age=300, s-maxage=900, stale-while-revalidate=86400",
+      cacheControl: "public, max-age=3600, stale-while-revalidate=86400",
     },
     customMetadata: { generatedAt: summary.generated_at },
   });

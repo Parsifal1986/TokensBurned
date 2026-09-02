@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { syncUsageEntries } from "../../src/server-outbox.js";
 
 const session = crypto.createHash("sha256")
   .update(`cline:${process.pid}:${crypto.randomUUID()}`)
@@ -57,14 +58,14 @@ async function uploadUsage(context) {
     if (!connected) return;
     const provider = safeDimension(context?.result?.providerId ?? context?.providerId);
     const model = String(context?.result?.modelId ?? context?.modelId ?? "unknown").slice(0, 160);
-    await fetch(`${connected.origin}/v1/ingest/batch`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${connected.token}` },
-      body: JSON.stringify({ v: 1, entries: [{
+    await syncUsageEntries([{
         bucket, session, harness: "cline", provider, model,
         ...current,
-      }] }),
-      signal: AbortSignal.timeout(2500),
+      }], {
+      token: connected.token,
+      apiOrigin: connected.origin,
+      timeoutMs: 2500,
+      minIntervalMs: 60 * 60 * 1000,
     });
   } catch {
     // Telemetry must never delay or break the Cline run.

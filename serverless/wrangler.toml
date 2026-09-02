@@ -12,6 +12,17 @@ APP_ORIGIN = "https://tokensburned.com"
 API_ORIGIN = "https://api.tokensburned.com"
 CARD_ORIGIN = "https://api.tokensburned.com/v1/cards"
 GITHUB_CLIENT_ID = "Iv23liAuvAy5CLQVmpgd"
+OBSERVABILITY_LOGS = "true"
+V2_INGEST_ENABLED = "true"
+CARD_REGENERATION_ENABLED = "true"
+COMPACTION_ENABLED = "true"
+# The initial legacy monthly backfill covers every UTC day before this one.
+# Keep this fixed until legacy v1 rows are rolled forward into monthly storage.
+LEGACY_ROLLUP_CUTOFF_DAY = "20608"
+
+[observability]
+enabled = true
+head_sampling_rate = 0.01
 
 [[d1_databases]]
 binding = "DB"

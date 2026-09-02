@@ -1,7 +1,7 @@
 import os from "node:os";
 import path from "node:path";
 
-export const VERSION = "0.5.1";
+export const VERSION = "0.6.0";
 export const STATS_VERSION = 2;
 export const SYNC_INTERVAL_MS = 3 * 60 * 60 * 1000;
 export const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -14,6 +14,7 @@ export const STATS_PATH = path.join(BURN_HOME, "stats.json");
 export const CONFIG_PATH = path.join(BURN_HOME, "config.json");
 export const SVG_PATH = path.join(BURN_HOME, "stats.svg");
 export const CREDENTIALS_PATH = path.join(BURN_HOME, "credentials.json");
+export const SERVER_OUTBOX_PATH = path.join(BURN_HOME, "server-outbox.json");
 
 export const KNOWN_PROVIDERS = new Set([
   "anthropic",

@@ -95,6 +95,45 @@ export async function uploadEntries(entries, { token, ...options } = {}) {
   return { accepted };
 }
 
+function dailyBatches(days, maxBytes = 480 * 1024) {
+  const batches = [];
+  let batch = [];
+  for (const day of days) {
+    const dayBytes = new TextEncoder().encode(JSON.stringify(day)).byteLength;
+    if (dayBytes > 256 * 1024) {
+      throw new Error(`TokensBurned UTC day ${day.day} exceeds the 256 KB upload limit.`);
+    }
+    const candidate = [...batch, day];
+    const candidateBytes = new TextEncoder().encode(JSON.stringify({ v: 2, days: candidate })).byteLength;
+    if (batch.length && (candidate.length > 20 || candidateBytes > maxBytes)) {
+      batches.push(batch);
+      batch = [day];
+    } else {
+      batch = candidate;
+    }
+  }
+  if (batch.length) batches.push(batch);
+  return batches;
+}
+
+export async function uploadDailyEnvelopes(days, { token, ...options } = {}) {
+  if (!token) throw new Error("TokensBurned is not connected. Run `burn connect` first.");
+  const totals = { accepted: 0, received: 0, changed: 0, ignored: 0, acked_days: [] };
+  for (const batch of dailyBatches(days)) {
+    const result = await request("/v1/ingest/batch", {
+      ...options,
+      token,
+      method: "POST",
+      body: { v: 2, days: batch },
+    });
+    for (const key of ["accepted", "received", "changed", "ignored"]) {
+      totals[key] += Number(result?.[key] || 0);
+    }
+    totals.acked_days.push(...(result?.acked_days || []));
+  }
+  return totals;
+}
+
 export function fetchServerSummary({ token, ...options } = {}) {
   if (!token) throw new Error("TokensBurned is not connected. Run `burn connect` first.");
   return request("/v1/me/summary", { ...options, token });
@@ -125,4 +164,4 @@ export function deleteServerData({ token, ...options } = {}) {
   return request("/v1/me/data", { ...options, method: "DELETE", token });
 }
 
-export const serverInternals = { origin, request };
+export const serverInternals = { origin, request, dailyBatches };

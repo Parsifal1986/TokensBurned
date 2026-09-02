@@ -4,6 +4,7 @@ import {
   fetchClientRelease,
   pollDeviceAuthorization,
   startDeviceAuthorization,
+  uploadDailyEnvelopes,
   uploadEntries,
 } from "../src/server.js";
 
@@ -60,4 +61,31 @@ test("batch uploader chunks entries and keeps the bearer token out of payloads",
   assert.deepEqual(calls.map((call) => call.body.entries.length), [100, 100, 5]);
   assert.ok(calls.every((call) => call.init.headers.Authorization === "Bearer tb_live_secret"));
   assert.ok(calls.every((call) => !JSON.stringify(call.body).includes("tb_live_secret")));
+});
+
+test("daily uploader sends v2 envelopes and preserves acknowledgements", async () => {
+  const calls = [];
+  const days = Array.from({ length: 21 }, (_, index) => ({
+    day: `2026-08-${String(index + 1).padStart(2, "0")}`,
+    revision: 1,
+  }));
+  const result = await uploadDailyEnvelopes(days, {
+    apiOrigin: "https://api.example",
+    token: "tb_live_secret",
+    fetchImpl: async (url, init) => {
+      const body = JSON.parse(init.body);
+      calls.push({ url, init, body });
+      return response({
+        accepted: body.days.length,
+        received: body.days.length,
+        changed: body.days.length,
+        ignored: 0,
+        acked_days: body.days.map((day) => ({ day: day.day, revision: day.revision })),
+      });
+    },
+  });
+  assert.deepEqual(calls.map((call) => call.body.days.length), [20, 1]);
+  assert.ok(calls.every((call) => call.body.v === 2));
+  assert.equal(result.accepted, 21);
+  assert.equal(result.acked_days.length, 21);
 });
