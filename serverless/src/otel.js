@@ -1,5 +1,6 @@
 import { stableId } from "./crypto.js";
 import { HttpError } from "./http.js";
+import { d1Meta, logMetric } from "./metrics.js";
 import { identifyDimensions } from "./identity.js";
 import { BUCKET_SECONDS } from "./protocol.js";
 
@@ -347,6 +348,7 @@ export async function ingestOtel(env, device, payload, signal, now = Date.now())
   if (events.length === 0) return { accepted: 0, filtered: true };
   if (events.length > 500) throw new HttpError(413, "too_many_points", "OTLP batch contains too many accepted points.");
   const createdAt = new Date(now).toISOString();
+  const dayStart = new Date(Math.floor(now / 86_400_000) * 86_400_000).toISOString();
   const statements = events.map((event) => env.DB.prepare(INSERT_EVENT).bind(
     event.id,
     device.id,
@@ -363,7 +365,25 @@ export async function ingestOtel(env, device, payload, signal, now = Date.now())
     event.observed_at,
     createdAt,
   ));
-  statements.push(env.DB.prepare("UPDATE devices SET last_seen_at = ? WHERE id = ?").bind(createdAt, device.id));
-  await env.DB.batch(statements);
-  return { accepted: events.length, filtered: false };
+  statements.push(env.DB.prepare(
+    `UPDATE devices SET last_seen_at = ?
+      WHERE id = ? AND (last_seen_at IS NULL OR last_seen_at < ?)`,
+  ).bind(createdAt, device.id, dayStart));
+  const results = await env.DB.batch(statements);
+  const changed = results.slice(0, events.length)
+    .reduce((sum, result) => sum + Number(result?.meta?.changes || 0), 0);
+  logMetric(env, "otel_ingest", {
+    signal,
+    received: events.length,
+    changed,
+    ignored: events.length - changed,
+    ...d1Meta(results),
+  });
+  return {
+    accepted: events.length,
+    received: events.length,
+    changed,
+    ignored: events.length - changed,
+    filtered: false,
+  };
 }

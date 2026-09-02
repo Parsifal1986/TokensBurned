@@ -1,6 +1,6 @@
 import { authenticate, createDeviceCredential } from "./auth.js";
 import { constantTimeEqual, randomId } from "./crypto.js";
-import { normalizeCardOptions, refreshUserCard, renderServerCard } from "./card.js";
+import { refreshUserCard } from "./card.js";
 import { HttpError, json, problem, readJson } from "./http.js";
 import { ingestBatch } from "./ingest.js";
 import { ingestOtel } from "./otel.js";
@@ -17,12 +17,17 @@ import { getPrivacy, updatePrivacy } from "./privacy.js";
 import { enforceRateLimit } from "./rate-limit.js";
 import { clientRelease } from "./release.js";
 import { summarizeUser } from "./summary.js";
+import { compactUserUsage } from "./compaction.js";
 
 const BROWSER_AUTH_ROUTES = new Set([
   "/v1/auth/device/verify",
   "/v1/auth/device/approve",
   "/v1/auth/github/callback",
 ]);
+
+export function featureEnabled(env, name) {
+  return env?.[name] !== "false";
+}
 
 function withCors(response, request, env) {
   const origin = request.headers.get("origin");
@@ -78,8 +83,11 @@ async function bootstrap(request, env) {
 async function authenticatedRoute(request, env, ctx, pathname) {
   const device = await authenticate(request, env);
   if (pathname === "/v1/ingest/batch" && request.method === "POST") {
-    const result = await ingestBatch(env, device, await readJson(request));
-    ctx.waitUntil(refreshUserCard(env, device));
+    const payload = await readJson(request, 512 * 1024);
+    if (payload?.v === 2 && !featureEnabled(env, "V2_INGEST_ENABLED")) {
+      throw new HttpError(503, "v2_ingest_paused", "Daily-envelope ingestion is temporarily paused; retry later.");
+    }
+    const result = await ingestBatch(env, device, payload);
     return json(result, 202);
   }
   const otelSignals = new Map([
@@ -94,11 +102,15 @@ async function authenticatedRoute(request, env, ctx, pathname) {
     }
     const signal = otelSignals.get(pathname);
     const result = await ingestOtel(env, device, await readJson(request, 512 * 1024), signal);
-    if (result.accepted) ctx.waitUntil(refreshUserCard(env, device));
     return json({ partialSuccess: {}, tokensburned: result });
   }
   if (pathname === "/v1/me/summary" && request.method === "GET") {
-    return json(await summarizeUser(env, device.user_id));
+    const summaryState = {};
+    const summary = await summarizeUser(env, device.user_id, Date.now(), summaryState);
+    if (featureEnabled(env, "COMPACTION_ENABLED") && summaryState.cache === "miss") {
+      ctx.waitUntil(compactUserUsage(env, device.user_id));
+    }
+    return json(summary);
   }
   if (pathname === "/v1/me/privacy" && request.method === "GET") {
     return getPrivacy(env, device);
@@ -124,7 +136,44 @@ async function authenticatedRoute(request, env, ctx, pathname) {
   throw new HttpError(404, "not_found", "Not found.");
 }
 
-async function card(request, env, url) {
+const CARD_REGENERATION_INTERVAL_MS = 60 * 60 * 1000;
+const cardRegenerations = new Map();
+
+export function singleflightCard(key, work) {
+  const running = cardRegenerations.get(key);
+  if (running) return running;
+  const pending = Promise.resolve()
+    .then(work)
+    .finally(() => {
+      if (cardRegenerations.get(key) === pending) cardRegenerations.delete(key);
+    });
+  cardRegenerations.set(key, pending);
+  return pending;
+}
+
+function regenerateCard(env, user) {
+  return singleflightCard(user.id, async () => {
+    const [cardResult] = await Promise.all([
+      refreshUserCard(env, user),
+      compactUserUsage(env, user.id),
+    ]);
+    return cardResult;
+  });
+}
+
+function cardResponse(request, object, body) {
+  const headers = new Headers();
+  object?.writeHttpMetadata?.(headers);
+  if (object?.httpEtag) headers.set("ETag", object.httpEtag);
+  headers.set("Content-Type", "image/svg+xml; charset=utf-8");
+  headers.set("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+  headers.set("Referrer-Policy", "no-referrer");
+  return new Response(request.method === "HEAD" ? null : body, { headers });
+}
+
+async function card(request, env, ctx, url) {
   if (!["GET", "HEAD"].includes(request.method)) {
     throw new HttpError(405, "method_not_allowed", "Method not allowed.");
   }
@@ -137,28 +186,21 @@ async function card(request, env, url) {
        FROM users WHERE public_slug = ? AND public_card = 1`,
   ).bind(publicSlug).first();
   if (!user) throw new HttpError(404, "card_not_found", "Card not found.");
-  const hasOptions = [...url.searchParams.keys()].some((key) =>
-    ["layout", "heatmap", "compare", "meme", "rank", "theme"].includes(key));
-  if (hasOptions) {
-    const options = normalizeCardOptions(Object.fromEntries(url.searchParams));
-    const svg = renderServerCard(await summarizeUser(env, user.id), user.public_slug, options, user);
-    return new Response(request.method === "HEAD" ? null : svg, { headers: {
-      "Content-Type": "image/svg+xml; charset=utf-8",
-      "Cache-Control": "public, max-age=300, s-maxage=900, stale-while-revalidate=86400",
-      "X-Content-Type-Options": "nosniff",
-      "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
-      "Referrer-Policy": "no-referrer",
-    } });
-  }
   const object = await env.CARDS.get(`u/${publicSlug}.svg`);
-  if (!object) throw new HttpError(404, "card_not_found", "Card not found.");
-  const headers = new Headers();
-  object.writeHttpMetadata(headers);
-  headers.set("ETag", object.httpEtag);
-  headers.set("X-Content-Type-Options", "nosniff");
-  headers.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox");
-  headers.set("Referrer-Policy", "no-referrer");
-  return new Response(request.method === "HEAD" ? null : object.body, { headers });
+  if (!object) {
+    if (!featureEnabled(env, "CARD_REGENERATION_ENABLED")) {
+      throw new HttpError(503, "card_regeneration_paused", "Card generation is temporarily paused; retry later.");
+    }
+    const refreshed = await regenerateCard(env, user);
+    if (!refreshed.svg) throw new HttpError(404, "card_not_found", "Card not found.");
+    return cardResponse(request, null, refreshed.svg);
+  }
+  const generatedAt = Date.parse(object.customMetadata?.generatedAt || "");
+  if (featureEnabled(env, "CARD_REGENERATION_ENABLED")
+      && (!Number.isFinite(generatedAt) || Date.now() - generatedAt >= CARD_REGENERATION_INTERVAL_MS)) {
+    ctx.waitUntil(regenerateCard(env, user));
+  }
+  return cardResponse(request, object, object.body);
 }
 
 export async function handleRequest(request, env, ctx) {
@@ -197,7 +239,7 @@ export async function handleRequest(request, env, ctx) {
     await enforceRateLimit(env, request, "github-callback", { limit: 30 });
     return githubCallback(request, env);
   }
-  if (url.pathname.startsWith("/v1/cards/")) return card(request, env, url);
+  if (url.pathname.startsWith("/v1/cards/")) return card(request, env, ctx, url);
   if (url.pathname.startsWith("/v1/")) return authenticatedRoute(request, env, ctx, url.pathname);
   throw new HttpError(404, "not_found", "Not found.");
 }

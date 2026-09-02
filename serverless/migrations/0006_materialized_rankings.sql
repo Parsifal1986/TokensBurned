@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS user_rankings (
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  rank INTEGER NOT NULL,
+  participants INTEGER NOT NULL,
+  updated_at TEXT NOT NULL
+);

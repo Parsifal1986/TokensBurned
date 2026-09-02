@@ -13,7 +13,7 @@ import {
 } from "../src/oauth.js";
 import { updatePrivacy } from "../src/privacy.js";
 import { enforceRateLimit } from "../src/rate-limit.js";
-import worker, { handleRequest } from "../src/index.js";
+import worker, { featureEnabled, handleRequest, singleflightCard } from "../src/index.js";
 
 function statement(first, run = async () => ({ meta: { changes: 1 } })) {
   return {
@@ -25,6 +25,12 @@ function statement(first, run = async () => ({ meta: { changes: 1 } })) {
     },
   };
 }
+
+test("production load-shedding switches default on and require an exact false value", () => {
+  assert.equal(featureEnabled({}, "V2_INGEST_ENABLED"), true);
+  assert.equal(featureEnabled({ V2_INGEST_ENABLED: "true" }, "V2_INGEST_ENABLED"), true);
+  assert.equal(featureEnabled({ V2_INGEST_ENABLED: "false" }, "V2_INGEST_ENABLED"), false);
+});
 
 test("device verification works without persistent browser cookies", async () => {
   const writes = [];
@@ -255,7 +261,7 @@ test("client version metadata is public and cache-safe", async () => {
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.deepEqual(await response.json(), {
-    latest_version: "0.5.1",
+    latest_version: "0.6.0",
     minimum_supported_version: "0.4.0",
     update_url: "https://github.com/Parsifal1986/TokensBurned#install",
     check_interval_seconds: 86400,
@@ -337,4 +343,66 @@ test("making a card private deletes the public object and rejects partial polici
     }), env, device),
     (error) => error instanceof HttpError && error.code === "invalid_privacy",
   );
+});
+
+test("public card query options never trigger a live summary rebuild", async () => {
+  const waited = [];
+  const env = {
+    DB: {
+      prepare(sql) {
+        assert.match(sql, /FROM users WHERE public_slug/);
+        return statement(async () => ({
+          id: "usr_1",
+          public_slug: "octocat",
+          public_card: 1,
+          publish_harness: 1,
+          publish_provider: 1,
+          publish_model: 1,
+          publish_heatmap: 1,
+          publish_rank: 1,
+        }));
+      },
+    },
+    CARDS: {
+      async get() {
+        return {
+          body: "<svg>cached</svg>",
+          httpEtag: "etag",
+          customMetadata: { generatedAt: new Date().toISOString() },
+          writeHttpMetadata(headers) {
+            headers.set("Content-Type", "image/svg+xml");
+          },
+        };
+      },
+    },
+  };
+  const response = await handleRequest(
+    new Request("https://api.example/v1/cards/u/octocat.svg?theme=light&rank=1"),
+    env,
+    { waitUntil(promise) { waited.push(promise); } },
+  );
+  assert.equal(await response.text(), "<svg>cached</svg>");
+  assert.equal(waited.length, 0);
+  assert.match(response.headers.get("cache-control"), /max-age=3600/);
+  assert.doesNotMatch(response.headers.get("cache-control"), /s-maxage/);
+});
+
+test("card regeneration is singleflight per user within one isolate", async () => {
+  let release;
+  let calls = 0;
+  const blocked = new Promise((resolve) => { release = resolve; });
+  const first = singleflightCard("usr_singleflight", async () => {
+    calls += 1;
+    await blocked;
+    return "done";
+  });
+  const second = singleflightCard("usr_singleflight", async () => {
+    calls += 1;
+    return "duplicate";
+  });
+
+  assert.equal(first, second);
+  release();
+  assert.equal(await second, "done");
+  assert.equal(calls, 1);
 });

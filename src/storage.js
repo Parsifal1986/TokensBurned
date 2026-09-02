@@ -7,6 +7,7 @@ import {
   STATS_PATH,
   STATS_VERSION,
   SVG_PATH,
+  SERVER_OUTBOX_PATH,
 } from "./constants.js";
 
 export function emptyStats(now = new Date()) {
@@ -120,5 +121,6 @@ export const paths = {
   stats: STATS_PATH,
   config: CONFIG_PATH,
   credentials: CREDENTIALS_PATH,
+  serverOutbox: SERVER_OUTBOX_PATH,
   svg: SVG_PATH,
 };

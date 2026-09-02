@@ -10,11 +10,14 @@ Worker with D1 for aggregate usage and R2 for pre-rendered SVG cards.
 
 ## Boundaries
 
-- Native adapters upload revisioned 15-minute snapshots to `/v1/ingest/batch`.
+- Current native adapters aggregate locally and upload one revisioned, absolute
+  device/day envelope to `/v1/ingest/batch`. Protocol v1 15-minute snapshots
+  remain accepted during the client migration.
 - The 0.2 plugin can optionally import up to 90 days of local Codex and Claude
   history after explicit user consent, then incrementally upload at `SessionEnd`.
-- Native history ingestion contains only token counts, harness, provider, model,
-  a hashed session identifier, a 15-minute bucket, revision and request count.
+- Native history ingestion contains only exact token counters, UTC hour,
+  harness, provider, model, revision and request count. Session identifiers
+  remain in the local outbox and are not part of the v2 server row.
 - Claude Code sends only its `claude_code.token.usage` metric.
 - Codex sends OTLP logs, but the Worker allow-lists only
   `codex.sse_event` / `response.completed` token and model fields.
@@ -97,7 +100,7 @@ the user's plugin manager remains responsible for installing it.
 
 | Endpoint | Input |
 | --- | --- |
-| `POST /v1/ingest/batch` | Revisioned, absolute 15-minute usage snapshots. |
+| `POST /v1/ingest/batch` | v2 absolute device/day envelopes; legacy v1 snapshots remain compatible. |
 | `POST /v1/otel/metrics` | OTLP/HTTP JSON token metrics from Claude Code or GenAI clients. |
 | `POST /v1/otel/logs` | Codex events or standard GenAI usage logs. |
 | `POST /v1/otel/traces` | Standard GenAI spans containing usage attributes. |
@@ -107,7 +110,7 @@ the user's plugin manager remains responsible for installing it.
 | `DELETE /v1/me/device` | Revoke the current device credential. |
 | `DELETE /v1/me/data` | Delete the authenticated user's usage, devices, account, and card. |
 | `GET /v1/client/version` | Public latest/minimum client release metadata for daily update checks. |
-| `GET /v1/cards/u/:slug.svg` | Public SVG card. Supports `layout`, `heatmap`, `compare`, `rank`, `meme`, and `theme=auto|light|dark`. |
+| `GET /v1/cards/u/:slug.svg` | Public SVG card served from R2/CDN and lazily regenerated after its minimum interval. |
 
 All write and self-service endpoints except device authorization require
 `Authorization: Bearer <device-token>`.
@@ -118,25 +121,33 @@ harness to avoid counting the same model call once as a log and again as a span.
 The examples in `serverless/config/` disable prompt logging; the Worker also
 allow-lists fields and never stores raw OTLP payloads.
 
-Revisioned native snapshots are deduplicated across devices by user, stable
-hashed session, harness, model and 15-minute bucket, taking the newest revision.
-When those snapshots overlap OTel events for the same user, harness and bucket,
-summary queries use the snapshot and omit the overlapping OTel events. Records
-remain append-only; reconnects and backfills cannot inflate public totals.
+The local outbox deduplicates revisioned source snapshots and folds them into
+one absolute UTC-day payload per device. Server updates are conditional on a
+strictly newer day revision, so retries write zero usage rows. During migration,
+a v2 device/day row takes precedence over legacy snapshots and OTLP events for
+the same device/day, preventing double counting.
+
+Authenticated summaries use a one-hour cached `user_summaries` row. A cache hit
+therefore reads one row rather than scanning source rows to calculate a freshness
+watermark. A miss rebuilds from the bounded daily, legacy-transition, and monthly
+read models.
 
 ## Public card analytics
 
 Cards are unavailable by default. An authenticated user must explicitly enable
-the card and each publishable category. Query parameters may reduce this stored
-policy but cannot expand it. Published cards summarize rolling 24-hour, 7-day and 30-day windows plus all retained
+the card and each publishable category. Public query parameters no longer cause
+live analytical rebuilds; the stored account policy controls the rendered R2
+object. Published cards summarize UTC day, 7-day and 30-day windows plus all retained
 history. Daily cells cover 12 weeks; hourly cells group the last 30 days by UTC
-hour. Harness, provider and model shares use the same 30-day window. Rank is an
-all-time token rank across users with recorded activity; only the viewer's rank
-and the aggregate participant count are rendered.
+hour. Harness, provider and model shares use the same 30-day window. Rank is a
+materialized value read by user ID; a request never scans all users to calculate
+an exact live rank. Until a bounded ranking job publishes a value, the card
+shows that ranking is pending.
 
-Aggregate records are retained until the authenticated user calls
-`DELETE /v1/me/data`. That endpoint removes usage, devices, identity, and the R2
-card. Expired authorization rows are cleaned up opportunistically.
+Device/day rows keep hourly slots for 30 days, daily totals for 90 days, and are
+then rolled into user/month rows. `DELETE /v1/me/data` removes daily/monthly
+usage, totals, summaries, devices, identity, and the R2 card through foreign-key
+cascades. Expired authorization rows are cleaned up opportunistically.
 
 ## Production resources
 
@@ -148,3 +159,9 @@ new deployment:
 npx wrangler d1 migrations apply tokensburned --remote --config ./serverless/wrangler.toml
 npm run worker:deploy
 ```
+
+For production, use the staged version/backfill procedure in
+[`plans/production-rollout.md`](../plans/production-rollout.md) instead of the
+direct deploy command. The Worker persists a 1% sample of structured operation
+metrics. `V2_INGEST_ENABLED`, `CARD_REGENERATION_ENABLED`, and
+`COMPACTION_ENABLED` provide forward-compatible emergency load shedding.

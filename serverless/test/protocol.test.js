@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { currentBucket, normalizeBatch } from "../src/protocol.js";
+import {
+  currentBucket,
+  normalizeBatch,
+  normalizeDailyBatch,
+} from "../src/protocol.js";
 
 test("normalizes a revisioned usage snapshot", () => {
   const now = Date.UTC(2026, 7, 30, 12);
@@ -75,4 +79,77 @@ test("canonicalizes harness aliases and infers a missing provider from the model
   assert.equal(result.entries[0].harness, "gemini-cli");
   assert.equal(result.entries[0].provider, "google");
   assert.equal(result.entries[0].model, "gemini-2.5-pro");
+});
+
+test("normalizes an exact device/day envelope", () => {
+  const now = Date.UTC(2026, 7, 30, 12);
+  const result = normalizeDailyBatch({
+    v: 2,
+    days: [{
+      day: "2026-08-30",
+      revision: 7,
+      input_tokens: 100,
+      output_tokens: 20,
+      cache_read_tokens: 30,
+      cache_write_tokens: 0,
+      reasoning_tokens: 5,
+      request_count: 2,
+      hours: {
+        "08": {
+          input_tokens: 100,
+          output_tokens: 20,
+          cache_read_tokens: 30,
+          reasoning_tokens: 5,
+          request_count: 2,
+        },
+      },
+      dimensions: {
+        harness: { "OpenAI-Codex": { total_tokens: 155 } },
+        provider: { unknown: { total_tokens: 155 } },
+        model: { "openai/gpt-5.6-sol": { total_tokens: 155 } },
+      },
+    }],
+  }, now);
+  assert.equal(result.days[0].day_key, "2026-08-30");
+  assert.equal(result.days[0].day, Math.floor(now / 86_400_000));
+  assert.deepEqual(result.days[0].dimensions, {
+    harness: { codex: { total_tokens: 155 } },
+    provider: { unknown: { total_tokens: 155 } },
+    model: { "gpt-5.6-sol": { total_tokens: 155 } },
+  });
+});
+
+test("rejects daily envelopes whose hours or dimensions disagree with exact totals", () => {
+  const now = Date.UTC(2026, 7, 30, 12);
+  const base = {
+    day: "2026-08-30",
+    revision: 1,
+    input_tokens: 100,
+    request_count: 1,
+    hours: { "12": { input_tokens: 99, request_count: 1 } },
+    dimensions: {
+      harness: { codex: { total_tokens: 100 } },
+      provider: { openai: { total_tokens: 100 } },
+      model: { "gpt-5": { total_tokens: 100 } },
+    },
+  };
+  assert.throws(
+    () => normalizeDailyBatch({ v: 2, days: [base] }, now),
+    /hours must sum to the exact day counters/,
+  );
+  assert.throws(
+    () => normalizeDailyBatch({
+      v: 2,
+      days: [{
+        ...base,
+        hours: { "12": { input_tokens: 100, request_count: 1 } },
+        dimensions: { ...base.dimensions, model: { "gpt-5": { total_tokens: 99 } } },
+      }],
+    }, now),
+    /dimensions.model must sum to the exact day token total/,
+  );
+  assert.throws(
+    () => normalizeDailyBatch({ v: 2, days: [{ ...base, day: "2026-02-31" }] }, now),
+    /day must be an integer/,
+  );
 });
