@@ -5,3 +5,7 @@ output/
 .burn/
 serverless/.dev.vars
 serverless/.wrangler/
+
+# Local agent workspace and planning notes
+/plans/
+/.claude/
