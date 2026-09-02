@@ -1,4 +1,4 @@
-import { API_ORIGIN } from "./constants.js";
+import { API_ORIGIN, VERSION } from "./constants.js";
 import { deviceProofHeaders, generateDeviceProofKeys } from "./device-proof.js";
 
 function origin(value = API_ORIGIN) {
@@ -29,7 +29,10 @@ async function request(pathname, {
   fetchImpl = globalThis.fetch,
   timeoutMs = 15_000,
 } = {}) {
-  const headers = { Accept: "application/json" };
+  const headers = {
+    Accept: "application/json",
+    "X-TokensBurned-Client-Version": VERSION,
+  };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (token) headers.Authorization = `Bearer ${token}`;
   const target = `${origin(apiOrigin)}${pathname}`;
