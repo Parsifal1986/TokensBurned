@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { HttpError } from "../src/http.js";
 import { ingestBatch } from "../src/ingest.js";
 
 function environment(changes = 1) {
@@ -72,4 +73,15 @@ test("v2 ingest reports a stale revision as an ignored zero-write mutation", asy
   assert.equal(result.changed, 0);
   assert.equal(result.ignored, 1);
   assert.equal(result.next_flush_after, 3600);
+});
+
+test("legacy v1 ingest is retired before any D1 statement is prepared", async () => {
+  const env = environment(1);
+  await assert.rejects(
+    () => ingestBatch(env, { id: "device-1" }, { v: 1, entries: [{}] }),
+    (error) => error instanceof HttpError
+      && error.status === 426
+      && error.code === "client_upgrade_required",
+  );
+  assert.equal(env.statements.length, 0);
 });

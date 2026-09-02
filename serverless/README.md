@@ -11,8 +11,8 @@ Worker with D1 for aggregate usage and R2 for pre-rendered SVG cards.
 ## Boundaries
 
 - Current native adapters aggregate locally and upload one revisioned, absolute
-  device/day envelope to `/v1/ingest/batch`. Protocol v1 15-minute snapshots
-  remain accepted during the client migration.
+  device/day envelope to `/v1/ingest/batch`. Protocol v1 15-minute snapshot
+  writes are retired and receive `426 Upgrade Required` without touching D1.
 - The 0.2 plugin can optionally import up to 90 days of local Codex and Claude
   history after explicit user consent, then incrementally upload at `SessionEnd`.
 - Native history ingestion contains only exact token counters, UTC hour,
@@ -100,7 +100,7 @@ the user's plugin manager remains responsible for installing it.
 
 | Endpoint | Input |
 | --- | --- |
-| `POST /v1/ingest/batch` | v2 absolute device/day envelopes; legacy v1 snapshots remain compatible. |
+| `POST /v1/ingest/batch` | v2 absolute device/day envelopes; legacy v1 snapshots receive `426 Upgrade Required`. |
 | `POST /v1/otel/metrics` | OTLP/HTTP JSON token metrics from Claude Code or GenAI clients. |
 | `POST /v1/otel/logs` | Codex events or standard GenAI usage logs. |
 | `POST /v1/otel/traces` | Standard GenAI spans containing usage attributes. |

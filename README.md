@@ -92,7 +92,7 @@ gemini
     <td width="50%" valign="top">
       <h3>OpenCode, Cursor, Aider, other</h3>
       <p><strong>OTLP or standalone CLI</strong></p>
-      <pre><code>npm install -g github:Parsifal1986/TokensBurned
+      <pre><code>npm install -g tokensburned
 tokensburned connect
 tokensburned doctor</code></pre>
       <p>Use standard OTLP/HTTP JSON when the harness exports observed token fields. Otherwise use an explicit batch import. TokensBurned does not estimate usage from prompt text.</p>
@@ -154,7 +154,7 @@ Supported query parameters:
 The standalone CLI is the stable escape hatch for any harness:
 
 ```bash
-npm install -g github:Parsifal1986/TokensBurned
+npm install -g tokensburned
 tokensburned connect
 ```
 
