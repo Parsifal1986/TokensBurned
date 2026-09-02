@@ -50,7 +50,7 @@ test("repository exposes manifests for the supported plugin ecosystems", async (
 test("Cline integration uploads only aggregate usage fields", async () => {
   const source = await fs.readFile(path.join(root, "integrations", "cline", "plugin.js"), "utf8");
   assert.match(source, /context\?\.result\?\.usage/);
-  assert.match(source, /\/v1\/ingest\/batch/);
+  assert.match(source, /syncUsageEntries/);
   assert.match(source, /afterRun: uploadUsage/);
   assert.doesNotMatch(source, /context\?\.(prompt|messages|source|files)/);
 });

@@ -1,6 +1,6 @@
 {
   "name": "tokensburned",
-  "version": "0.5.1+codex.20260901110652",
+  "version": "0.6.0",
   "description": "Privacy-first AI coding activity with serverless aggregation and GitHub profile cards.",
   "author": {
     "name": "Parsifal1986",
@@ -9,14 +9,7 @@
   "homepage": "https://tokensburned.com/",
   "repository": "https://github.com/Parsifal1986/TokensBurned",
   "license": "MIT",
-  "keywords": [
-    "tokens",
-    "github-profile",
-    "claude-code",
-    "codex",
-    "gemini-cli",
-    "cline"
-  ],
+  "keywords": ["tokens", "github-profile", "claude-code", "codex", "gemini-cli", "cline"],
   "skills": "./skills/",
   "interface": {
     "displayName": "TokensBurned",
@@ -24,11 +17,7 @@
     "longDescription": "Connect AI coding harnesses to the TokensBurned serverless collector, optionally import historical token totals, and render a live GitHub Profile SVG without uploading prompts or code.",
     "developerName": "Parsifal1986",
     "category": "Productivity",
-    "capabilities": [
-      "Local",
-      "Network",
-      "Write"
-    ],
+    "capabilities": ["Local", "Network", "Write"],
     "websiteURL": "https://tokensburned.com/",
     "privacyPolicyURL": "https://github.com/Parsifal1986/TokensBurned/blob/main/SECURITY.md",
     "defaultPrompt": [

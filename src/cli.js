@@ -39,8 +39,8 @@ import {
   revokeDevice,
   startDeviceAuthorization,
   updateServerPrivacy,
-  uploadEntries,
 } from "./server.js";
+import { syncUsageEntries } from "./server-outbox.js";
 import { formatTokens, localDateKey, percentages } from "./utils.js";
 
 const COLORS = {
@@ -353,9 +353,10 @@ async function backfillHistory({
   const tokens = result.entries.reduce((sum, entry) => sum +
     entry.input + entry.output + entry.cache_read + entry.cache_write + entry.reasoning, 0);
   if (!dryRun && result.entries.length) {
-    await uploadEntries(result.entries, {
+    await syncUsageEntries(result.entries, {
       token: credentials.device_token,
       apiOrigin: config.server.api_origin || API_ORIGIN,
+      force: true,
     });
     config.server.backfill_completed_at = new Date().toISOString();
     await writeConfig(config);
@@ -364,8 +365,8 @@ async function backfillHistory({
     const files = Object.values(result.summary).reduce((sum, item) => sum + item.files, 0);
     console.log(`${dryRun ? "Would import" : "Imported"} ${formatTokens(tokens)} tokens from ${files} ${selected.join(", ")} history files across ${result.entries.length} aggregate buckets.`);
     console.log(dryRun
-      ? "Dry run complete: no history data was uploaded. A real import would send only token counts, harness, provider, model, hashed session id and 15-minute bucket."
-      : "Only token counts, harness, provider, model, hashed session id and 15-minute bucket left this machine.");
+      ? "Dry run complete: no history data was uploaded. A real import would send only exact token counters, UTC hour, harness, provider and model in a daily device envelope."
+      : "Only exact token counters, UTC hour, harness, provider and model in a daily device envelope left this machine.");
   }
   return { ...result, tokens };
 }
@@ -524,7 +525,7 @@ async function doctor() {
     console.log(`  confidence: ${backend.confidence}\n`);
   }
   console.log("Files TokensBurned reads\n✓ known harness config only\n✓ official hook usage metadata\n");
-  console.log(`Files TokensBurned writes\n✓ ${paths.stats}\n✓ ${paths.config}\n✓ ${paths.svg}\n`);
+  console.log(`Files TokensBurned writes\n✓ ${paths.stats}\n✓ ${paths.config}\n✓ ${paths.serverOutbox}\n✓ ${paths.svg}\n`);
   const network = config.server.enabled
     ? `✓ TokensBurned aggregate API (${config.server.api_origin || API_ORIGIN})`
     : config.sync.enabled ? "✓ GitHub only when sync is due" : "✓ None (sync disabled)";
