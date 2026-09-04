@@ -36,6 +36,7 @@ export function defaultConfig() {
     server: {
       enabled: false,
       api_origin: null,
+      device_id: null,
       github_login: null,
       public_slug: null,
       card_url: null,

@@ -9,6 +9,70 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 const cli = path.resolve("bin/burn.js");
 
+test("connect preserves the legacy device ID and ACKs, including across disconnect", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-connect-test-"));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  const oldId = "original_device";
+  const newId = "new_account_device";
+  let mode = "reuse";
+  const apiOrigin = "https://api.example.test";
+  const mockFetch = path.join(home, "mock-fetch.mjs");
+  const hintFile = path.join(home, "hint.json");
+  await fs.writeFile(mockFetch, `
+  import fs from "node:fs/promises";
+  const mode = process.env.BURN_TEST_RECONNECT_MODE;
+  const oldId = "original_device";
+  const newId = "new_account_device";
+  const apiOrigin = "https://api.example.test";
+  globalThis.fetch = async (url, init) => {
+    const body = init.body ? JSON.parse(init.body) : {};
+    const pathname = new URL(url).pathname;
+    let result = {};
+    if (pathname === "/v1/auth/device/start") {
+      result = { device_code: "test-code", user_code: "ABCD-2345", verification_uri: apiOrigin + "/verify", interval: 1 };
+    } else if (pathname === "/v1/auth/device/status") {
+      await fs.writeFile(process.env.BURN_TEST_HINT_FILE, JSON.stringify(body.previous_device_id));
+      result = {
+        status: "authorized", token: "tb_live_" + (mode === "reuse" ? oldId : newId) + "." + "s".repeat(43),
+        user: { github_login: "test-user" }, privacy: { public_card: false },
+        ...(mode === "legacy" ? {} : { device_reused: mode === "reuse" }),
+      };
+    }
+    return new Response(JSON.stringify(result));
+  };
+  `);
+  const env = { ...process.env, BURN_HOME: home, NO_COLOR: "1", BURN_TEST_HINT_FILE: hintFile };
+  const configFile = path.join(home, "config.json");
+  const credentialsFile = path.join(home, "credentials.json");
+  const outboxFile = path.join(home, "server-outbox.json");
+  await fs.writeFile(configFile, JSON.stringify({ server: { enabled: true, api_origin: apiOrigin }, updates: { last_checked_at: new Date().toISOString() } }));
+  await fs.writeFile(credentialsFile, JSON.stringify({ device_token: `tb_live_${oldId}.${"o".repeat(43)}` }));
+  await fs.writeFile(outboxFile, JSON.stringify({ version: 1, sources: {}, days: { day: { revision: 5, acked_revision: 5 } } }));
+  const connect = () => execFileAsync(process.execPath, ["--import", mockFetch, cli, "connect", "--api-origin", apiOrigin, "--no-open", "--no-backfill"], { env: { ...env, BURN_TEST_RECONNECT_MODE: mode } });
+  await connect();
+  assert.equal(JSON.parse(await fs.readFile(hintFile)), oldId, "upgrades recover identity from the old token");
+  assert.equal(JSON.parse(await fs.readFile(outboxFile)).days.day.acked_revision, 5);
+  await execFileAsync(process.execPath, ["--import", mockFetch, cli, "disconnect", "--yes"], { env });
+  const disconnected = JSON.parse(await fs.readFile(configFile));
+  assert.equal(disconnected.server.device_id, oldId);
+  assert.equal(disconnected.server.api_origin, apiOrigin);
+  assert.equal(JSON.parse(await fs.readFile(credentialsFile)).device_token, null);
+  await connect();
+  assert.equal(JSON.parse(await fs.readFile(hintFile)), oldId);
+  assert.equal(JSON.parse(await fs.readFile(outboxFile)).days.day.acked_revision, 5);
+
+  mode = "legacy";
+  const savedCredentials = await fs.readFile(credentialsFile, "utf8");
+  await assert.rejects(connect, (error) => /does not support safe device reconnection/.test(error.stderr));
+  assert.equal(await fs.readFile(credentialsFile, "utf8"), savedCredentials);
+  assert.equal(JSON.parse(await fs.readFile(outboxFile)).days.day.acked_revision, 5);
+
+  mode = "new-account";
+  await connect();
+  assert.equal(JSON.parse(await fs.readFile(configFile)).server.device_id, newId);
+  assert.equal(JSON.parse(await fs.readFile(outboxFile)).days.day.acked_revision, 0);
+});
+
 test("CLI ingests, reports and renders without network", async () => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-test-"));
   const env = { ...process.env, BURN_HOME: home, NO_COLOR: "1" };

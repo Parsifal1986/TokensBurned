@@ -1,6 +1,6 @@
 {
   "name": "tokensburned",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Track aggregate Gemini CLI token usage and publish a live GitHub profile card.",
   "contextFileName": "GEMINI.md"
 }
