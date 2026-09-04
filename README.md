@@ -169,7 +169,7 @@ tokensburned connect
 | `tokensburned privacy` | Show the GitHub account's current public-card policy without changing it. |
 | `tokensburned privacy public` | Explicitly publish aggregate activity tied to your GitHub identity. |
 | `tokensburned privacy private` | Disable the public route and remove the cached SVG. |
-| `tokensburned disconnect` | Revoke this device credential and remove the local connection. |
+| `tokensburned disconnect` | Revoke this device credential; keep history and reserve its slot for up to 30 days. |
 | `tokensburned delete-server-data` | Delete server aggregates, devices, identity, and public card. |
 | `tokensburned doctor` | Show detected harnesses and data boundaries. |
 
@@ -194,3 +194,26 @@ The lifecycle upload is short and best effort. Server aggregates are retained un
 ## License
 
 [MIT](LICENSE) © 2026 [parsifal1986](https://github.com/Parsifal1986). Issues and pull requests are welcome; contributor and implementation notes live in [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and [`docs/`](docs/).
+
+### Free device slots
+
+Each GitHub account has 5 device slots, shared across active devices and devices
+in a 30-day cooldown. Disconnecting revokes access immediately but reserves that
+slot for the same device for up to 30 days. Reconnecting the same device reuses the
+slot; disconnecting it again restarts the cooldown. Credential expiry releases
+the slot immediately, including during cooldown. Reconnecting after expiry needs
+a free slot and consumes a connection allowance. Other free slots remain usable.
+
+Keep the local device ID in `~/.burn` to reconnect as the same device. Disconnect
+does not delete cloud history. The CLI shows the server-confirmed slot release
+time after disconnecting. Deleting local files does not release a cloud slot.
+Successful connections, including reconnections and credential rotations, are
+limited per GitHub account to 5 per rolling 10 minutes and 10 per rolling 24 hours.
+Disconnecting does not refund that allowance; authorization polling does not use it.
+
+Deleting all server data removes usage, credentials, the account profile, and the
+public card, but does not refund allowances. A keyed account identifier, recent
+connection times, and outstanding slot release times remain until their normal
+deadlines. Connection windows last up to 24 hours; deleted device reservations
+last up to 30 days or credential expiry, whichever comes first. Expired records
+are cleaned up regularly. See [all usage limits](https://tokensburned.com/limits.html).

@@ -38,6 +38,9 @@ test("connect preserves the legacy device ID and ACKs, including across disconne
         ...(mode === "legacy" ? {} : { device_reused: mode === "reuse" }),
       };
     }
+    if (pathname === "/v1/me/device" && init.method === "DELETE") {
+      result = { disconnected_at: "2026-09-04T00:00:00.000Z", slot_reusable_at: "2026-10-04T00:00:00.000Z" };
+    }
     return new Response(JSON.stringify(result));
   };
   `);
@@ -56,9 +59,14 @@ test("connect preserves the legacy device ID and ACKs, including across disconne
   const disconnected = JSON.parse(await fs.readFile(configFile));
   assert.equal(disconnected.server.device_id, oldId);
   assert.equal(disconnected.server.api_origin, apiOrigin);
-  assert.equal(JSON.parse(await fs.readFile(credentialsFile)).device_token, null);
+  assert.equal(disconnected.server.slot_reusable_at, "2026-10-04T00:00:00.000Z");
+  assert.deepEqual(JSON.parse(await fs.readFile(credentialsFile)), { version: 2, device_token: null, expires_at: null });
+  const repeat = await execFileAsync(process.execPath, [cli, "disconnect", "--yes"], { env });
+  assert.match(repeat.stdout, /already disconnected/);
+  assert.match(repeat.stdout, /2026-10-04T00:00:00.000Z/);
   await connect();
   assert.equal(JSON.parse(await fs.readFile(hintFile)), oldId);
+  assert.equal(JSON.parse(await fs.readFile(configFile)).server.slot_reusable_at, null);
   assert.equal(JSON.parse(await fs.readFile(outboxFile)).days.day.acked_revision, 5);
 
   mode = "legacy";
@@ -148,4 +156,30 @@ test("privacy commands refuse to claim success before connection", async () => {
       && !/Public visibility enabled/.test(error.stdout),
   );
   await fs.rm(home, { recursive: true, force: true });
+});
+
+
+test("disconnect keeps credentials after a server failure and only records confirmed cooldown dates", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-disconnect-test-"));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  const config = { server: { enabled: true, api_origin: "https://api.example.test" } };
+  const credentials = { device_token: `tb_live_original_device.${"s".repeat(43)}` };
+  const configFile = path.join(home, "config.json");
+  const credentialsFile = path.join(home, "credentials.json");
+  await fs.writeFile(configFile, JSON.stringify(config));
+  await fs.writeFile(credentialsFile, JSON.stringify(credentials));
+  const mock = path.join(home, "fetch.mjs");
+  await fs.writeFile(mock, `globalThis.fetch = async () => new Response(
+    JSON.stringify({ error: { code: "unavailable", message: "Server unavailable" } }), { status: 503 });`);
+  const env = { ...process.env, BURN_HOME: home, NO_COLOR: "1" };
+  const disconnect = () => execFileAsync(process.execPath, ["--import", mock, cli, "disconnect", "--yes"], { env });
+  await assert.rejects(disconnect, (error) => /Server unavailable/.test(error.stderr));
+  assert.deepEqual(JSON.parse(await fs.readFile(credentialsFile)), credentials);
+  assert.deepEqual(JSON.parse(await fs.readFile(configFile)), config);
+  // Older supported Workers may return 204; do not invent a release timestamp.
+  await fs.writeFile(mock, `globalThis.fetch = async () => new Response(null, { status: 204 });`);
+  const result = await disconnect();
+  assert.match(result.stdout, /Cloud history was kept/);
+  assert.equal(JSON.parse(await fs.readFile(configFile)).server.slot_reusable_at, null);
+  assert.equal(JSON.parse(await fs.readFile(credentialsFile)).device_token, null);
 });

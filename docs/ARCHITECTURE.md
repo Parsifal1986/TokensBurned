@@ -36,16 +36,34 @@ in-flight upload from the old connection cannot acknowledge the new one. Clients
 refuse reconnect results from older Workers that do not explicitly report
 `device_reused`; deploy the Worker update before updating clients.
 
-No new tables, migrations, per-event hashes, or ingest reads/writes are needed.
-An existing-device reconnect uses one primary-key UPDATE instead of an INSERT;
-an unmatched hint adds one zero-match UPDATE before creating a device. Renewal
-also rotates the signing public key. An atomic account-cap predicate allows an
-active device to rotate at the five-device limit, while an expired/revoked device
-can reactivate only when there is room; this uses the existing per-account index
-instead of the count-before-insert path. This
-prevents future reconnect duplication while the previous identity is retained.
+Device identity remains separate from credentials. Reconnect rotates both the
+secret and signing public key while preserving the device/day history identity.
+This prevents future reconnect duplication while the previous identity is retained.
 It does not merge duplicates already stored under separate device IDs, or detect
 copied history after all local identity data has been deleted.
+
+## Free device slots and connection limits
+
+The server provides five slots per GitHub account. Credential expiry releases a slot immediately.
+Manual revocation reserves it for up to 30 days, capped by credential expiry. Reconnecting the
+same device within that reservation reuses the slot and cancels the cooldown;
+disconnecting again starts a fresh cooldown. Once its reservation has ended,
+reconnecting needs an available slot. Cloud history and local upload ACKs survive
+disconnect. Deleting local files does not release a server slot.
+
+Worker migrations 0008 through 0010 enforce slot allocation and successful credential
+issuance atomically with database triggers. Connection limits are five per rolling
+10 minutes and ten per rolling 24 hours, counting new devices and rotations, but
+not polling or failed issuance. The short connection ledger is separate from usage
+and is pruned on successful connection and daily cleanup. Normal ingestion does not
+perform new slot or connection-quota writes. Existing IP/device request limits
+still run before authentication database reads.
+
+Disconnect accepts retries signed with the revoked credential only on the revoke
+endpoint and returns its original cooldown dates. A conditional update prevents
+an old disconnect from revoking a concurrently renewed credential. Clients clear
+local secrets after success, retain the ID, and display the server's release time.
+Deploy the migrations and Worker before this client to enable these policies.
 
 ## Storage
 
@@ -56,3 +74,13 @@ copied history after all local identity data has been deleted.
 ## Trust boundary
 
 Raw transcripts are never sent to the Worker. The client parser opens only the approved harness history directory and extracts token usage fields locally. See [../SECURITY.md](../SECURITY.md).
+
+## Allowances after account deletion
+
+A dedicated stable `QUOTA_PEPPER` derives an HMAC account key from the verified
+numeric GitHub ID. It is independent of credential pepper rotation. Legacy quota
+records are migrated to this key on authorization or before account deletion.
+Deletion removes usage, credentials, and the profile; database triggers preserve
+only unexpired slot reservations, and the 24-hour connection ledger has no account
+foreign key. Recreating the same GitHub account therefore retains both limits.
+Outstanding records stop counting at their deadlines and are pruned daily.

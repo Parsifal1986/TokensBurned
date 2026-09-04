@@ -66,7 +66,12 @@ async function request(pathname, {
   }
   if (!response.ok) {
     const problem = payload?.error;
-    throw new Error(problem?.message || `TokensBurned server returned HTTP ${response.status}.`);
+    const error = new Error(problem?.message || `TokensBurned server returned HTTP ${response.status}.`);
+    error.status = response.status;
+    error.code = problem?.code;
+    error.retry_at = problem?.retry_at || null;
+    error.next_slot_at = problem?.next_slot_at || null;
+    throw error;
   }
   return payload;
 }
