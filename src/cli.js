@@ -33,6 +33,7 @@ import {
 import { checkForUpdate, pluginUpdateCommand } from "./update.js";
 import {
   deleteServerData,
+  deviceIdFromToken,
   fetchServerSummary,
   fetchServerPrivacy,
   pollDeviceAuthorization,
@@ -40,7 +41,7 @@ import {
   startDeviceAuthorization,
   updateServerPrivacy,
 } from "./server.js";
-import { syncUsageEntries } from "./server-outbox.js";
+import { resetOutboxAcknowledgements, syncUsageEntries } from "./server-outbox.js";
 import { formatTokens, localDateKey, percentages } from "./utils.js";
 
 const COLORS = {
@@ -377,6 +378,12 @@ async function connect(args) {
     ? requestedBackfillHarnesses(args)
     : null;
   const apiOrigin = option(args, "--api-origin") || API_ORIGIN;
+  const [previousConfig, previousCredentials] = await Promise.all([readConfig(), readCredentials()]);
+  const sameServer = new URL(previousConfig.server.api_origin || API_ORIGIN).toString()
+    === new URL(apiOrigin).toString();
+  const previousDeviceId = sameServer
+    ? deviceIdFromToken(previousCredentials.device_token) || previousConfig.server.device_id
+    : null;
   const authorization = await startDeviceAuthorization({
     apiOrigin,
     deviceName: `TokensBurned on ${process.platform}`,
@@ -399,6 +406,7 @@ async function connect(args) {
     await wait(interval);
     result = await pollDeviceAuthorization(authorization.device_code, {
       apiOrigin,
+      previousDeviceId,
       devicePrivateKeyJwk: authorization.device_proof_keys?.privateKeyJwk,
     });
     if (result.status === "authorized") break;
@@ -407,6 +415,10 @@ async function connect(args) {
     throw new Error("GitHub authorization expired. Run `burn connect` again.");
   }
 
+  const deviceId = deviceIdFromToken(result.token);
+  if (!previousDeviceId || deviceId !== previousDeviceId) {
+    await resetOutboxAcknowledgements();
+  }
   await writeCredentials({
     version: 2,
     device_token: result.token,
@@ -423,6 +435,7 @@ async function connect(args) {
   config.server = {
     ...config.server,
     enabled: true,
+    device_id: deviceId,
     api_origin: apiOrigin,
     github_login: result.user?.github_login || null,
     public_slug: result.user?.public_slug || null,
@@ -666,12 +679,17 @@ async function disconnect(args) {
     return;
   }
   if (!(await confirm("Revoke this device credential and disconnect?", has(args, "--yes")))) return;
+  const apiOrigin = config.server.api_origin || API_ORIGIN;
   await revokeDevice({
     token: credentials.device_token,
     devicePrivateKeyJwk: credentials.device_private_key_jwk,
     apiOrigin: config.server.api_origin || API_ORIGIN,
   });
   config.server = defaultConfig().server;
+  // Disconnect revokes the secret, but retains the non-secret device identity
+  // so a later GitHub authorization can reuse the same daily usage rows.
+  config.server.device_id = deviceIdFromToken(credentials.device_token);
+  config.server.api_origin = apiOrigin;
   await Promise.all([
     writeConfig(config),
     writeCredentials({ version: 2, device_token: null, expires_at: null }),

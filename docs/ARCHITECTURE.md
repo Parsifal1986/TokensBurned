@@ -21,6 +21,32 @@ TokensBurned separates local collection, server aggregation, and public renderin
 
 Native envelopes use a stable device/day identity and a monotonically increasing revision. The service keeps the highest revision, making retries idempotent.
 
+On reconnect, the client supplies the previous device ID (never the old secret) to
+the authorized device-code poll. After GitHub authorization, the Worker rotates
+the credential on the existing device row only if it belongs to that account.
+Expired or explicitly revoked credentials and a changed token pepper therefore
+do not create another usage identity. A new or missing device, or a different
+account, receives a new ID. Disconnect retains the non-secret ID and API origin;
+deleting local data removes that recovery hint.
+
+Reusing a device preserves the local outbox acknowledgements, so unchanged
+backfills need no upload. New usage replaces the same absolute daily snapshot.
+A genuinely new identity resets acknowledgements, with a generation guard so an
+in-flight upload from the old connection cannot acknowledge the new one. Clients
+refuse reconnect results from older Workers that do not explicitly report
+`device_reused`; deploy the Worker update before updating clients.
+
+No new tables, migrations, per-event hashes, or ingest reads/writes are needed.
+An existing-device reconnect uses one primary-key UPDATE instead of an INSERT;
+an unmatched hint adds one zero-match UPDATE before creating a device. Renewal
+also rotates the signing public key. An atomic account-cap predicate allows an
+active device to rotate at the five-device limit, while an expired/revoked device
+can reactivate only when there is room; this uses the existing per-account index
+instead of the count-before-insert path. This
+prevents future reconnect duplication while the previous identity is retained.
+It does not merge duplicates already stored under separate device IDs, or detect
+copied history after all local identity data has been deleted.
+
 ## Storage
 
 - The production service stores only authenticated aggregate usage and card policy.

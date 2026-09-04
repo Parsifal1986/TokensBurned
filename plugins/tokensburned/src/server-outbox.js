@@ -270,6 +270,15 @@ async function mutateOutbox(file, callback) {
   }
 }
 
+export async function resetOutboxAcknowledgements(outboxFile = SERVER_OUTBOX_PATH) {
+  return mutateOutbox(outboxFile, async (outbox) => {
+    for (const day of Object.values(outbox.days)) day.acked_revision = 0;
+    outbox.last_successful_upload_at = null;
+    // An upload started under the old connection must not acknowledge the new one.
+    outbox.generation = Number(outbox.generation || 0) + 1;
+  });
+}
+
 export async function syncUsageEntries(entries, {
   token,
   devicePrivateKeyJwk,
@@ -288,7 +297,7 @@ export async function syncUsageEntries(entries, {
     const lastUpload = Date.parse(outbox.last_successful_upload_at || "");
     const due = force || !Number.isFinite(lastUpload) || now - lastUpload >= minIntervalMs;
     const pending = pendingEnvelopes(outbox);
-    return { merged, due, pending: pending.length, days: due ? pending : [] };
+    return { merged, due, pending: pending.length, days: due ? pending : [], generation: Number(outbox.generation || 0) };
   });
   if (!snapshot.due || snapshot.days.length === 0) {
     return { accepted: 0, deferred: snapshot.due ? 0 : snapshot.pending, ...snapshot.merged };
@@ -301,7 +310,9 @@ export async function syncUsageEntries(entries, {
     timeoutMs,
   });
   await mutateOutbox(outboxFile, async (outbox) => {
-    acknowledgeEnvelopes(outbox, result.acked_days, new Date(now));
+    if (Number(outbox.generation || 0) === snapshot.generation) {
+      acknowledgeEnvelopes(outbox, result.acked_days, new Date(now));
+    }
   });
   return { ...result, ...snapshot.merged };
 }

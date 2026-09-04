@@ -84,13 +84,27 @@ export async function startDeviceAuthorization(options = {}) {
   return { ...authorization, device_proof_keys: keys };
 }
 
-export function pollDeviceAuthorization(deviceCode, options = {}) {
-  return request("/v1/auth/device/status", {
+export function deviceIdFromToken(token) {
+  return token?.match(/^tb_live_([A-Za-z0-9_-]{8,64})\.[A-Za-z0-9_-]{32,128}$/)?.[1] || null;
+}
+
+export async function pollDeviceAuthorization(deviceCode, options = {}) {
+  const previousDeviceId = options.previousDeviceId;
+  const result = await request("/v1/auth/device/status", {
     ...options,
     method: "POST",
-    body: { device_code: deviceCode },
+    body: { device_code: deviceCode, ...(previousDeviceId ? { previous_device_id: previousDeviceId } : {}) },
     proofSubject: deviceCode,
   });
+  if (previousDeviceId && result?.status === "authorized") {
+    if (typeof result.device_reused !== "boolean") {
+      throw new Error("The Worker does not support safe device reconnection yet. Update the Worker before reconnecting or backfilling; existing local credentials were kept.");
+    }
+    if (result.device_reused && deviceIdFromToken(result.token) !== previousDeviceId) {
+      throw new Error("The Worker returned an inconsistent device identity. Existing local credentials were kept.");
+    }
+  }
+  return result;
 }
 
 export function fetchClientRelease(options = {}) {
