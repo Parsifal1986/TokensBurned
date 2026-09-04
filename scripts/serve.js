@@ -10,7 +10,8 @@ const port = Number(process.env.PORT || 4173);
 const types = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml" };
 
 http.createServer(async (request, response) => {
-  const pathname = request.url === "/" ? "/index.html" : request.url.split("?")[0];
+  const requestedPath = new URL(request.url, "http://localhost").pathname;
+  const pathname = requestedPath === "/" ? "/index.html" : requestedPath;
   const file = path.resolve(root, `.${pathname}`);
   if (file !== root && !file.startsWith(`${root}${path.sep}`)) {
     response.writeHead(403).end("Forbidden");

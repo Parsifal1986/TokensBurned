@@ -41,6 +41,8 @@ export function defaultConfig() {
       public_slug: null,
       card_url: null,
       connected_at: null,
+      disconnected_at: null,
+      slot_reusable_at: null,
       credential_expires_at: null,
       backfill_completed_at: null,
       privacy: null,

@@ -116,7 +116,7 @@ tokensburned connect
 - `tokensburned backfill --all-harnesses --days 30`：显式扫描所有已识别 harness。
 - `tokensburned server`：查看服务端统计与公开 SVG 地址。
 - `tokensburned privacy public|private`：显式开启或关闭公开卡片。
-- `tokensburned disconnect`：撤销当前设备凭证。
+- `tokensburned disconnect`：撤销当前设备凭证，保留历史，对应槽位最多冷却 30 天。
 - `tokensburned delete-server-data`：删除服务器聚合数据、设备、身份和卡片。
 - `tokensburned doctor`：查看检测结果和所有数据边界。
 
@@ -131,3 +131,19 @@ tokensburned connect
 | 请求次数 | API key 与 provider 凭证 |
 
 公开卡片默认关闭。服务端聚合数据会保留到你执行 `tokensburned delete-server-data`；设备凭证 180 天后过期，也可以提前撤销。TokensBurned 不安装 cron、daemon、proxy 或 Git 同步任务。完整说明见 [SECURITY.md](../../SECURITY.md)。项目采用 [MIT License](../../LICENSE)。
+
+### 免费版设备槽位
+
+每个 GitHub 账号共有 5 个槽位，使用中和冷却中的设备都占用槽位。
+设备断开后立即失去访问权限，槽位最多冷却 30 天，凭证先到期则立即释放；其他空闲槽位仍可使用。
+原设备保留本地 `~/.burn` 中的设备 ID 即可复用原槽位重连，取消冷却；再次断开后重新计算 30 天。
+凭证过期立即释放槽位。原设备重连也需要空闲槽位，并消耗一次连接额度。断开不删除云端历史，删除本地文件也不会释放云端槽位。
+CLI 在断开后显示服务端确认的槽位可用时间。
+
+每个账号在滚动 10 分钟内最多成功连接 5 次，滚动 24 小时内最多 10 次；
+原设备重连和凭证轮换也计入。断开不会返还次数，授权轮询不计入。
+
+删除整个账号数据再重建，不返还已使用的额度。用量、凭证、账号资料和卡片会删除；
+仅保留经密钥处理的账号标识、近期连接时间和未结束的槽位预留时间。
+连接记录最多计入 24 小时，删号后的槽位预留最多持续 30 天，凭证先到期则提前释放；到期记录定期清理。
+完整规则见[使用限额](https://tokensburned.com/limits.html?lang=zh-CN)。

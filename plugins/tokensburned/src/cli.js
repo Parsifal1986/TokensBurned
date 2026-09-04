@@ -397,6 +397,7 @@ async function connect(args) {
   console.log(`\n${color("🔥 Connect TokensBurned", "orange")}\n`);
   console.log(`Open this URL and confirm the device name:\n\n${verificationUrl.toString()}\n\nManual fallback code: ${authorization.user_code}\n`);
   console.log("Only continue if you started this request. Public profile cards remain off unless you explicitly enable one.");
+  console.log("Free plan: 5 device slots. Disconnecting reserves the slot for this device for up to 30 days; credential expiry releases it immediately. Connections, including reconnections, are limited to 5 per 10 minutes and 10 per 24 hours.");
   if (!has(args, "--no-open")) openBrowser(verificationUrl.toString());
 
   const deadline = Date.now() + Number(authorization.expires_in || 600) * 1000;
@@ -441,6 +442,8 @@ async function connect(args) {
     public_slug: result.user?.public_slug || null,
     card_url: accountPrivacy.card_url,
     connected_at: new Date().toISOString(),
+    disconnected_at: null,
+    slot_reusable_at: null,
     credential_expires_at: result.expires_at || null,
     privacy: null,
   };
@@ -676,11 +679,13 @@ async function disconnect(args) {
   const credentials = await readCredentials();
   if (!config.server.enabled || !credentials.device_token) {
     console.log("TokensBurned is already disconnected.");
+    if (config.server.slot_reusable_at) console.log(`Slot available for a new device at ${config.server.slot_reusable_at}.`);
     return;
   }
-  if (!(await confirm("Revoke this device credential and disconnect?", has(args, "--yes")))) return;
+  console.log("Disconnecting revokes this credential immediately and keeps cloud history. Its slot becomes available after 30 days or credential expiry, whichever comes first; this device can reconnect while its slot is reserved.");
+  if (!(await confirm("Disconnect with a slot cooldown of up to 30 days?", has(args, "--yes")))) return;
   const apiOrigin = config.server.api_origin || API_ORIGIN;
-  await revokeDevice({
+  const result = await revokeDevice({
     token: credentials.device_token,
     devicePrivateKeyJwk: credentials.device_private_key_jwk,
     apiOrigin: config.server.api_origin || API_ORIGIN,
@@ -690,11 +695,15 @@ async function disconnect(args) {
   // so a later GitHub authorization can reuse the same daily usage rows.
   config.server.device_id = deviceIdFromToken(credentials.device_token);
   config.server.api_origin = apiOrigin;
+  // Only display dates confirmed by the server, including idempotent retries.
+  config.server.disconnected_at = result?.disconnected_at || null;
+  config.server.slot_reusable_at = result?.slot_reusable_at || null;
   await Promise.all([
     writeConfig(config),
     writeCredentials({ version: 2, device_token: null, expires_at: null }),
   ]);
-  console.log("Device credential revoked and local connection removed.");
+  console.log("Device credential revoked and local connection removed. Cloud history was kept.");
+  if (config.server.slot_reusable_at) console.log(`Slot available for a new device at ${config.server.slot_reusable_at}.`);
 }
 
 async function deleteRemoteData(args) {
@@ -703,7 +712,8 @@ async function deleteRemoteData(args) {
   if (!config.server.enabled || !credentials.device_token) {
     throw new Error("TokensBurned is not connected.");
   }
-  console.log("This permanently deletes server usage, devices, account identity, and the public card. Local stats remain on this machine.");
+  console.log("This permanently deletes server usage, devices, account profile, and the public card. Local stats remain on this machine.")
+  console.log("Outstanding slot reservations and recent connection counts remain linked to a keyed account identifier until their normal deadlines; deleting and rebuilding the account does not refund allowances.");
   if (!(await confirm("Delete all TokensBurned server data?", has(args, "--yes")))) return;
   await deleteServerData({
     token: credentials.device_token,

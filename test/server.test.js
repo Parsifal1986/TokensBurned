@@ -34,7 +34,7 @@ test("device flow registers a per-device public key and signs polling", async ()
     devicePrivateKeyJwk: authorization.device_proof_keys.privateKeyJwk,
   });
   assert.equal(calls[0].body.device_name, "Codex");
-  assert.equal(calls[0].init.headers["X-TokensBurned-Client-Version"], "0.6.2");
+  assert.equal(calls[0].init.headers["X-TokensBurned-Client-Version"], "0.6.3");
   assert.deepEqual(Object.keys(calls[0].body.public_key_jwk).sort(), ["crv", "kty", "x", "y"]);
   assert.deepEqual(calls[1].body, { device_code: "opaque" });
   assert.match(calls[1].init.headers["X-TokensBurned-Timestamp"], /^\d{10}$/);
@@ -53,7 +53,7 @@ test("client release check uses the public version endpoint", async () => {
   assert.equal(release.latest_version, "0.5.0");
   assert.equal(calls[0].url, "https://api.example/v1/client/version");
   assert.equal(calls[0].init.method, "GET");
-  assert.equal(calls[0].init.headers["X-TokensBurned-Client-Version"], "0.6.2");
+  assert.equal(calls[0].init.headers["X-TokensBurned-Client-Version"], "0.6.3");
 });
 
 test("reconnect polling sends only the old device ID and requires an explicit reuse result", async () => {
@@ -124,4 +124,20 @@ test("daily uploader sends v2 envelopes and preserves acknowledgements", async (
   assert.ok(calls.every((call) => call.body.v === 2));
   assert.equal(result.accepted, 21);
   assert.equal(result.acked_days.length, 21);
+});
+
+
+test("connection failures preserve structured cooldown and retry information", async () => {
+  const { serverInternals } = await import("../src/server.js");
+  const retryAt = "2026-09-05T00:00:00.000Z";
+  for (const [status, code, metadata] of [
+    [429, "connect_rate_limited", { retry_at: retryAt }],
+    [409, "device_limit_reached", { next_slot_at: retryAt }],
+  ]) {
+    await assert.rejects(() => serverInternals.request("/v1/auth/device/status", {
+      apiOrigin: "https://api.example.test",
+      fetchImpl: async () => new Response(JSON.stringify({ error: { code, message: "Wait before connecting", ...metadata } }), { status }),
+    }), (error) => error.status === status && error.code === code
+      && error[Object.keys(metadata)[0]] === retryAt);
+  }
 });

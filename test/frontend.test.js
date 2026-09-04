@@ -71,3 +71,22 @@ test("every visible website string is available in every supported language", ()
     assert.deepEqual(Object.keys(localeData.harnesses[language]).sort(), Object.keys(localeData.harnesses["zh-CN"]).sort());
   }
 });
+
+test("usage limits page has complete translations and working section targets", async () => {
+  const limitsHtml = await fs.readFile(new URL("../public/limits.html", import.meta.url), "utf8");
+  const limitsLocales = await fs.readFile(new URL("../public/limits-locales.js", import.meta.url), "utf8");
+  const messages = vm.runInNewContext(`${limitsLocales}\n;TOKENSBURNED_LIMITS_LOCALES`);
+  const keys = [...limitsHtml.matchAll(/data-i18n(?:-aria-label)?="([^"]+)"/g)].map((match) => match[1]);
+  assert.deepEqual(Object.keys(messages).sort(), Object.keys(localeData.locales).sort());
+  for (const [language, translated] of Object.entries(messages)) {
+    for (const key of keys) {
+      assert.ok(translated[key] || localeData.locales[language][key], `${language} is missing ${key}`);
+    }
+    assert.deepEqual(Object.keys(translated).sort(), Object.keys(messages.en).sort());
+  }
+  for (const [, anchor] of limitsHtml.matchAll(/href="#([^"]+)"/g)) {
+    assert.ok(limitsHtml.includes(`id="${anchor}"`), `Missing section ${anchor}`);
+  }
+  assert.match(html, /href="\.\/limits\.html"/);
+  assert.match(limitsHtml, /Content-Security-Policy/);
+});

@@ -163,3 +163,10 @@ const TOKENSBURNED_HARNESS_LOCALES = {
     other: { status: "SOLUTION CLI", confidence: "Import explicite ou OTLP", summary: "Sans métadonnées token stables, utilisez un import batch ou OTLP JSON depuis le client autonome.", steps: ["Installer la CLI", "Connecter GitHub", "Choisir la source avec doctor"], note: "TokensBurned n'estime pas les tokens à partir des prompts." },
   },
 };
+
+TOKENSBURNED_LOCALES["en"].navLimits = "Usage limits";
+TOKENSBURNED_LOCALES["zh-CN"].navLimits = "使用限额";
+TOKENSBURNED_LOCALES["ja"].navLimits = "利用上限";
+TOKENSBURNED_LOCALES["ko"].navLimits = "이용 한도";
+TOKENSBURNED_LOCALES["es"].navLimits = "Límites de uso";
+TOKENSBURNED_LOCALES["fr"].navLimits = "Limites d’utilisation";
