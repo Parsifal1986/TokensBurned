@@ -9,3 +9,6 @@ output/
 # Local agent workspace and planning notes
 /plans/
 /.claude/
+
+# Local work logs (not for publication)
+/log/

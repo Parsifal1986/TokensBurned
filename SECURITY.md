@@ -2,8 +2,6 @@
 
 TokensBurned is designed so its privacy promise is also its architecture.
 
-The [September 2026 security review](docs/security-review-2026-09-04.md) records client fixes, regression checks, and deployment items that still require verification.
-
 ## Data it may read
 
 TokensBurned may read:
