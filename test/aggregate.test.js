@@ -32,3 +32,19 @@ test("deduplicates event ids", () => {
   assert.equal(addEvent(stats, usage), true);
   assert.equal(addEvent(stats, usage), false);
 });
+
+test("untrusted dimension names cannot read or invoke prototype properties", () => {
+  const stats = emptyStats();
+  for (const name of ["__proto__", "constructor", "tostring"]) {
+    const usage = normalizeEvent({ id: name, harness: { id: name }, backend: { model: name }, usage: { input_tokens: 10 } });
+    addEvent(stats, usage);
+  }
+  const summary = summarize(JSON.parse(JSON.stringify(stats)));
+  assert.equal(summary.week.total_tokens, 30);
+  for (const name of ["__proto__", "constructor", "tostring"]) {
+    assert.equal(summary.week.by_harness[name], 10);
+    assert.equal(summary.week.by_model[name], 10);
+    assert.ok(Object.hasOwn(summary.week.by_model, name));
+  }
+  assert.equal(Object.getPrototypeOf(summary.week.by_model), Object.prototype);
+});

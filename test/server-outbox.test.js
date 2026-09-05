@@ -31,6 +31,23 @@ function entry(overrides = {}) {
   };
 }
 
+test("prototype-named dimensions remain numeric own properties in uploaded envelopes", () => {
+  const outbox = outboxInternals.emptyOutbox();
+  mergeSnapshotEntries(outbox, [entry({ model: "__proto__", harness: "constructor", provider: "toString" })]);
+  const [day] = JSON.parse(JSON.stringify(pendingEnvelopes(outbox)));
+  assert.deepEqual(day.dimensions.model.__proto__, { total_tokens: 155 });
+  assert.deepEqual(day.dimensions.harness.constructor, { total_tokens: 155 });
+  assert.deepEqual(day.dimensions.provider.tostring, { total_tokens: 155 });
+});
+
+test("server acknowledgements cannot mutate inherited objects", () => {
+  const outbox = outboxInternals.emptyOutbox();
+  acknowledgeEnvelopes(outbox, [{ day: "__proto__", revision: 99 }, { day: "constructor", revision: 99 }]);
+  assert.equal(Object.hasOwn(Object.prototype, "acked_revision"), false);
+  assert.equal(Object.hasOwn(Object, "acked_revision"), false);
+  assert.deepEqual(outbox.days, {});
+});
+
 test("outbox combines source snapshots into one absolute UTC day", () => {
   const outbox = outboxInternals.emptyOutbox(new Date("2026-08-30T00:00:00Z"));
   const merged = mergeSnapshotEntries(outbox, [

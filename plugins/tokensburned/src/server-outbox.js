@@ -1,8 +1,9 @@
-import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { SERVER_OUTBOX_PATH } from "./constants.js";
 import { uploadDailyEnvelopes } from "./server.js";
+import { atomicWrite } from "./atomic-write.js";
+import { incrementOwnCounter } from "./utils.js";
 
 const COUNTERS = [
   "input_tokens",
@@ -96,7 +97,7 @@ function tokenTotal(value) {
 }
 
 function addDimension(target, key, tokens) {
-  target[key] = (target[key] || 0) + tokens;
+  incrementOwnCounter(target, key, tokens);
 }
 
 function boundedDimensions(values, maximum = 64) {
@@ -188,6 +189,7 @@ export function pendingEnvelopes(outbox) {
 
 export function acknowledgeEnvelopes(outbox, acknowledgements, uploadedAt = new Date()) {
   for (const acknowledgement of acknowledgements || []) {
+    if (!Object.hasOwn(outbox.days, acknowledgement.day)) continue;
     const day = outbox.days[acknowledgement.day];
     if (!day) continue;
     day.acked_revision = Math.max(
@@ -261,9 +263,7 @@ async function mutateOutbox(file, callback) {
     const outbox = await readOutbox(file);
     const result = await callback(outbox);
     outbox.updated_at = new Date().toISOString();
-    const temporary = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`;
-    await fs.writeFile(temporary, `${JSON.stringify(outbox, null, 2)}\n`, { mode: 0o600 });
-    await fs.rename(temporary, file);
+    await atomicWrite(file, `${JSON.stringify(outbox, null, 2)}\n`);
     return result;
   } finally {
     await release();
@@ -281,6 +281,7 @@ export async function resetOutboxAcknowledgements(outboxFile = SERVER_OUTBOX_PAT
 
 export async function syncUsageEntries(entries, {
   token,
+  credentialApiOrigin,
   devicePrivateKeyJwk,
   apiOrigin,
   fetchImpl,
@@ -304,6 +305,7 @@ export async function syncUsageEntries(entries, {
   }
   const result = await uploadDailyEnvelopes(snapshot.days, {
     token,
+    credentialApiOrigin,
     devicePrivateKeyJwk,
     apiOrigin,
     fetchImpl,

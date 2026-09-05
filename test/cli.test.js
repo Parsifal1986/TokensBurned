@@ -158,6 +158,18 @@ test("privacy commands refuse to claim success before connection", async () => {
   await fs.rm(home, { recursive: true, force: true });
 });
 
+test("CLI refuses to send a newly bound credential after an API configuration mismatch", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-origin-mismatch-"));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  await fs.writeFile(path.join(home, "config.json"), JSON.stringify({ server: { enabled: true, api_origin: "https://other.example" } }));
+  await fs.writeFile(path.join(home, "credentials.json"), JSON.stringify({ device_token: "private-fixture", api_origin: "https://original.example" }));
+  const mock = path.join(home, "fetch.mjs");
+  await fs.writeFile(mock, `globalThis.fetch = async () => { throw new Error("Unexpected network request"); };`);
+  await assert.rejects(execFileAsync(process.execPath, ["--import", mock, cli, "server"], {
+    env: { ...process.env, BURN_HOME: home, NO_COLOR: "1", TOKENSBURNED_DISABLE_UPDATE_CHECK: "1" },
+  }), (error) => /different API origin/.test(error.stderr) && !/Unexpected network request/.test(error.stderr));
+});
+
 
 test("disconnect keeps credentials after a server failure and only records confirmed cooldown dates", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-disconnect-test-"));

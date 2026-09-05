@@ -6,6 +6,16 @@ export function toFiniteInteger(value, fallback = 0) {
   return Math.floor(parsed);
 }
 
+export function incrementOwnCounter(record, key, amount) {
+  const previous = Object.hasOwn(record, key) ? record[key] : 0;
+  Object.defineProperty(record, key, {
+    value: previous + amount,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
+}
+
 export function localDateKey(date = new Date()) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");

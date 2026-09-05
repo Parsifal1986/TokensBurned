@@ -28,6 +28,7 @@ async function connection() {
   if (!credentials.device_token || !config.server?.enabled) return null;
   return {
     token: credentials.device_token,
+    credentialApiOrigin: credentials.api_origin,
     devicePrivateKeyJwk: credentials.device_private_key_jwk,
     origin: String(config.server.api_origin || "https://api.tokensburned.com").replace(/\/$/, ""),
   };
@@ -64,6 +65,7 @@ async function uploadUsage(context) {
         ...current,
       }], {
       token: connected.token,
+      credentialApiOrigin: connected.credentialApiOrigin,
       devicePrivateKeyJwk: connected.devicePrivateKeyJwk,
       apiOrigin: connected.origin,
       timeoutMs: 2500,
