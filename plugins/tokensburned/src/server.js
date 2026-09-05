@@ -8,7 +8,7 @@ function origin(value = API_ORIGIN) {
   } catch {
     throw new Error("TokensBurned API origin must be a valid URL.");
   }
-  const local = new Set(["localhost", "127.0.0.1", "::1"]).has(url.hostname);
+  const local = new Set(["localhost", "127.0.0.1", "[::1]"]).has(url.hostname);
   if (url.protocol !== "https:" && !(local && url.protocol === "http:")) {
     throw new Error("TokensBurned API origin must use HTTPS (except localhost development).");
   }
@@ -24,6 +24,7 @@ async function request(pathname, {
   method = "GET",
   body,
   token,
+  credentialApiOrigin,
   devicePrivateKeyJwk,
   proofSubject,
   fetchImpl = globalThis.fetch,
@@ -36,6 +37,9 @@ async function request(pathname, {
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (token) headers.Authorization = `Bearer ${token}`;
   const target = `${origin(apiOrigin)}${pathname}`;
+  if (token && credentialApiOrigin && origin(credentialApiOrigin) !== origin(apiOrigin)) {
+    throw new Error("The device credential belongs to a different API origin. Reconnect to the intended server.");
+  }
   const tokenDeviceId = token?.match(/^tb_live_([A-Za-z0-9_-]{8,64})\./)?.[1];
   Object.assign(headers, await deviceProofHeaders({
     privateKeyJwk: devicePrivateKeyJwk,
@@ -50,6 +54,8 @@ async function request(pathname, {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
+      // Never forward device codes, signatures, or usage to a redirect target.
+      redirect: "error",
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {

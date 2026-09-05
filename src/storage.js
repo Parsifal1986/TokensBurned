@@ -1,5 +1,5 @@
 import fs from "node:fs/promises";
-import path from "node:path";
+import { atomicWrite } from "./atomic-write.js";
 import {
   BURN_HOME,
   CONFIG_PATH,
@@ -64,13 +64,6 @@ async function readJson(file, fallback) {
     if (error?.code === "ENOENT") return fallback;
     throw new Error(`Could not read ${file}: ${error.message}`);
   }
-}
-
-async function atomicWrite(file, content) {
-  await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
-  const temporary = `${file}.${process.pid}.tmp`;
-  await fs.writeFile(temporary, content, { mode: 0o600 });
-  await fs.rename(temporary, file);
 }
 
 export async function readStats() {

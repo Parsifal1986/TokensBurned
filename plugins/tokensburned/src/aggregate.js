@@ -1,5 +1,5 @@
 import { MEMES } from "./constants.js";
-import { addDays, clamp, localDateKey, sortedEntries } from "./utils.js";
+import { addDays, clamp, incrementOwnCounter, localDateKey, sortedEntries } from "./utils.js";
 
 function emptyDay() {
   return {
@@ -17,7 +17,7 @@ function emptyDay() {
 }
 
 function increment(record, key, amount) {
-  record[key] = (record[key] || 0) + amount;
+  incrementOwnCounter(record, key, amount);
 }
 
 export function addEvent(stats, event) {

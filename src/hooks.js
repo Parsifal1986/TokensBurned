@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { atomicWrite } from "./atomic-write.js";
 
 const CLAUDE_SETTINGS = path.join(os.homedir(), ".claude", "settings.json");
 
@@ -29,10 +30,7 @@ export async function installClaudeHook(command = "burn hook claude") {
     ...settings,
     hooks: { ...hooks, SessionEnd: sessionEnd },
   };
-  await fs.mkdir(path.dirname(CLAUDE_SETTINGS), { recursive: true, mode: 0o700 });
-  const temporary = `${CLAUDE_SETTINGS}.${process.pid}.burn-tmp`;
-  await fs.writeFile(temporary, `${JSON.stringify(updated, null, 2)}\n`, { mode: 0o600 });
-  await fs.rename(temporary, CLAUDE_SETTINGS);
+  await atomicWrite(CLAUDE_SETTINGS, `${JSON.stringify(updated, null, 2)}\n`);
   return { changed: true, file: CLAUDE_SETTINGS };
 }
 

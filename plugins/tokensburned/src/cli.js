@@ -99,7 +99,7 @@ function requestedBackfillHarnesses(args) {
 }
 
 function label(record, key) {
-  return record[key] || key;
+  return Object.hasOwn(record, key) ? record[key] : key;
 }
 
 function tableRows(record, labels) {
@@ -356,6 +356,7 @@ async function backfillHistory({
   if (!dryRun && result.entries.length) {
     await syncUsageEntries(result.entries, {
       token: credentials.device_token,
+      credentialApiOrigin: credentials.api_origin,
       devicePrivateKeyJwk: credentials.device_private_key_jwk,
       apiOrigin: config.server.api_origin || API_ORIGIN,
       force: true,
@@ -417,20 +418,21 @@ async function connect(args) {
   }
 
   const deviceId = deviceIdFromToken(result.token);
+  const accountPrivacy = result.privacy || await fetchServerPrivacy({
+    token: result.token,
+    devicePrivateKeyJwk: authorization.device_proof_keys?.privateKeyJwk,
+    apiOrigin,
+  });
   if (!previousDeviceId || deviceId !== previousDeviceId) {
     await resetOutboxAcknowledgements();
   }
   await writeCredentials({
     version: 2,
     device_token: result.token,
+    api_origin: apiOrigin,
     expires_at: result.expires_at || null,
     device_private_key_jwk: authorization.device_proof_keys?.privateKeyJwk || null,
     device_public_key_jwk: authorization.device_proof_keys?.publicKeyJwk || null,
-  });
-  const accountPrivacy = result.privacy || await fetchServerPrivacy({
-    token: result.token,
-    devicePrivateKeyJwk: authorization.device_proof_keys?.privateKeyJwk,
-    apiOrigin,
   });
   const config = await readConfig();
   config.server = {
@@ -502,6 +504,7 @@ async function serverStatus() {
   }
   const options = {
     token: credentials.device_token,
+    credentialApiOrigin: credentials.api_origin,
     devicePrivateKeyJwk: credentials.device_private_key_jwk,
     apiOrigin: config.server.api_origin || API_ORIGIN,
   };
@@ -572,6 +575,7 @@ async function doctor() {
     try {
       accountPrivacy = await fetchServerPrivacy({
         token: credentials.device_token,
+        credentialApiOrigin: credentials.api_origin,
         devicePrivateKeyJwk: credentials.device_private_key_jwk,
         apiOrigin: config.server.api_origin || API_ORIGIN,
       });
@@ -625,6 +629,7 @@ async function setServerPrivacy(enabled, { config, credentials } = {}) {
   if (!storedConfig.server.enabled || !storedCredentials.device_token) return null;
   const privacy = await updateServerPrivacy(publicPrivacy(enabled), {
     token: storedCredentials.device_token,
+    credentialApiOrigin: storedCredentials.api_origin,
     devicePrivateKeyJwk: storedCredentials.device_private_key_jwk,
     apiOrigin: storedConfig.server.api_origin || API_ORIGIN,
   });
@@ -643,6 +648,7 @@ async function setPrivacy(args) {
   if (value === "status") {
     const privacy = await fetchServerPrivacy({
       token: credentials.device_token,
+      credentialApiOrigin: credentials.api_origin,
       devicePrivateKeyJwk: credentials.device_private_key_jwk,
       apiOrigin: config.server.api_origin || API_ORIGIN,
     });
@@ -687,6 +693,7 @@ async function disconnect(args) {
   const apiOrigin = config.server.api_origin || API_ORIGIN;
   const result = await revokeDevice({
     token: credentials.device_token,
+    credentialApiOrigin: credentials.api_origin,
     devicePrivateKeyJwk: credentials.device_private_key_jwk,
     apiOrigin: config.server.api_origin || API_ORIGIN,
   });
@@ -717,6 +724,7 @@ async function deleteRemoteData(args) {
   if (!(await confirm("Delete all TokensBurned server data?", has(args, "--yes")))) return;
   await deleteServerData({
     token: credentials.device_token,
+    credentialApiOrigin: credentials.api_origin,
     devicePrivateKeyJwk: credentials.device_private_key_jwk,
     apiOrigin: config.server.api_origin || API_ORIGIN,
   });

@@ -1,11 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import http from "node:http";
+import { once } from "node:events";
 import {
   fetchClientRelease,
   pollDeviceAuthorization,
   startDeviceAuthorization,
   uploadDailyEnvelopes,
   uploadEntries,
+  serverInternals,
 } from "../src/server.js";
 
 function response(body, status = 200) {
@@ -14,6 +17,50 @@ function response(body, status = 200) {
     headers: { "Content-Type": "application/json" },
   });
 }
+
+test("API origin rejects remote plaintext URLs and supports IPv6 loopback", () => {
+  assert.throws(() => serverInternals.origin("http://api.example"), /HTTPS/);
+  assert.throws(() => serverInternals.origin("http://localhost.example"), /HTTPS/);
+  assert.throws(() => serverInternals.origin("file:///tmp/api"), /HTTPS/);
+  assert.equal(serverInternals.origin("http://[::1]:4173"), "http://[::1]:4173");
+});
+
+test("a credential bound to one API cannot be sent using another server's configuration", async () => {
+  let requests = 0;
+  const options = {
+    apiOrigin: "https://other.example", credentialApiOrigin: "https://original.example",
+    token: "private-fixture", fetchImpl: async () => { requests += 1; return response({}); },
+  };
+  await assert.rejects(() => serverInternals.request("/v1/me/summary", options), /different API origin/);
+  assert.equal(requests, 0);
+  await serverInternals.request("/v1/me/summary", { ...options, apiOrigin: "https://original.example/" });
+  assert.equal(requests, 1);
+});
+
+test("real HTTP redirects cannot forward device codes, usage, or proofs", async (t) => {
+  let redirectedRequests = 0;
+  const sink = http.createServer((_request, res) => {
+    redirectedRequests += 1;
+    res.end("{}");
+  });
+  sink.listen(0, "127.0.0.1");
+  await once(sink, "listening");
+  t.after(() => { sink.closeAllConnections(); sink.close(); });
+  let redirectStatus = 307;
+  const source = http.createServer((_request, res) => {
+    res.writeHead(redirectStatus, { location: `http://127.0.0.1:${sink.address().port}/sink` }).end();
+  });
+  source.listen(0, "127.0.0.1");
+  await once(source, "listening");
+  t.after(() => { source.closeAllConnections(); source.close(); });
+  for (const status of [301, 302, 303, 307, 308]) {
+    redirectStatus = status;
+    await assert.rejects(() => pollDeviceAuthorization("private-device-code", {
+      apiOrigin: `http://127.0.0.1:${source.address().port}`,
+    }), /server is unavailable/);
+  }
+  assert.equal(redirectedRequests, 0);
+});
 
 test("device flow registers a per-device public key and signs polling", async () => {
   const calls = [];

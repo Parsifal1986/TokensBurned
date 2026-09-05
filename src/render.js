@@ -8,11 +8,11 @@ const WIDTH = 760;
 const ROW_HEIGHT = 28;
 
 function labelForHarness(key) {
-  return HARNESS_LABELS[key] || titleCase(key);
+  return Object.hasOwn(HARNESS_LABELS, key) ? HARNESS_LABELS[key] : titleCase(key);
 }
 
 function labelForProvider(key) {
-  return PROVIDER_LABELS[key] || titleCase(key);
+  return Object.hasOwn(PROVIDER_LABELS, key) ? PROVIDER_LABELS[key] : titleCase(key);
 }
 
 function titleCase(value) {
