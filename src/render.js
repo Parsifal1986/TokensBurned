@@ -1,7 +1,4 @@
-import {
-  HARNESS_LABELS,
-  PROVIDER_LABELS,
-} from "./constants.js";
+import { HARNESS_LABELS, providerLabel } from "./constants.js";
 import { escapeXml, formatTokens, percentages } from "./utils.js";
 
 const WIDTH = 760;
@@ -12,7 +9,7 @@ function labelForHarness(key) {
 }
 
 function labelForProvider(key) {
-  return Object.hasOwn(PROVIDER_LABELS, key) ? PROVIDER_LABELS[key] : titleCase(key);
+  return providerLabel(key);
 }
 
 function titleCase(value) {

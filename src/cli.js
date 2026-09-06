@@ -9,7 +9,7 @@ import { backendDescription } from "./backend.js";
 import {
   API_ORIGIN,
   HARNESS_LABELS,
-  PROVIDER_LABELS,
+  providerLabel,
   SYNC_INTERVAL_MS,
   VERSION,
 } from "./constants.js";
@@ -102,11 +102,11 @@ function label(record, key) {
   return Object.hasOwn(record, key) ? record[key] : key;
 }
 
-function tableRows(record, labels) {
+function tableRows(record, labeler) {
   const rows = percentages(record);
   if (!rows.length) return "  —";
   return rows
-    .map(({ key, percentage }) => `  ${label(labels, key).padEnd(16)} ${String(percentage).padStart(3)}%`)
+    .map(({ key, percentage }) => `  ${labeler(key).padEnd(16)} ${String(percentage).padStart(3)}%`)
     .join("\n");
 }
 
@@ -114,7 +114,7 @@ function stackLabel(stack) {
   if (!stack) return "Awaiting first burn";
   const [key] = stack;
   const [harness, provider] = key.split("::");
-  return `${label(HARNESS_LABELS, harness)} × ${label(PROVIDER_LABELS, provider)}`;
+  return `${label(HARNESS_LABELS, harness)} × ${providerLabel(provider)}`;
 }
 
 function printStatus(summary) {
@@ -123,8 +123,8 @@ function printStatus(summary) {
   console.log(`  This week   ${formatTokens(summary.week.total_tokens).padStart(9)}`);
   console.log(`  All time    ${formatTokens(summary.all_time_tokens).padStart(9)}`);
   console.log(`  Streak      ${String(summary.streak).padStart(8)}d`);
-  console.log("\n  HARNESS\n" + tableRows(summary.week.by_harness, HARNESS_LABELS));
-  console.log("\n  BACKEND\n" + tableRows(summary.week.by_provider, PROVIDER_LABELS));
+  console.log("\n  HARNESS\n" + tableRows(summary.week.by_harness, (key) => label(HARNESS_LABELS, key)));
+  console.log("\n  BACKEND\n" + tableRows(summary.week.by_provider, providerLabel));
   console.log(`\n  MOST USED STACK\n  ${stackLabel(summary.most_used_stack)}`);
   console.log(`\n  ${color(summary.level, "orange")} · SCORE ${summary.burn_score.toLocaleString("en-US")}`);
   console.log(`\n  ${color(`“${summary.meme}”`, "dim")}\n`);
@@ -826,7 +826,7 @@ Connect options
 
 Ingest options
   --harness <id>           claude-code or codex
-  --provider <id>          anthropic, openai, deepseek, custom, unknown
+  --provider <id>          anthropic, openai, deepseek, ..., an endpoint hostname, custom, unknown
   --model <name>           Reported model name
   --confidence <level>     verified, detected, reported, unknown
 

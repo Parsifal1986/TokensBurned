@@ -1,7 +1,7 @@
 import {
   KNOWN_CONFIDENCE,
   KNOWN_ENDPOINT_TYPES,
-  KNOWN_PROVIDERS,
+  providerSlug,
 } from "./constants.js";
 import { stableHash, toFiniteInteger } from "./utils.js";
 
@@ -34,8 +34,7 @@ export function normalizeUsage(raw = {}) {
 
 export function normalizeBackend(raw = {}) {
   const source = raw.backend && typeof raw.backend === "object" ? raw.backend : raw;
-  let provider = stringOrUndefined(source.provider)?.toLowerCase() || "unknown";
-  if (!KNOWN_PROVIDERS.has(provider)) provider = "custom";
+  const provider = providerSlug(stringOrUndefined(source.provider), "unknown");
 
   let confidence = stringOrUndefined(source.confidence)?.toLowerCase() || "unknown";
   if (!KNOWN_CONFIDENCE.has(confidence)) confidence = "unknown";
