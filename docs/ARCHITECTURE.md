@@ -94,7 +94,7 @@ Deploy the migrations and Worker before this client to enable these policies.
 ## Storage
 
 - The production service stores only authenticated aggregate usage and card policy.
-- Public cards are cached only for users who explicitly opt in; disabling publication removes cached variants and blocks the public route.
+- Public cards are cached only for users who explicitly opt in; disabling publication removes stored variants, purges the API's edge cache (which otherwise expires within five minutes), and blocks the public route. Downstream caches such as GitHub's image proxy may keep a copy for up to one hour.
 - Device bearer tokens stay in `~/.burn/credentials.json` with user-only file permissions, expire after 180 days, and can be revoked independently.
 
 ## Trust boundary

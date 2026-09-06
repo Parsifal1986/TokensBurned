@@ -168,7 +168,7 @@ tokensburned connect
 | `tokensburned update` | Force a release check and print the current harness's plugin-manager command when an update is available. |
 | `tokensburned privacy` | Show the GitHub account's current public-card policy without changing it. |
 | `tokensburned privacy public` | Explicitly publish aggregate activity tied to your GitHub identity. |
-| `tokensburned privacy private` | Disable the public route and remove the cached SVG. |
+| `tokensburned privacy private` | Disable the public route and remove the stored SVG (GitHub's image cache may show the old card for up to 1 hour). |
 | `tokensburned disconnect` | Revoke this device credential; keep history and reserve its slot for up to 30 days. |
 | `tokensburned delete-server-data` | Delete server aggregates, devices, identity, and public card. |
 | `tokensburned doctor` | Show detected harnesses and data boundaries. |
