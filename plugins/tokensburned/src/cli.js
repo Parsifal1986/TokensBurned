@@ -803,7 +803,7 @@ Usage
   tokensburned sync                Sync now
   tokensburned render              Render ~/.burn/stats.svg locally
   tokensburned doctor              Show exactly what TokensBurned reads and writes
-  tokensburned hooks install       Install the Claude Code lifecycle hook
+  tokensburned hooks install       Install the Claude Code lifecycle hook (refused when the plugin already provides it)
   tokensburned connect             Connect to the serverless collector with GitHub
   tokensburned backfill            Import current-harness session token totals
   tokensburned server              Show authenticated server totals and card URL

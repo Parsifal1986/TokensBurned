@@ -91,6 +91,15 @@ an old disconnect from revoking a concurrently renewed credential. Clients clear
 local secrets after success, retain the ID, and display the server's release time.
 Deploy the migrations and Worker before this client to enable these policies.
 
+## Hook installation
+
+The Claude Code plugin ships its own `SessionEnd` hook in `hooks/hooks.json`.
+`tokensburned hooks install` writes an equivalent hook into
+`~/.claude/settings.json` only for installs that do not use the plugin: it
+refuses when it runs inside the plugin (`CLAUDE_PLUGIN_ROOT`) or when Claude
+Code's plugin registry already lists TokensBurned, because two hooks would count
+every session twice locally.
+
 ## Storage
 
 - The production service stores only authenticated aggregate usage and card policy.

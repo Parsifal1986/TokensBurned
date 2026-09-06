@@ -282,3 +282,32 @@ test("connect polling survives network errors, 429 and 5xx, but stops on authori
   assert.equal(JSON.parse(await fs.readFile(pollLog, "utf8")), 1, "a terminal 400 ends polling immediately");
   await assert.rejects(() => fs.access(path.join(home, "credentials.json")));
 });
+
+test("hooks install refuses to duplicate the plugin's SessionEnd hook (B9)", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-hooks-home-"));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  const settings = path.join(home, ".claude", "settings.json");
+  const baseEnv = { ...process.env, HOME: home, BURN_HOME: path.join(home, ".burn"), NO_COLOR: "1" };
+  delete baseEnv.CLAUDE_PLUGIN_ROOT;
+  const run = (env) => execFileAsync(process.execPath, [cli, "hooks", "install"], { env });
+
+  await assert.rejects(run({ ...baseEnv, CLAUDE_PLUGIN_ROOT: "/plugins/tokensburned" }),
+    (error) => /already provides the SessionEnd hook/.test(error.stderr));
+  await assert.rejects(() => fs.access(settings), "no settings.json is written from inside the plugin");
+
+  await fs.mkdir(path.join(home, ".claude", "plugins"), { recursive: true });
+  await fs.writeFile(path.join(home, ".claude", "plugins", "installed_plugins.json"),
+    JSON.stringify({ version: 2, plugins: { "tokensburned@tokensburned": [{ scope: "user" }] } }));
+  await assert.rejects(run(baseEnv), (error) => /plugin is installed in Claude Code/.test(error.stderr));
+  await assert.rejects(() => fs.access(settings));
+
+  await fs.writeFile(path.join(home, ".claude", "plugins", "installed_plugins.json"),
+    JSON.stringify({ version: 2, plugins: { "swift-lsp@claude-plugins-official": [{ scope: "user" }] } }));
+  const installed = await run(baseEnv);
+  assert.match(installed.stdout, /hook installed/);
+  const hooks = JSON.parse(await fs.readFile(settings, "utf8")).hooks.SessionEnd;
+  assert.equal(hooks.length, 1);
+  assert.match(hooks[0].hooks[0].command, /burn hook claude/);
+  const again = await run(baseEnv);
+  assert.match(again.stdout, /already installed/);
+});
