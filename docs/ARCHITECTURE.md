@@ -30,6 +30,13 @@ days, records `last_successful_upload_at` only when at least one day was
 acknowledged, and defers the next flush by the server's `next_flush_after`.
 Older Workers omit these fields, which the client treats as "nothing throttled".
 
+Each dimension map (harness, provider, model) is capped locally at 32 keys, the
+Worker's limit, with the smallest values folded into `other`. If the Worker still
+rejects a batch as invalid (`400 invalid_payload` / `too_many_dimensions`), the
+client retries each day separately and parks only the rejected days at their
+current revision, so one bad day never blocks the rest; a later local change to
+that day produces a new revision and retries it automatically.
+
 The `SessionEnd` hook merges the session transcript into the outbox on every
 session but uploads at most once per hour; only the explicit `backfill` command
 and `connect --backfill` force an immediate upload.

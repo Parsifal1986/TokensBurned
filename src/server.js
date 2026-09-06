@@ -162,6 +162,26 @@ function dailyBatches(days, maxBytes = 480 * 1024) {
   return batches;
 }
 
+const REJECTED_DAY_CODES = new Set(["invalid_payload", "too_many_dimensions"]);
+
+function isRejectedDayError(error) {
+  return error?.status === 400 && REJECTED_DAY_CODES.has(error.code);
+}
+
+function mergeUploadResult(totals, result) {
+  for (const key of ["accepted", "received", "changed", "ignored"]) {
+    totals[key] += Number(result?.[key] || 0);
+  }
+  totals.acked_days.push(...(Array.isArray(result?.acked_days) ? result.acked_days : []));
+  totals.throttled_days.push(...(Array.isArray(result?.throttled_days) ? result.throttled_days : []));
+  const nextFlush = Number(result?.next_flush_after);
+  if (Number.isFinite(nextFlush) && nextFlush > 0) {
+    totals.next_flush_after = totals.next_flush_after === null
+      ? nextFlush
+      : Math.min(totals.next_flush_after, nextFlush);
+  }
+}
+
 export async function uploadDailyEnvelopes(days, { token, ...options } = {}) {
   if (!token) throw new Error("TokensBurned is not connected. Run `burn connect` first.");
   const totals = {
@@ -170,24 +190,35 @@ export async function uploadDailyEnvelopes(days, { token, ...options } = {}) {
     // Optional on older Workers: they never throttle-report, so these stay empty.
     throttled_days: [],
     next_flush_after: null,
+    // Days the server rejected as invalid at their current revision (B2).
+    rejected_days: [],
   };
+  const send = (batch) => request("/v1/ingest/batch", {
+    ...options,
+    token,
+    method: "POST",
+    body: { v: 2, days: batch },
+  });
   for (const batch of dailyBatches(days)) {
-    const result = await request("/v1/ingest/batch", {
-      ...options,
-      token,
-      method: "POST",
-      body: { v: 2, days: batch },
-    });
-    for (const key of ["accepted", "received", "changed", "ignored"]) {
-      totals[key] += Number(result?.[key] || 0);
+    try {
+      mergeUploadResult(totals, await send(batch));
+      continue;
+    } catch (error) {
+      if (!isRejectedDayError(error)) throw error;
+      if (batch.length === 1) {
+        totals.rejected_days.push({ day: batch[0].day, revision: batch[0].revision, code: error.code });
+        continue;
+      }
     }
-    totals.acked_days.push(...(Array.isArray(result?.acked_days) ? result.acked_days : []));
-    totals.throttled_days.push(...(Array.isArray(result?.throttled_days) ? result.throttled_days : []));
-    const nextFlush = Number(result?.next_flush_after);
-    if (Number.isFinite(nextFlush) && nextFlush > 0) {
-      totals.next_flush_after = totals.next_flush_after === null
-        ? nextFlush
-        : Math.min(totals.next_flush_after, nextFlush);
+    // One invalid day must not block the rest of the batch: retry each day on
+    // its own and park only the days the server still rejects.
+    for (const day of batch) {
+      try {
+        mergeUploadResult(totals, await send([day]));
+      } catch (error) {
+        if (!isRejectedDayError(error)) throw error;
+        totals.rejected_days.push({ day: day.day, revision: day.revision, code: error.code });
+      }
     }
   }
   return totals;

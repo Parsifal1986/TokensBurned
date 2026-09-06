@@ -188,3 +188,31 @@ test("connection failures preserve structured cooldown and retry information", a
       && error[Object.keys(metadata)[0]] === retryAt);
   }
 });
+
+test("an invalid day is isolated from its batch and reported as rejected (B2)", async () => {
+  const calls = [];
+  const day = (name) => ({ day: name, revision: 7, input_tokens: 1, hours: {}, dimensions: {} });
+  const fetchImpl = async (_url, init) => {
+    const { days } = JSON.parse(init.body);
+    calls.push(days.map((item) => item.day));
+    if (days.some((item) => item.day === "2026-08-29")) {
+      return response({ error: { code: "too_many_dimensions", message: "dimensions.model may contain at most 32 entries." } }, 400);
+    }
+    return response({ accepted: days.length, acked_days: days.map(({ day, revision }) => ({ day, revision })) }, 202);
+  };
+  const result = await uploadDailyEnvelopes([day("2026-08-28"), day("2026-08-29"), day("2026-08-30")], {
+    apiOrigin: "https://api.example", token: "token", fetchImpl,
+  });
+  assert.deepEqual(calls, [
+    ["2026-08-28", "2026-08-29", "2026-08-30"],
+    ["2026-08-28"], ["2026-08-29"], ["2026-08-30"],
+  ]);
+  assert.deepEqual(result.acked_days.map((item) => item.day), ["2026-08-28", "2026-08-30"]);
+  assert.deepEqual(result.rejected_days, [{ day: "2026-08-29", revision: 7, code: "too_many_dimensions" }]);
+  assert.deepEqual(result.throttled_days, []);
+
+  await assert.rejects(() => uploadDailyEnvelopes([day("2026-08-30")], {
+    apiOrigin: "https://api.example", token: "token",
+    fetchImpl: async () => response({ error: { code: "rate_limited", message: "slow down" } }, 429),
+  }), (error) => error.status === 429, "non-payload failures still abort the upload");
+});

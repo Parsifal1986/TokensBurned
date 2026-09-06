@@ -4,11 +4,13 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
+  MAX_DIMENSIONS_PER_KIND,
   acknowledgeEnvelopes,
   mergeSnapshotEntries,
   outboxInternals,
   pendingEnvelopes,
   pruneOutbox,
+  rejectEnvelopes,
   resetOutboxAcknowledgements,
   syncUsageEntries,
 } from "../src/server-outbox.js";
@@ -225,4 +227,36 @@ test("the hook path (force: false) uploads at most once per hour (B1)", async (t
   await syncUsageEntries([], { ...options, now: now + 60 * 60_000 });
   assert.equal(uploads, 2);
   assert.equal(pendingEnvelopes(JSON.parse(await fs.readFile(outboxFile, "utf8"))).length, 0);
+});
+
+test("dimension maps are capped at the Worker's 32-entry limit and still sum exactly (B2)", () => {
+  const outbox = outboxInternals.emptyOutbox();
+  const entries = Array.from({ length: 40 }, (_, index) => entry({
+    session: `session-${index}`, model: `model-${index}`, input: 100 + index,
+  }));
+  mergeSnapshotEntries(outbox, entries);
+  const [day] = pendingEnvelopes(outbox);
+  const keys = Object.keys(day.dimensions.model);
+  assert.equal(keys.length, MAX_DIMENSIONS_PER_KIND);
+  assert.equal(MAX_DIMENSIONS_PER_KIND, 32);
+  assert.ok(keys.includes("other"));
+  const expected = day.input_tokens + day.output_tokens + day.cache_read_tokens
+    + day.cache_write_tokens + day.reasoning_tokens;
+  for (const kind of ["harness", "provider", "model"]) {
+    const sum = Object.values(day.dimensions[kind]).reduce((total, value) => total + value.total_tokens, 0);
+    assert.equal(sum, expected, `${kind} dimensions must sum to the day total`);
+  }
+});
+
+test("a server-rejected day is parked at its revision and released by a new revision (B2)", () => {
+  const outbox = outboxInternals.emptyOutbox();
+  mergeSnapshotEntries(outbox, [entry(), entry({ bucket: entry().bucket + 96, session: "session-b" })]);
+  const [bad, good] = pendingEnvelopes(outbox);
+  assert.equal(rejectEnvelopes(outbox, [{ day: bad.day, revision: bad.revision, code: "too_many_dimensions" }]), 1);
+  assert.deepEqual(pendingEnvelopes(outbox).map((day) => day.day), [good.day]);
+  assert.equal(outbox.days[bad.day].rejected_code, "too_many_dimensions");
+  assert.equal(rejectEnvelopes(outbox, [{ day: bad.day, revision: 1, code: "invalid_payload" }]), 0, "stale rejections are ignored");
+  mergeSnapshotEntries(outbox, [entry({ revision: 2, input: 140 })]);
+  assert.deepEqual(pendingEnvelopes(outbox).map((day) => day.day).sort(), [bad.day, good.day].sort());
+  assert.ok(!("rejected_revision" in pendingEnvelopes(outbox)[0]));
 });
