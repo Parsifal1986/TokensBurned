@@ -15,7 +15,7 @@ TokensBurned は各 AI coding harness の token 数とモデル情報だけを�
 | Gemini CLI | `gemini extensions install https://github.com/Parsifal1986/TokensBurned`<br>`/tokensburned:connect`<br>`/tokensburned:telemetry` | 公式 GenAI OTLP、`logPrompts=false` |
 | Copilot CLI | `copilot plugin install https://github.com/Parsifal1986/TokensBurned` | Plugin workflow + CLI/OTLP |
 | Cline CLI | `cline plugin install https://github.com/Parsifal1986/TokensBurned.git` | ネイティブ `afterRun().result.usage` |
-| その他 | `npm install -g github:Parsifal1986/TokensBurned` | 明示的な OTLP または batch API |
+| その他 | `npm install -g tokensburned` | 明示的な OTLP または batch API |
 
 Copilot の lifecycle hook は現時点で token 数を提供しないため、ネイティブ plugin を使っても収集は CLI 補助です。Cline plugin は CLI、SDK、Kanban 向けで、エディタ拡張にはまだ適用されません。
 

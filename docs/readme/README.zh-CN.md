@@ -70,7 +70,7 @@ gemini
     </td>
     <td width="50%" valign="top">
       <h3>OpenCode、Cursor、Aider 等</h3><p><strong>OTLP 或独立 CLI</strong></p>
-      <pre><code>npm install -g github:Parsifal1986/TokensBurned
+      <pre><code>npm install -g tokensburned
 tokensburned connect
 tokensburned doctor</code></pre>
       <p>只有 harness 能提供观测到的 token 字段时才走 OTLP。TokensBurned 不会根据提示词长度猜 token。</p>
@@ -105,7 +105,7 @@ tokensburned doctor</code></pre>
 ## CLI fallback
 
 ```bash
-npm install -g github:Parsifal1986/TokensBurned
+npm install -g tokensburned
 tokensburned connect
 ```
 

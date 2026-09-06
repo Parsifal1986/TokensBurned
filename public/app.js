@@ -56,7 +56,7 @@ const harnesses = {
     confidence: "Standard telemetry path",
     summary: "OpenCode has a first-class plugin API, but the current TokensBurned release uses the stable OTLP and batch adapter while the native plugin API remains beta.",
     steps: ["Install the TokensBurned CLI", "Connect GitHub", "Point an OTLP JSON exporter at the API"],
-    command: "npm install -g github:Parsifal1986/TokensBurned\ntokensburned connect\ntokensburned doctor",
+    command: "npm install -g tokensburned\ntokensburned connect\ntokensburned doctor",
     note: "Native OpenCode plugin packaging is tracked separately so a beta API change cannot silently break collection.",
   },
   other: {
@@ -65,7 +65,7 @@ const harnesses = {
     confidence: "Explicit import or OTLP",
     summary: "Use the standalone client when the harness does not expose stable token metadata. It can accept revisioned batch input or standard OTLP JSON from an exporter.",
     steps: ["Install the CLI", "Connect GitHub", "Run doctor and choose an approved data source"],
-    command: "npm install -g github:Parsifal1986/TokensBurned\ntokensburned connect\ntokensburned doctor",
+    command: "npm install -g tokensburned\ntokensburned connect\ntokensburned doctor",
     note: "TokensBurned does not estimate tokens from prompts and never labels inferred counts as observed usage.",
   },
 };

@@ -15,7 +15,7 @@ TokensBurned recoge conteos de tokens y metadatos del modelo, los agrega localme
 | Gemini CLI | `gemini extensions install https://github.com/Parsifal1986/TokensBurned`<br>`/tokensburned:connect`<br>`/tokensburned:telemetry` | GenAI OTLP oficial con `logPrompts=false` |
 | Copilot CLI | `copilot plugin install https://github.com/Parsifal1986/TokensBurned` | Plugin + CLI/OTLP |
 | Cline CLI | `cline plugin install https://github.com/Parsifal1986/TokensBurned.git` | `afterRun().result.usage` nativo |
-| Otros | `npm install -g github:Parsifal1986/TokensBurned` | OTLP explícito o API batch |
+| Otros | `npm install -g tokensburned` | OTLP explícito o API batch |
 
 Los hooks de Copilot todavía no exponen conteos de tokens, por lo que la recopilación sigue asistida por CLI. El plugin de Cline funciona en CLI, SDK y Kanban, no todavía en las extensiones de editor.
 
