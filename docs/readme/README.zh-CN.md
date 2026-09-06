@@ -124,7 +124,7 @@ tokensburned connect
 | 会上传 | 永不上传 |
 | --- | --- |
 | token 数量 | 提示词和回复 |
-| harness、provider、model | 源代码和工具 payload |
+| harness、provider、model（未识别的网关只记录主机名） | 源代码和工具 payload |
 | 哈希后的 session ID | 仓库名与路径 |
 | 15 分钟时间桶 | transcript 文件与路径 |
 | 请求次数 | API key 与 provider 凭证 |

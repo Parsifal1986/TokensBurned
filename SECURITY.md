@@ -19,7 +19,7 @@ The history parser uses resolved-path boundary checks and rejects a transcript o
 Native ingestion sends only:
 
 - input, output, cache-read, cache-write, and reasoning token counts;
-- harness, provider, and model labels;
+- harness, provider, and model labels (for an endpoint TokensBurned does not recognize, the provider label is the endpoint hostname only, never its path, port, or credentials);
 - a device/day revision with hourly aggregate slots and request counts.
 
 Prompts, responses, tool payloads, source code, repository names, transcript paths, raw session files, machine information, API keys, and GitHub credentials are not included in ingestion requests.

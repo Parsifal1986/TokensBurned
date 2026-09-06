@@ -192,7 +192,7 @@ an available update always requires an explicit user request.
 | Uploaded | Never uploaded |
 | --- | --- |
 | Token counts | Prompts and responses |
-| Harness, provider, model | Source code and tool payloads |
+| Harness, provider, model (an unrecognized gateway is recorded by hostname only) | Source code and tool payloads |
 | Hashed session identifier | Repository names and paths |
 | 15 minute time bucket | Transcript files and paths |
 | Request count | API keys and provider credentials |

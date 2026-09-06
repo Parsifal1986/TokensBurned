@@ -23,13 +23,21 @@ test("normalizes harness, backend confidence and usage aliases", () => {
   assert.ok(event.id);
 });
 
-test("unknown providers become custom instead of guessed", () => {
+test("unknown providers keep a sanitized id instead of collapsing to custom", () => {
   const event = normalizeEvent({
     harness: { id: "codex" },
-    backend: { provider: "private-router", confidence: "detected" },
+    backend: { provider: " Private Router/EU ", confidence: "detected" },
     usage: { input_tokens: 1 },
   });
-  assert.equal(event.backend.provider, "custom");
+  assert.equal(event.backend.provider, "private-router-eu");
+  const hostname = normalizeEvent({
+    harness: { id: "codex" },
+    backend: { provider: "llm.internal.example" },
+    usage: { input_tokens: 1 },
+  });
+  assert.equal(hostname.backend.provider, "llm.internal.example");
+  const empty = normalizeEvent({ harness: { id: "codex" }, backend: { provider: "   " }, usage: { input_tokens: 1 } });
+  assert.equal(empty.backend.provider, "unknown");
 });
 
 test("hook extraction copies only allow-listed usage and identity", () => {

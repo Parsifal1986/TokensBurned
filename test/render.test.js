@@ -7,7 +7,7 @@ const summary = {
   week: {
     total_tokens: 12_000_000,
     by_harness: { "claude-code": 9_000_000, codex: 3_000_000 },
-    by_provider: { deepseek: 7_000_000, unknown: 5_000_000 },
+    by_provider: { deepseek: 7_000_000, unknown: 3_000_000, "llm.internal.example": 2_000_000 },
   },
   streak: 4,
   burn_score: 4321,
@@ -24,6 +24,7 @@ test("renders separate harness and backend labels", () => {
   assert.match(svg, /BACKEND/);
   assert.match(svg, /Claude Code/);
   assert.match(svg, /DeepSeek/);
+  assert.match(svg, /llm\.internal\.example/);
 });
 
 test("keeps the harness section below the token total", () => {
