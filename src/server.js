@@ -59,7 +59,10 @@ async function request(pathname, {
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {
-    throw new Error(`TokensBurned server is unavailable: ${error.message}`);
+    const failure = new Error(`TokensBurned server is unavailable: ${error.message}`);
+    // Transport failures are retryable; every other error is a definitive answer.
+    failure.transient = true;
+    throw failure;
   }
   let payload = null;
   const text = await response.text();
@@ -77,6 +80,7 @@ async function request(pathname, {
     error.code = problem?.code;
     error.retry_at = problem?.retry_at || null;
     error.next_slot_at = problem?.next_slot_at || null;
+    error.failure_code = typeof problem?.failure_code === "string" ? problem.failure_code : null;
     throw error;
   }
   return payload;

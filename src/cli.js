@@ -378,6 +378,57 @@ async function backfillHistory({
   return { ...result, tokens };
 }
 
+const MAX_POLL_BACKOFF_MS = 30_000;
+const TERMINAL_POLL_CODES = {
+  authorization_failed: "GitHub authorization failed",
+  invalid_grant: "The device authorization was already used",
+  expired_token: "The device authorization expired",
+};
+
+// Polling must survive transient trouble (network blips, 429s from a shared
+// office IP, 5xx) until the deadline; only definitive 4xx answers end it (B3).
+async function waitForAuthorization(authorization, { apiOrigin, previousDeviceId, deadline, interval, sleep = wait }) {
+  let delay = interval;
+  let backoff = interval;
+  let result;
+  while (Date.now() < deadline) {
+    await sleep(Math.min(delay, Math.max(0, deadline - Date.now())));
+    try {
+      result = await pollDeviceAuthorization(authorization.device_code, {
+        apiOrigin,
+        previousDeviceId,
+        devicePrivateKeyJwk: authorization.device_proof_keys?.privateKeyJwk,
+      });
+    } catch (error) {
+      const status = Number(error?.status);
+      if (status === 429) {
+        const retryAt = Date.parse(error.retry_at || "");
+        delay = Number.isFinite(retryAt) ? Math.max(interval, retryAt - Date.now()) : Math.min(backoff * 2, MAX_POLL_BACKOFF_MS);
+        backoff = Math.min(backoff * 2, MAX_POLL_BACKOFF_MS);
+        continue;
+      }
+      if (error?.transient === true || status >= 500) {
+        backoff = Math.min(backoff * 2, MAX_POLL_BACKOFF_MS);
+        delay = backoff;
+        continue;
+      }
+      const reason = TERMINAL_POLL_CODES[error?.code];
+      if (reason) {
+        const detail = error.failure_code ? ` (${error.failure_code})` : "";
+        throw new Error(`${reason}${detail}. Run \`burn connect\` again.`);
+      }
+      throw error;
+    }
+    delay = interval;
+    backoff = interval;
+    if (result?.status === "authorized") break;
+  }
+  if (result?.status !== "authorized" || !result.token) {
+    throw new Error("GitHub authorization expired. Run `burn connect` again.");
+  }
+  return result;
+}
+
 async function connect(args) {
   let selectedBackfillHarnesses = has(args, "--backfill")
     ? requestedBackfillHarnesses(args)
@@ -407,19 +458,12 @@ async function connect(args) {
 
   const deadline = Date.now() + Number(authorization.expires_in || 600) * 1000;
   const interval = Math.max(2, Number(authorization.interval || 5)) * 1000;
-  let result;
-  while (Date.now() < deadline) {
-    await wait(interval);
-    result = await pollDeviceAuthorization(authorization.device_code, {
-      apiOrigin,
-      previousDeviceId,
-      devicePrivateKeyJwk: authorization.device_proof_keys?.privateKeyJwk,
-    });
-    if (result.status === "authorized") break;
-  }
-  if (result?.status !== "authorized" || !result.token) {
-    throw new Error("GitHub authorization expired. Run `burn connect` again.");
-  }
+  const result = await waitForAuthorization(authorization, {
+    apiOrigin,
+    previousDeviceId,
+    deadline,
+    interval,
+  });
 
   const deviceId = deviceIdFromToken(result.token);
   const accountPrivacy = result.privacy || await fetchServerPrivacy({

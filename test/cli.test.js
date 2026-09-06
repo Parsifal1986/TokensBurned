@@ -240,3 +240,45 @@ test("SessionEnd hook uploads at most once per hour instead of forcing every ses
   assert.ok(outbox.last_successful_upload_at);
   assert.ok(Object.values(outbox.days).every((day) => day.acked_revision === day.revision));
 });
+
+test("connect polling survives network errors, 429 and 5xx, but stops on authorization_failed (B3)", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-connect-retry-"));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  const apiOrigin = "https://api.example.test";
+  const pollLog = path.join(home, "polls.json");
+  const mockFetch = path.join(home, "mock-fetch.mjs");
+  await fs.writeFile(mockFetch, `
+  import fs from "node:fs/promises";
+  const script = process.env.BURN_TEST_POLL_SCRIPT.split(",");
+  let polls = 0;
+  globalThis.fetch = async (url, init) => {
+    const pathname = new URL(url).pathname;
+    if (pathname === "/v1/auth/device/start") {
+      return new Response(JSON.stringify({ device_code: "test-code", user_code: "ABCD-2345", verification_uri: "${apiOrigin}/verify", interval: 1, expires_in: 60 }));
+    }
+    if (pathname !== "/v1/auth/device/status") return new Response("{}");
+    const step = script[Math.min(polls, script.length - 1)];
+    polls += 1;
+    await fs.writeFile(process.env.BURN_TEST_POLL_LOG, JSON.stringify(polls));
+    if (step === "network") throw new TypeError("fetch failed");
+    if (step === "429") return new Response(JSON.stringify({ error: { code: "rate_limited", message: "slow", retry_at: new Date(Date.now() + 500).toISOString() } }), { status: 429 });
+    if (step === "500") return new Response("upstream", { status: 502 });
+    if (step === "failed") return new Response(JSON.stringify({ error: { code: "authorization_failed", message: "GitHub authorization failed.", failure_code: "github_oauth_failed" } }), { status: 400 });
+    return new Response(JSON.stringify({ status: "authorized", token: "tb_live_retrydevice." + "s".repeat(43), user: { github_login: "test-user" }, privacy: { public_card: false }, device_reused: false }));
+  };
+  `);
+  const env = { ...process.env, BURN_HOME: home, NO_COLOR: "1", BURN_TEST_POLL_LOG: pollLog, TOKENSBURNED_DISABLE_UPDATE_CHECK: "1" };
+  const connect = (script) => execFileAsync(process.execPath, ["--import", mockFetch, cli, "connect", "--api-origin", apiOrigin, "--no-open", "--no-backfill"], { env: { ...env, BURN_TEST_POLL_SCRIPT: script } });
+  const started = Date.now();
+  const ok = await connect("network,500,429,authorized");
+  assert.match(ok.stdout, /Connected as test-user/);
+  assert.equal(JSON.parse(await fs.readFile(pollLog, "utf8")), 4);
+  assert.ok(Date.now() - started >= 4 * 2000, "each retry still waits at least the polling interval");
+  assert.equal(JSON.parse(await fs.readFile(path.join(home, "credentials.json"), "utf8")).device_token.startsWith("tb_live_retrydevice."), true);
+
+  await fs.rm(path.join(home, "credentials.json"), { force: true });
+  await assert.rejects(connect("failed,authorized"), (error) =>
+    /GitHub authorization failed \(github_oauth_failed\)/.test(error.stderr));
+  assert.equal(JSON.parse(await fs.readFile(pollLog, "utf8")), 1, "a terminal 400 ends polling immediately");
+  await assert.rejects(() => fs.access(path.join(home, "credentials.json")));
+});

@@ -56,6 +56,12 @@ in-flight upload from the old connection cannot acknowledge the new one. Clients
 refuse reconnect results from older Workers that do not explicitly report
 `device_reused`; deploy the Worker update before updating clients.
 
+While waiting for GitHub, the connect command keeps polling until the
+authorization deadline: HTTP 429 waits for the server's `retry_at`, transport
+errors and 5xx back off exponentially up to 30 seconds, and only definitive 4xx
+answers (`authorization_failed`, `invalid_grant`, `expired_token`) end the wait
+with a readable reason.
+
 Device identity remains separate from credentials. Reconnect rotates both the
 secret and signing public key while preserving the device/day history identity.
 This prevents future reconnect duplication while the previous identity is retained.
