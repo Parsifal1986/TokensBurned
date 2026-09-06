@@ -100,3 +100,14 @@ test("install commands use the published npm package, never a moving git ref (B8
   }
   assert.match(js, /npm install -g tokensburned/);
 });
+
+test("documentation and the site no longer advertise the disabled OTLP path (C5)", async () => {
+  const files = ["../public/app.js", "../public/index.html", "../public/locales.js", "../README.md", "../GEMINI.md",
+    ...["es", "fr", "ja", "ko", "zh-CN"].map((language) => `../docs/readme/README.${language}.md`)];
+  for (const file of files) {
+    const content = await fs.readFile(new URL(file, import.meta.url), "utf8");
+    assert.doesNotMatch(content, /otlp|opentelemetry|tokensburned:telemetry/i, `${file} must not guide users to the disabled exporter path`);
+  }
+  await assert.rejects(() => fs.access(new URL("../commands/tokensburned/telemetry.toml", import.meta.url)));
+  assert.doesNotMatch(html, /harnessOtlp|harnessExtensionOtlp/);
+});

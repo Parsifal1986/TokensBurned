@@ -24,7 +24,7 @@ Native ingestion sends only:
 
 Prompts, responses, tool payloads, source code, repository names, transcript paths, raw session files, machine information, API keys, and GitHub credentials are not included in ingestion requests.
 
-The Worker reduces supported OTLP documents to the same allow-list before persistence. Raw OTLP documents are not persisted.
+The API's OTLP endpoints are disabled in production and are not a supported data path; only the signed protocol v2 daily envelopes described above are accepted.
 
 Profile cards are private by default. Publishing requires the explicit `tokensburned privacy public` command (or `connect --publish-card`). A published card may expose totals, harness/provider/model labels, activity heatmaps, rank, and GitHub identity. The stored server policy belongs to the verified GitHub account and is authoritative across every connected device: connecting another device inherits the existing policy and never resets or republishes it. URL query parameters can hide fields but cannot publish a field the account has disabled. `tokensburned privacy private` makes the route unavailable and removes the stored SVG right away, and the API's edge cache drops its copy within five minutes; copies already held by GitHub's image proxy or other downstream caches can remain visible for up to one hour.
 

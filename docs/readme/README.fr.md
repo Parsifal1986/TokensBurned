@@ -12,10 +12,10 @@ TokensBurned collecte les nombres de tokens et les métadonnées du modèle, les
 | --- | --- | --- |
 | Claude Code | `/plugin marketplace add Parsifal1986/TokensBurned`<br>`/plugin install tokensburned@tokensburned`<br>`/tokensburned:connect` | Hook SessionEnd natif + historique approuvé |
 | Codex | `codex plugin marketplace add Parsifal1986/TokensBurned`<br>`codex plugin add tokensburned@tokensburned`<br>`$tokensburned:connect` | Plugin natif + historique approuvé |
-| Gemini CLI | `gemini extensions install https://github.com/Parsifal1986/TokensBurned`<br>`/tokensburned:connect`<br>`/tokensburned:telemetry` | GenAI OTLP officiel avec `logPrompts=false` |
-| Copilot CLI | `copilot plugin install https://github.com/Parsifal1986/TokensBurned` | Plugin + CLI/OTLP |
+| Gemini CLI | `gemini extensions install https://github.com/Parsifal1986/TokensBurned`<br>`/tokensburned:connect` | Extension + import CLI explicite |
+| Copilot CLI | `copilot plugin install https://github.com/Parsifal1986/TokensBurned` | Plugin + CLI |
 | Cline CLI | `cline plugin install https://github.com/Parsifal1986/TokensBurned.git` | `afterRun().result.usage` natif |
-| Autres | `npm install -g tokensburned` | OTLP explicite ou API batch |
+| Autres | `npm install -g tokensburned` | Import batch explicite |
 
 Les hooks Copilot ne fournissent pas encore les nombres de tokens. La collecte reste donc assistée par le CLI. Le plugin Cline fonctionne pour CLI, SDK et Kanban, mais pas encore dans les extensions d'éditeur.
 

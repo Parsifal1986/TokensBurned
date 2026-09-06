@@ -4,7 +4,7 @@ TokensBurned separates local collection, server aggregation, and public renderin
 
 ## Data flow
 
-1. A harness plugin, official telemetry exporter, or explicit CLI import receives observed token usage.
+1. A harness plugin or an explicit CLI import receives observed token usage.
 2. The local client keeps only allow-listed counts and identity fields.
 3. Native history is reduced locally into revisioned device/day envelopes with hourly and allow-listed dimension totals.
 4. The production API authenticates a device token and stores aggregate usage.

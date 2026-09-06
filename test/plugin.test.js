@@ -87,7 +87,6 @@ test("Gemini extension ships focused setup commands", async () => {
     "doctor.toml",
     "privacy.toml",
     "server.toml",
-    "telemetry.toml",
     "update.toml",
   ]);
 });

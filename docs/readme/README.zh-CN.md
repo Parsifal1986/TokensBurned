@@ -21,7 +21,7 @@ TokensBurned 从不同 AI coding harness 收集 token 数量和模型元数据�
 - **先在本地缩减。** 原始 session 不会被上传，客户端只输出允许的聚合字段。
 - **清晰的隐私边界。** 不上传提示词、回复、源代码、仓库名、transcript 路径和 API key。
 - **连接不等于公开。** 默认关闭公开卡片，只有显式执行发布命令后才会把聚合活动与 GitHub 身份关联展示。
-- **不夸大兼容性。** 原生 hook、官方 OTLP、适配器和 CLI fallback 会明确标注。
+- **不夸大兼容性。** 原生 hook、插件辅助和 CLI fallback 会明确标注。
 
 ## 按 harness 安装
 
@@ -49,17 +49,16 @@ $tokensburned:server</code></pre>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <h3>Gemini CLI</h3><p><strong>官方 Extension + GenAI OpenTelemetry</strong></p>
+      <h3>Gemini CLI</h3><p><strong>官方 Extension + CLI 采集</strong></p>
       <pre><code>gemini extensions install https://github.com/Parsifal1986/TokensBurned
 gemini
-/tokensburned:connect
-/tokensburned:telemetry</code></pre>
-      <p>配置过程会保持 <code>logPrompts=false</code>，只发送经过 allow-list 的 token 和身份字段。</p>
+/tokensburned:connect</code></pre>
+      <p>Extension 提供设置 skill。Gemini CLI 内置的遥测导出器无法通过 TokensBurned API 的认证，token 总量来自显式的 CLI 导入；不要把导出器指向 API。</p>
     </td>
     <td width="50%" valign="top">
       <h3>GitHub Copilot CLI</h3><p><strong>Open Plugin Spec + CLI 数据路径</strong></p>
       <pre><code>copilot plugin install https://github.com/Parsifal1986/TokensBurned</code></pre>
-      <p>Copilot hook 暂时不提供 token 总数，所以插件工作流是原生的，但统计仍由 CLI 或外部 OTLP 提供。</p>
+      <p>Copilot hook 暂时不提供 token 总数，所以插件工作流是原生的，但统计仍由 CLI 导入提供。</p>
     </td>
   </tr>
   <tr>
@@ -69,11 +68,11 @@ gemini
       <p>只读取 Cline 返回的 <code>result.usage</code>。目前 Cline 插件仅适用于 CLI、SDK 和 Kanban。</p>
     </td>
     <td width="50%" valign="top">
-      <h3>OpenCode、Cursor、Aider 等</h3><p><strong>OTLP 或独立 CLI</strong></p>
+      <h3>OpenCode、Cursor、Aider 等</h3><p><strong>独立 CLI</strong></p>
       <pre><code>npm install -g tokensburned
 tokensburned connect
 tokensburned doctor</code></pre>
-      <p>只有 harness 能提供观测到的 token 字段时才走 OTLP。TokensBurned 不会根据提示词长度猜 token。</p>
+      <p>harness 能提供观测到的 token 字段时使用显式批量导入。TokensBurned 不会根据提示词长度猜 token，也不接受遥测导出器流量。</p>
     </td>
   </tr>
 </table>
