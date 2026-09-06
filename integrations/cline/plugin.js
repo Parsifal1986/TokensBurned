@@ -1,7 +1,6 @@
 import crypto from "node:crypto";
-import fs from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
+import { API_ORIGIN } from "../../src/constants.js";
+import { readConfig, readCredentials } from "../../src/storage.js";
 import { syncUsageEntries } from "../../src/server-outbox.js";
 
 const session = crypto.createHash("sha256")
@@ -19,18 +18,15 @@ function safeDimension(value, fallback = "unknown") {
   return /^[a-z0-9]/.test(normalized) ? normalized.slice(0, 64) : fallback;
 }
 
+// Same storage as the CLI, so a custom BURN_HOME is honoured here too (B6).
 async function connection() {
-  const root = path.join(os.homedir(), ".burn");
-  const [credentials, config] = await Promise.all([
-    fs.readFile(path.join(root, "credentials.json"), "utf8").then(JSON.parse),
-    fs.readFile(path.join(root, "config.json"), "utf8").then(JSON.parse),
-  ]);
+  const [credentials, config] = await Promise.all([readCredentials(), readConfig()]);
   if (!credentials.device_token || !config.server?.enabled) return null;
   return {
     token: credentials.device_token,
     credentialApiOrigin: credentials.api_origin,
     devicePrivateKeyJwk: credentials.device_private_key_jwk,
-    origin: String(config.server.api_origin || "https://api.tokensburned.com").replace(/\/$/, ""),
+    origin: String(config.server.api_origin || API_ORIGIN).replace(/\/$/, ""),
   };
 }
 
@@ -83,4 +79,5 @@ const plugin = {
   hooks: { afterRun: uploadUsage },
 };
 
+export const clineInternals = { connection };
 export default plugin;

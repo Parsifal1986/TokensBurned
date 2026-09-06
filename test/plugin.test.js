@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
 
 const root = path.resolve(import.meta.dirname, "..");
 const sourceSkills = path.join(root, "skills");
@@ -51,6 +56,27 @@ test("Cline integration uploads only aggregate usage fields", async () => {
   assert.match(source, /syncUsageEntries/);
   assert.match(source, /afterRun: uploadUsage/);
   assert.doesNotMatch(source, /context\?\.(prompt|messages|source|files)/);
+  assert.doesNotMatch(source, /os\.homedir|"\.burn"/, "the integration must not hard-code ~/.burn");
+});
+
+test("Cline integration reads credentials from BURN_HOME like the CLI (B6)", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-cline-home-"));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  await fs.writeFile(path.join(home, "config.json"), JSON.stringify({ server: { enabled: true, api_origin: "https://api.example.test/" } }));
+  await fs.writeFile(path.join(home, "credentials.json"), JSON.stringify({
+    version: 2, device_token: "tb_live_clinedevice.secret", api_origin: "https://api.example.test",
+  }));
+  const probe = path.join(home, "probe.mjs");
+  await fs.writeFile(probe, `
+  const { clineInternals } = await import(${JSON.stringify(path.join(root, "integrations", "cline", "plugin.js"))});
+  process.stdout.write(JSON.stringify(await clineInternals.connection()));
+  `);
+  const { stdout } = await execFileAsync(process.execPath, [probe], { env: { ...process.env, BURN_HOME: home, HOME: path.join(home, "no-such-home") } });
+  assert.deepEqual(JSON.parse(stdout), {
+    token: "tb_live_clinedevice.secret",
+    credentialApiOrigin: "https://api.example.test",
+    origin: "https://api.example.test",
+  });
 });
 
 test("Gemini extension ships focused setup commands", async () => {
