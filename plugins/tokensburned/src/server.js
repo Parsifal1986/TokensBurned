@@ -129,22 +129,6 @@ export function fetchClientRelease(options = {}) {
   });
 }
 
-export async function uploadEntries(entries, { token, ...options } = {}) {
-  if (!token) throw new Error("TokensBurned is not connected. Run `burn connect` first.");
-  let accepted = 0;
-  for (let index = 0; index < entries.length; index += 100) {
-    const batch = entries.slice(index, index + 100);
-    const result = await request("/v1/ingest/batch", {
-      ...options,
-      token,
-      method: "POST",
-      body: { v: 1, entries: batch },
-    });
-    accepted += Number(result?.accepted || 0);
-  }
-  return { accepted };
-}
-
 function dailyBatches(days, maxBytes = 480 * 1024) {
   const batches = [];
   let batch = [];

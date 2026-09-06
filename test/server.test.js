@@ -7,7 +7,6 @@ import {
   pollDeviceAuthorization,
   startDeviceAuthorization,
   uploadDailyEnvelopes,
-  uploadEntries,
   serverInternals,
 } from "../src/server.js";
 
@@ -126,24 +125,6 @@ test("reconnect polling sends only the old device ID and requires an explicit re
     ...options, fetchImpl: async () => response({ status: "authorized", token: `tb_live_other_device.${"s".repeat(43)}`, device_reused: false }),
   });
   assert.equal(newAccount.device_reused, false);
-});
-
-test("batch uploader chunks entries and keeps the bearer token out of payloads", async () => {
-  const calls = [];
-  const fetchImpl = async (url, init) => {
-    calls.push({ url, init, body: JSON.parse(init.body) });
-    return response({ accepted: calls.at(-1).body.entries.length });
-  };
-  const entries = Array.from({ length: 205 }, (_, bucket) => ({ bucket }));
-  const result = await uploadEntries(entries, {
-    apiOrigin: "https://api.example",
-    token: "tb_live_secret",
-    fetchImpl,
-  });
-  assert.equal(result.accepted, 205);
-  assert.deepEqual(calls.map((call) => call.body.entries.length), [100, 100, 5]);
-  assert.ok(calls.every((call) => call.init.headers.Authorization === "Bearer tb_live_secret"));
-  assert.ok(calls.every((call) => !JSON.stringify(call.body).includes("tb_live_secret")));
 });
 
 test("daily uploader sends v2 envelopes and preserves acknowledgements", async () => {
