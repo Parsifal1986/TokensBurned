@@ -180,6 +180,10 @@ time, but uploads to the server at most once per hour; the server acknowledges
 only days it actually stored and the client keeps everything else pending until
 the next window. `tokensburned backfill` uploads immediately.
 
+While TokensBurned is installed but not connected, the SessionStart hook asks the
+assistant to mention the connect command at most three times (tracked in
+`~/.burn/config.json` under `onboarding.connect_notices`), then stays silent.
+
 Installed harness plugins also perform a best-effort release check at SessionStart,
 throttled to once every 24 hours. Update failures never block startup, and applying
 an available update always requires an explicit user request.
