@@ -187,17 +187,35 @@ export function pendingEnvelopes(outbox) {
     .map(({ acked_revision: _acked, ...day }) => day);
 }
 
+// Only `acked_days` advance acknowledgements. Days the Worker reports in
+// `throttled_days` (write window not yet open) are deliberately ignored here so
+// they stay pending and are retried after `next_flush_after` seconds (C1).
 export function acknowledgeEnvelopes(outbox, acknowledgements, uploadedAt = new Date()) {
+  let acknowledged = 0;
   for (const acknowledgement of acknowledgements || []) {
-    if (!Object.hasOwn(outbox.days, acknowledgement.day)) continue;
+    if (!acknowledgement || !Object.hasOwn(outbox.days, acknowledgement.day)) continue;
     const day = outbox.days[acknowledgement.day];
     if (!day) continue;
+    const previous = Number(day.acked_revision || 0);
     day.acked_revision = Math.max(
-      Number(day.acked_revision || 0),
+      previous,
       Math.min(Number(day.revision), Number(acknowledgement.revision || 0)),
     );
+    if (day.acked_revision > previous) acknowledged += 1;
   }
-  outbox.last_successful_upload_at = uploadedAt.toISOString();
+  if (acknowledged > 0) outbox.last_successful_upload_at = uploadedAt.toISOString();
+  return acknowledged;
+}
+
+export function deferOutbox(outbox, throttledDays, nextFlushAfter, now = Date.now()) {
+  if (!Array.isArray(throttledDays) || throttledDays.length === 0) {
+    delete outbox.next_flush_at;
+    return null;
+  }
+  const seconds = Number(nextFlushAfter);
+  const delay = Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds, 86_400) : 3600;
+  outbox.next_flush_at = new Date(now + delay * 1000).toISOString();
+  return outbox.next_flush_at;
 }
 
 export function pruneOutbox(outbox, now = Date.now()) {
@@ -296,7 +314,11 @@ export async function syncUsageEntries(entries, {
     const merged = mergeSnapshotEntries(outbox, entries);
     pruneOutbox(outbox, now);
     const lastUpload = Date.parse(outbox.last_successful_upload_at || "");
-    const due = force || !Number.isFinite(lastUpload) || now - lastUpload >= minIntervalMs;
+    const nextFlush = Date.parse(outbox.next_flush_at || "");
+    const due = force || (
+      (!Number.isFinite(lastUpload) || now - lastUpload >= minIntervalMs)
+      && (!Number.isFinite(nextFlush) || now >= nextFlush)
+    );
     const pending = pendingEnvelopes(outbox);
     return { merged, due, pending: pending.length, days: due ? pending : [], generation: Number(outbox.generation || 0) };
   });
@@ -314,6 +336,7 @@ export async function syncUsageEntries(entries, {
   await mutateOutbox(outboxFile, async (outbox) => {
     if (Number(outbox.generation || 0) === snapshot.generation) {
       acknowledgeEnvelopes(outbox, result.acked_days, new Date(now));
+      deferOutbox(outbox, result.throttled_days, result.next_flush_after, now);
     }
   });
   return { ...result, ...snapshot.merged };

@@ -212,10 +212,13 @@ async function handleHook(args) {
 
   if (typeof payload.transcript_path === "string") {
     try {
+      // SessionEnd runs after every session; let the outbox's hourly throttle
+      // decide whether an upload is due instead of forcing one each time (B1).
       await backfillHistory({
         harnesses: [adapter.id],
         filesByHarness: { [adapter.id]: [payload.transcript_path] },
         quiet: true,
+        force: false,
       });
     } catch {
       // Session telemetry is best-effort and must never break the harness.
@@ -330,6 +333,7 @@ async function backfillHistory({
   days = 90,
   dryRun = false,
   quiet = false,
+  force = false,
 } = {}) {
   const config = await readConfig();
   const credentials = await readCredentials();
@@ -359,7 +363,7 @@ async function backfillHistory({
       credentialApiOrigin: credentials.api_origin,
       devicePrivateKeyJwk: credentials.device_private_key_jwk,
       apiOrigin: config.server.api_origin || API_ORIGIN,
-      force: true,
+      force,
     });
     config.server.backfill_completed_at = new Date().toISOString();
     await writeConfig(config);
@@ -482,7 +486,7 @@ async function connect(args) {
       console.log("History was not imported because this harness command is non-interactive. Run the backfill skill to preview or explicitly choose --harness <id>.");
     }
   }
-  if (shouldBackfill) await backfillHistory({ harnesses: selectedBackfillHarnesses });
+  if (shouldBackfill) await backfillHistory({ harnesses: selectedBackfillHarnesses, force: true });
 }
 
 async function backfillCommand(args) {
@@ -492,6 +496,7 @@ async function backfillCommand(args) {
     harnesses: requestedBackfillHarnesses(args),
     days,
     dryRun: has(args, "--dry-run"),
+    force: true,
   });
 }
 

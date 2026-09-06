@@ -148,3 +148,81 @@ test("outbox pruning removes expired and future days before upload", () => {
   assert.deepEqual(Object.keys(outbox.sources), ["current"]);
   assert.deepEqual(Object.keys(outbox.days), ["2026-08-30"]);
 });
+
+test("throttled days stay pending and defer the next flush; only acknowledged days advance (C1)", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "burn-throttle-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const outboxFile = path.join(directory, "outbox.json");
+  const now = Date.UTC(2026, 7, 30, 10, 40);
+  let mode = "throttle";
+  const uploads = [];
+  const options = {
+    outboxFile, now, token: "token",
+    fetchImpl: async (_url, init) => {
+      const { days } = JSON.parse(init.body);
+      uploads.push(days);
+      if (mode === "throttle") {
+        return new Response(JSON.stringify({
+          accepted: days.length, changed: 0, ignored: days.length, acked_days: [],
+          throttled_days: days.map((day) => ({ day: day.day, revision: day.revision, retry_after: 1200 })),
+          next_flush_after: 1200,
+        }));
+      }
+      return new Response(JSON.stringify({ accepted: days.length, acked_days: days }));
+    },
+  };
+  const first = await syncUsageEntries([entry()], { ...options, force: true });
+  assert.equal(first.throttled_days.length, 1);
+  assert.equal(first.next_flush_after, 1200);
+  let outbox = JSON.parse(await fs.readFile(outboxFile, "utf8"));
+  assert.equal(pendingEnvelopes(outbox).length, 1, "a throttled day is not acknowledged");
+  assert.equal(outbox.last_successful_upload_at, null);
+  assert.equal(outbox.next_flush_at, new Date(now + 1200_000).toISOString());
+
+  // Without force, nothing is sent until the server's retry window opens.
+  const deferred = await syncUsageEntries([entry()], { ...options, now: now + 600_000 });
+  assert.equal(deferred.deferred, 1);
+  assert.equal(uploads.length, 1);
+
+  mode = "ack";
+  await syncUsageEntries([entry()], { ...options, now: now + 1200_000 });
+  assert.equal(uploads.length, 2);
+  outbox = JSON.parse(await fs.readFile(outboxFile, "utf8"));
+  assert.equal(pendingEnvelopes(outbox).length, 0);
+  assert.equal(outbox.last_successful_upload_at, new Date(now + 1200_000).toISOString());
+  assert.equal(outbox.next_flush_at, undefined);
+});
+
+test("acknowledgements ignore throttled_days and older Workers without the field still work", () => {
+  const outbox = outboxInternals.emptyOutbox();
+  mergeSnapshotEntries(outbox, [entry()]);
+  const [day] = pendingEnvelopes(outbox);
+  assert.equal(acknowledgeEnvelopes(outbox, [], new Date(0)), 0);
+  assert.equal(outbox.last_successful_upload_at, null, "an upload that acknowledged nothing is not a successful upload");
+  assert.equal(acknowledgeEnvelopes(outbox, [{ day: day.day, revision: day.revision }], new Date(0)), 1);
+  assert.equal(outbox.last_successful_upload_at, new Date(0).toISOString());
+  assert.equal(pendingEnvelopes(outbox).length, 0);
+});
+
+test("the hook path (force: false) uploads at most once per hour (B1)", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "burn-hook-throttle-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const outboxFile = path.join(directory, "outbox.json");
+  const now = Date.UTC(2026, 7, 30, 12);
+  let uploads = 0;
+  const options = {
+    outboxFile, token: "token",
+    fetchImpl: async (_url, init) => {
+      uploads += 1;
+      return new Response(JSON.stringify({ acked_days: JSON.parse(init.body).days }));
+    },
+  };
+  await syncUsageEntries([entry()], { ...options, now });
+  await syncUsageEntries([entry({ revision: 2, input: 140 })], { ...options, now: now + 10 * 60_000 });
+  const third = await syncUsageEntries([entry({ revision: 3, input: 180 })], { ...options, now: now + 50 * 60_000 });
+  assert.equal(uploads, 1);
+  assert.equal(third.deferred, 1);
+  await syncUsageEntries([], { ...options, now: now + 60 * 60_000 });
+  assert.equal(uploads, 2);
+  assert.equal(pendingEnvelopes(JSON.parse(await fs.readFile(outboxFile, "utf8"))).length, 0);
+});

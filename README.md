@@ -175,6 +175,11 @@ tokensburned connect
 
 `burn` remains a shorter alias for `tokensburned`.
 
+The `SessionEnd` hook reduces the finished session into the local outbox every
+time, but uploads to the server at most once per hour; the server acknowledges
+only days it actually stored and the client keeps everything else pending until
+the next window. `tokensburned backfill` uploads immediately.
+
 Installed harness plugins also perform a best-effort release check at SessionStart,
 throttled to once every 24 hours. Update failures never block startup, and applying
 an available update always requires an explicit user request.

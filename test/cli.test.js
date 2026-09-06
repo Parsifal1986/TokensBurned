@@ -195,3 +195,48 @@ test("disconnect keeps credentials after a server failure and only records confi
   assert.equal(JSON.parse(await fs.readFile(configFile)).server.slot_reusable_at, null);
   assert.equal(JSON.parse(await fs.readFile(credentialsFile)).device_token, null);
 });
+
+test("SessionEnd hook uploads at most once per hour instead of forcing every session (B1)", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-hook-home-"));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  const burnHome = path.join(home, ".burn");
+  const sessions = path.join(home, ".codex", "sessions");
+  await fs.mkdir(sessions, { recursive: true });
+  const at = new Date(Date.now() - 60_000).toISOString();
+  const transcript = path.join(sessions, "rollout.jsonl");
+  await fs.writeFile(transcript, [
+    { timestamp: at, type: "session_meta", payload: { session_id: "hook-session" } },
+    { timestamp: at, type: "turn_context", payload: { model: "gpt-5" } },
+    { timestamp: at, type: "event_msg", payload: { type: "token_count", info: { total_token_usage: { input_tokens: 100, cached_input_tokens: 20, output_tokens: 50, reasoning_output_tokens: 10 } } } },
+  ].map((line) => JSON.stringify(line)).join("\n") + "\n");
+  const countFile = path.join(home, "uploads.txt");
+  const mockFetch = path.join(home, "mock-fetch.mjs");
+  await fs.writeFile(mockFetch, `
+  import fs from "node:fs/promises";
+  globalThis.fetch = async (url, init) => {
+    if (new URL(url).pathname !== "/v1/ingest/batch") return new Response("{}");
+    await fs.appendFile(process.env.BURN_TEST_COUNT_FILE, "x");
+    const { days } = JSON.parse(init.body);
+    return new Response(JSON.stringify({ accepted: days.length, acked_days: days }));
+  };
+  `);
+  await fs.mkdir(burnHome, { recursive: true });
+  await fs.writeFile(path.join(burnHome, "config.json"), JSON.stringify({
+    server: { enabled: true, api_origin: "https://api.example.test" },
+    updates: { last_checked_at: new Date().toISOString() },
+  }));
+  await fs.writeFile(path.join(burnHome, "credentials.json"), JSON.stringify({ device_token: `tb_live_hookdevice.${"o".repeat(43)}` }));
+  const env = { ...process.env, HOME: home, BURN_HOME: burnHome, NO_COLOR: "1", BURN_TEST_COUNT_FILE: countFile };
+  const hook = async () => {
+    const child = execFile(process.execPath, ["--import", mockFetch, cli, "hook", "codex"], { env });
+    child.stdin.end(JSON.stringify({ transcript_path: transcript, prompt: "never read" }));
+    await new Promise((resolve, reject) => child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`exit ${code}`)))));
+  };
+  await hook();
+  await hook();
+  await hook();
+  assert.equal((await fs.readFile(countFile, "utf8")).length, 1, "repeated SessionEnd hooks within an hour reuse the first upload");
+  const outbox = JSON.parse(await fs.readFile(path.join(burnHome, "server-outbox.json"), "utf8"));
+  assert.ok(outbox.last_successful_upload_at);
+  assert.ok(Object.values(outbox.days).every((day) => day.acked_revision === day.revision));
+});

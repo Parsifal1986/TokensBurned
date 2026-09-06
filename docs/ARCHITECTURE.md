@@ -21,6 +21,19 @@ TokensBurned separates local collection, server aggregation, and public renderin
 
 Native envelopes use a stable device/day identity and a monotonically increasing revision. The service keeps the highest revision, making retries idempotent.
 
+The Worker accepts one write per device/day per UTC hour for the current day and
+one per UTC day for earlier days. Its response acknowledges only days it actually
+wrote, or whose stored revision already covers the submitted one; days that fell
+inside a closed write window are listed in an optional `throttled_days` array with
+a `retry_after`. The local outbox advances `acked_revision` only for acknowledged
+days, records `last_successful_upload_at` only when at least one day was
+acknowledged, and defers the next flush by the server's `next_flush_after`.
+Older Workers omit these fields, which the client treats as "nothing throttled".
+
+The `SessionEnd` hook merges the session transcript into the outbox on every
+session but uploads at most once per hour; only the explicit `backfill` command
+and `connect --backfill` force an immediate upload.
+
 On reconnect, the client supplies the previous device ID (never the old secret) to
 the authorized device-code poll. After GitHub authorization, the Worker rotates
 the credential on the existing device row only if it belongs to that account.

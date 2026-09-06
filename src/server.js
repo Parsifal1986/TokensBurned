@@ -164,7 +164,13 @@ function dailyBatches(days, maxBytes = 480 * 1024) {
 
 export async function uploadDailyEnvelopes(days, { token, ...options } = {}) {
   if (!token) throw new Error("TokensBurned is not connected. Run `burn connect` first.");
-  const totals = { accepted: 0, received: 0, changed: 0, ignored: 0, acked_days: [] };
+  const totals = {
+    accepted: 0, received: 0, changed: 0, ignored: 0,
+    acked_days: [],
+    // Optional on older Workers: they never throttle-report, so these stay empty.
+    throttled_days: [],
+    next_flush_after: null,
+  };
   for (const batch of dailyBatches(days)) {
     const result = await request("/v1/ingest/batch", {
       ...options,
@@ -175,7 +181,14 @@ export async function uploadDailyEnvelopes(days, { token, ...options } = {}) {
     for (const key of ["accepted", "received", "changed", "ignored"]) {
       totals[key] += Number(result?.[key] || 0);
     }
-    totals.acked_days.push(...(result?.acked_days || []));
+    totals.acked_days.push(...(Array.isArray(result?.acked_days) ? result.acked_days : []));
+    totals.throttled_days.push(...(Array.isArray(result?.throttled_days) ? result.throttled_days : []));
+    const nextFlush = Number(result?.next_flush_after);
+    if (Number.isFinite(nextFlush) && nextFlush > 0) {
+      totals.next_flush_after = totals.next_flush_after === null
+        ? nextFlush
+        : Math.min(totals.next_flush_after, nextFlush);
+    }
   }
   return totals;
 }
