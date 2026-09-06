@@ -195,3 +195,119 @@ test("disconnect keeps credentials after a server failure and only records confi
   assert.equal(JSON.parse(await fs.readFile(configFile)).server.slot_reusable_at, null);
   assert.equal(JSON.parse(await fs.readFile(credentialsFile)).device_token, null);
 });
+
+test("SessionEnd hook uploads at most once per hour instead of forcing every session (B1)", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-hook-home-"));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  const burnHome = path.join(home, ".burn");
+  const sessions = path.join(home, ".codex", "sessions");
+  await fs.mkdir(sessions, { recursive: true });
+  const at = new Date(Date.now() - 60_000).toISOString();
+  const transcript = path.join(sessions, "rollout.jsonl");
+  await fs.writeFile(transcript, [
+    { timestamp: at, type: "session_meta", payload: { session_id: "hook-session" } },
+    { timestamp: at, type: "turn_context", payload: { model: "gpt-5" } },
+    { timestamp: at, type: "event_msg", payload: { type: "token_count", info: { total_token_usage: { input_tokens: 100, cached_input_tokens: 20, output_tokens: 50, reasoning_output_tokens: 10 } } } },
+  ].map((line) => JSON.stringify(line)).join("\n") + "\n");
+  const countFile = path.join(home, "uploads.txt");
+  const mockFetch = path.join(home, "mock-fetch.mjs");
+  await fs.writeFile(mockFetch, `
+  import fs from "node:fs/promises";
+  globalThis.fetch = async (url, init) => {
+    if (new URL(url).pathname !== "/v1/ingest/batch") return new Response("{}");
+    await fs.appendFile(process.env.BURN_TEST_COUNT_FILE, "x");
+    const { days } = JSON.parse(init.body);
+    return new Response(JSON.stringify({ accepted: days.length, acked_days: days }));
+  };
+  `);
+  await fs.mkdir(burnHome, { recursive: true });
+  await fs.writeFile(path.join(burnHome, "config.json"), JSON.stringify({
+    server: { enabled: true, api_origin: "https://api.example.test" },
+    updates: { last_checked_at: new Date().toISOString() },
+  }));
+  await fs.writeFile(path.join(burnHome, "credentials.json"), JSON.stringify({ device_token: `tb_live_hookdevice.${"o".repeat(43)}` }));
+  const env = { ...process.env, HOME: home, BURN_HOME: burnHome, NO_COLOR: "1", BURN_TEST_COUNT_FILE: countFile };
+  const hook = async () => {
+    const child = execFile(process.execPath, ["--import", mockFetch, cli, "hook", "codex"], { env });
+    child.stdin.end(JSON.stringify({ transcript_path: transcript, prompt: "never read" }));
+    await new Promise((resolve, reject) => child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`exit ${code}`)))));
+  };
+  await hook();
+  await hook();
+  await hook();
+  assert.equal((await fs.readFile(countFile, "utf8")).length, 1, "repeated SessionEnd hooks within an hour reuse the first upload");
+  const outbox = JSON.parse(await fs.readFile(path.join(burnHome, "server-outbox.json"), "utf8"));
+  assert.ok(outbox.last_successful_upload_at);
+  assert.ok(Object.values(outbox.days).every((day) => day.acked_revision === day.revision));
+});
+
+test("connect polling survives network errors, 429 and 5xx, but stops on authorization_failed (B3)", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-connect-retry-"));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  const apiOrigin = "https://api.example.test";
+  const pollLog = path.join(home, "polls.json");
+  const mockFetch = path.join(home, "mock-fetch.mjs");
+  await fs.writeFile(mockFetch, `
+  import fs from "node:fs/promises";
+  const script = process.env.BURN_TEST_POLL_SCRIPT.split(",");
+  let polls = 0;
+  globalThis.fetch = async (url, init) => {
+    const pathname = new URL(url).pathname;
+    if (pathname === "/v1/auth/device/start") {
+      return new Response(JSON.stringify({ device_code: "test-code", user_code: "ABCD-2345", verification_uri: "${apiOrigin}/verify", interval: 1, expires_in: 60 }));
+    }
+    if (pathname !== "/v1/auth/device/status") return new Response("{}");
+    const step = script[Math.min(polls, script.length - 1)];
+    polls += 1;
+    await fs.writeFile(process.env.BURN_TEST_POLL_LOG, JSON.stringify(polls));
+    if (step === "network") throw new TypeError("fetch failed");
+    if (step === "429") return new Response(JSON.stringify({ error: { code: "rate_limited", message: "slow", retry_at: new Date(Date.now() + 500).toISOString() } }), { status: 429 });
+    if (step === "500") return new Response("upstream", { status: 502 });
+    if (step === "failed") return new Response(JSON.stringify({ error: { code: "authorization_failed", message: "GitHub authorization failed.", failure_code: "github_oauth_failed" } }), { status: 400 });
+    return new Response(JSON.stringify({ status: "authorized", token: "tb_live_retrydevice." + "s".repeat(43), user: { github_login: "test-user" }, privacy: { public_card: false }, device_reused: false }));
+  };
+  `);
+  const env = { ...process.env, BURN_HOME: home, NO_COLOR: "1", BURN_TEST_POLL_LOG: pollLog, TOKENSBURNED_DISABLE_UPDATE_CHECK: "1" };
+  const connect = (script) => execFileAsync(process.execPath, ["--import", mockFetch, cli, "connect", "--api-origin", apiOrigin, "--no-open", "--no-backfill"], { env: { ...env, BURN_TEST_POLL_SCRIPT: script } });
+  const started = Date.now();
+  const ok = await connect("network,500,429,authorized");
+  assert.match(ok.stdout, /Connected as test-user/);
+  assert.equal(JSON.parse(await fs.readFile(pollLog, "utf8")), 4);
+  assert.ok(Date.now() - started >= 4 * 2000, "each retry still waits at least the polling interval");
+  assert.equal(JSON.parse(await fs.readFile(path.join(home, "credentials.json"), "utf8")).device_token.startsWith("tb_live_retrydevice."), true);
+
+  await fs.rm(path.join(home, "credentials.json"), { force: true });
+  await assert.rejects(connect("failed,authorized"), (error) =>
+    /GitHub authorization failed \(github_oauth_failed\)/.test(error.stderr));
+  assert.equal(JSON.parse(await fs.readFile(pollLog, "utf8")), 1, "a terminal 400 ends polling immediately");
+  await assert.rejects(() => fs.access(path.join(home, "credentials.json")));
+});
+
+test("hooks install refuses to duplicate the plugin's SessionEnd hook (B9)", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-hooks-home-"));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  const settings = path.join(home, ".claude", "settings.json");
+  const baseEnv = { ...process.env, HOME: home, BURN_HOME: path.join(home, ".burn"), NO_COLOR: "1" };
+  delete baseEnv.CLAUDE_PLUGIN_ROOT;
+  const run = (env) => execFileAsync(process.execPath, [cli, "hooks", "install"], { env });
+
+  await assert.rejects(run({ ...baseEnv, CLAUDE_PLUGIN_ROOT: "/plugins/tokensburned" }),
+    (error) => /already provides the SessionEnd hook/.test(error.stderr));
+  await assert.rejects(() => fs.access(settings), "no settings.json is written from inside the plugin");
+
+  await fs.mkdir(path.join(home, ".claude", "plugins"), { recursive: true });
+  await fs.writeFile(path.join(home, ".claude", "plugins", "installed_plugins.json"),
+    JSON.stringify({ version: 2, plugins: { "tokensburned@tokensburned": [{ scope: "user" }] } }));
+  await assert.rejects(run(baseEnv), (error) => /plugin is installed in Claude Code/.test(error.stderr));
+  await assert.rejects(() => fs.access(settings));
+
+  await fs.writeFile(path.join(home, ".claude", "plugins", "installed_plugins.json"),
+    JSON.stringify({ version: 2, plugins: { "swift-lsp@claude-plugins-official": [{ scope: "user" }] } }));
+  const installed = await run(baseEnv);
+  assert.match(installed.stdout, /hook installed/);
+  const hooks = JSON.parse(await fs.readFile(settings, "utf8")).hooks.SessionEnd;
+  assert.equal(hooks.length, 1);
+  assert.match(hooks[0].hooks[0].command, /burn hook claude/);
+  const again = await run(baseEnv);
+  assert.match(again.stdout, /already installed/);
+});

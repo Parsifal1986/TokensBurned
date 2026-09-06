@@ -27,7 +27,7 @@ TokensBurned collects token counts and model metadata from AI coding harnesses, 
 - **Local reduction.** Raw sessions are reduced on your machine before upload.
 - **Hard privacy boundary.** Prompts, responses, source code, repository names, transcript paths, and API keys are not uploaded.
 - **Private until you publish.** Connecting and uploading aggregates do not create a public card; publishing is a separate explicit command.
-- **Honest compatibility.** Native hooks, official OTLP, and CLI fallback are labeled separately.
+- **Honest compatibility.** Native hooks, plugin workflows, and the CLI fallback are labeled separately.
 
 ## Install for your harness
 
@@ -65,15 +65,14 @@ $tokensburned:doctor</code></pre>
   <tr>
     <td width="50%" valign="top">
       <h3>Gemini CLI</h3>
-      <p><strong>Official extension + GenAI OpenTelemetry</strong></p>
+      <p><strong>Official extension + CLI collection</strong></p>
       <pre><code>gemini extensions install https://github.com/Parsifal1986/TokensBurned
 gemini
 /tokensburned:connect
-/tokensburned:telemetry
 /tokensburned:privacy
 /tokensburned:update
 /tokensburned:doctor</code></pre>
-      <p>The telemetry command keeps <code>logPrompts</code> disabled and configures the authenticated JSON exporter.</p>
+      <p>The extension provides the setup skills. Gemini CLI's built-in telemetry exporter cannot authenticate against the TokensBurned API, so token totals come from the explicit CLI import path. Do not point an exporter at the API.</p>
     </td>
     <td width="50%" valign="top">
       <h3>GitHub Copilot CLI</h3>
@@ -91,11 +90,11 @@ gemini
     </td>
     <td width="50%" valign="top">
       <h3>OpenCode, Cursor, Aider, other</h3>
-      <p><strong>OTLP or standalone CLI</strong></p>
+      <p><strong>Standalone CLI</strong></p>
       <pre><code>npm install -g tokensburned
 tokensburned connect
 tokensburned doctor</code></pre>
-      <p>Use standard OTLP/HTTP JSON when the harness exports observed token fields. Otherwise use an explicit batch import. TokensBurned does not estimate usage from prompt text.</p>
+      <p>Use an explicit batch import when the harness exposes observed token fields. TokensBurned does not estimate usage from prompt text and does not accept telemetry-exporter traffic.</p>
     </td>
   </tr>
 </table>
@@ -106,11 +105,11 @@ tokensburned doctor</code></pre>
 | --- | --- | --- | --- |
 | Claude Code | Plugin marketplace | Session hook + approved local history | Native |
 | Codex | Plugin marketplace | Plugin hook + approved local history | Native |
-| Gemini CLI | Gemini extension | Official GenAI OTLP events | Native telemetry |
+| Gemini CLI | Gemini extension | Explicit CLI import | Plugin workflow |
 | Cline CLI / SDK | Cline Git plugin | `afterRun().result.usage` | Native telemetry |
-| GitHub Copilot CLI | Open Plugin Spec | CLI or external OTLP | Plugin workflow |
-| OpenCode | Configured plugin/exporter | OTLP or batch API | Adapter |
-| Cursor, Aider, others | Standalone CLI | Explicit OTLP or batch API | Fallback |
+| GitHub Copilot CLI | Open Plugin Spec | Explicit CLI import | Plugin workflow |
+| OpenCode | Standalone CLI | Explicit batch import | Fallback |
+| Cursor, Aider, others | Standalone CLI | Explicit batch import | Fallback |
 
 ## Build your profile card
 
@@ -168,12 +167,21 @@ tokensburned connect
 | `tokensburned update` | Force a release check and print the current harness's plugin-manager command when an update is available. |
 | `tokensburned privacy` | Show the GitHub account's current public-card policy without changing it. |
 | `tokensburned privacy public` | Explicitly publish aggregate activity tied to your GitHub identity. |
-| `tokensburned privacy private` | Disable the public route and remove the cached SVG. |
+| `tokensburned privacy private` | Disable the public route and remove the stored SVG (GitHub's image cache may show the old card for up to 1 hour). |
 | `tokensburned disconnect` | Revoke this device credential; keep history and reserve its slot for up to 30 days. |
 | `tokensburned delete-server-data` | Delete server aggregates, devices, identity, and public card. |
 | `tokensburned doctor` | Show detected harnesses and data boundaries. |
 
 `burn` remains a shorter alias for `tokensburned`.
+
+The `SessionEnd` hook reduces the finished session into the local outbox every
+time, but uploads to the server at most once per hour; the server acknowledges
+only days it actually stored and the client keeps everything else pending until
+the next window. `tokensburned backfill` uploads immediately.
+
+While TokensBurned is installed but not connected, the SessionStart hook asks the
+assistant to mention the connect command at most three times (tracked in
+`~/.burn/config.json` under `onboarding.connect_notices`), then stays silent.
 
 Installed harness plugins also perform a best-effort release check at SessionStart,
 throttled to once every 24 hours. Update failures never block startup, and applying

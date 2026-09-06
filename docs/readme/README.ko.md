@@ -12,10 +12,10 @@ TokensBurned는 AI coding harness의 token 수와 모델 메타데이터를 로�
 | --- | --- | --- |
 | Claude Code | `/plugin marketplace add Parsifal1986/TokensBurned`<br>`/plugin install tokensburned@tokensburned`<br>`/tokensburned:connect` | 기본 SessionEnd hook + 승인된 로컬 기록 |
 | Codex | `codex plugin marketplace add Parsifal1986/TokensBurned`<br>`codex plugin add tokensburned@tokensburned`<br>`$tokensburned:connect` | 기본 plugin + 승인된 로컬 기록 |
-| Gemini CLI | `gemini extensions install https://github.com/Parsifal1986/TokensBurned`<br>`/tokensburned:connect`<br>`/tokensburned:telemetry` | 공식 GenAI OTLP, `logPrompts=false` |
-| Copilot CLI | `copilot plugin install https://github.com/Parsifal1986/TokensBurned` | Plugin workflow + CLI/OTLP |
+| Gemini CLI | `gemini extensions install https://github.com/Parsifal1986/TokensBurned`<br>`/tokensburned:connect` | Extension + 명시적 CLI import |
+| Copilot CLI | `copilot plugin install https://github.com/Parsifal1986/TokensBurned` | Plugin workflow + CLI |
 | Cline CLI | `cline plugin install https://github.com/Parsifal1986/TokensBurned.git` | 기본 `afterRun().result.usage` |
-| 기타 | `npm install -g github:Parsifal1986/TokensBurned` | 명시적 OTLP 또는 batch API |
+| 기타 | `npm install -g tokensburned` | 명시적 batch import |
 
 Copilot lifecycle hook은 현재 token 수를 제공하지 않으므로 수집은 CLI 보조 방식입니다. Cline plugin은 CLI, SDK, Kanban에 적용되며 VS Code와 JetBrains 확장에는 아직 적용되지 않습니다.
 

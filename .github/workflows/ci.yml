@@ -24,3 +24,7 @@ jobs:
         run: npm ci
       - name: Test
         run: npm test
+      # plugins/tokensburned/ is a synced copy of src/; a stale copy would ship
+      # fixes to npm but not to the Claude Code / Codex plugin channel (B4).
+      - name: Verify the plugin runtime copy is in sync
+        run: npm run plugin:sync && git diff --exit-code plugins/

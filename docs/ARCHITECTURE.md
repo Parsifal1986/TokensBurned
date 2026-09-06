@@ -4,7 +4,7 @@ TokensBurned separates local collection, server aggregation, and public renderin
 
 ## Data flow
 
-1. A harness plugin, official telemetry exporter, or explicit CLI import receives observed token usage.
+1. A harness plugin or an explicit CLI import receives observed token usage.
 2. The local client keeps only allow-listed counts and identity fields.
 3. Native history is reduced locally into revisioned device/day envelopes with hourly and allow-listed dimension totals.
 4. The production API authenticates a device token and stores aggregate usage.
@@ -21,6 +21,26 @@ TokensBurned separates local collection, server aggregation, and public renderin
 
 Native envelopes use a stable device/day identity and a monotonically increasing revision. The service keeps the highest revision, making retries idempotent.
 
+The Worker accepts one write per device/day per UTC hour for the current day and
+one per UTC day for earlier days. Its response acknowledges only days it actually
+wrote, or whose stored revision already covers the submitted one; days that fell
+inside a closed write window are listed in an optional `throttled_days` array with
+a `retry_after`. The local outbox advances `acked_revision` only for acknowledged
+days, records `last_successful_upload_at` only when at least one day was
+acknowledged, and defers the next flush by the server's `next_flush_after`.
+Older Workers omit these fields, which the client treats as "nothing throttled".
+
+Each dimension map (harness, provider, model) is capped locally at 32 keys, the
+Worker's limit, with the smallest values folded into `other`. If the Worker still
+rejects a batch as invalid (`400 invalid_payload` / `too_many_dimensions`), the
+client retries each day separately and parks only the rejected days at their
+current revision, so one bad day never blocks the rest; a later local change to
+that day produces a new revision and retries it automatically.
+
+The `SessionEnd` hook merges the session transcript into the outbox on every
+session but uploads at most once per hour; only the explicit `backfill` command
+and `connect --backfill` force an immediate upload.
+
 On reconnect, the client supplies the previous device ID (never the old secret) to
 the authorized device-code poll. After GitHub authorization, the Worker rotates
 the credential on the existing device row only if it belongs to that account.
@@ -35,6 +55,12 @@ A genuinely new identity resets acknowledgements, with a generation guard so an
 in-flight upload from the old connection cannot acknowledge the new one. Clients
 refuse reconnect results from older Workers that do not explicitly report
 `device_reused`; deploy the Worker update before updating clients.
+
+While waiting for GitHub, the connect command keeps polling until the
+authorization deadline: HTTP 429 waits for the server's `retry_at`, transport
+errors and 5xx back off exponentially up to 30 seconds, and only definitive 4xx
+answers (`authorization_failed`, `invalid_grant`, `expired_token`) end the wait
+with a readable reason.
 
 Device identity remains separate from credentials. Reconnect rotates both the
 secret and signing public key while preserving the device/day history identity.
@@ -65,10 +91,19 @@ an old disconnect from revoking a concurrently renewed credential. Clients clear
 local secrets after success, retain the ID, and display the server's release time.
 Deploy the migrations and Worker before this client to enable these policies.
 
+## Hook installation
+
+The Claude Code plugin ships its own `SessionEnd` hook in `hooks/hooks.json`.
+`tokensburned hooks install` writes an equivalent hook into
+`~/.claude/settings.json` only for installs that do not use the plugin: it
+refuses when it runs inside the plugin (`CLAUDE_PLUGIN_ROOT`) or when Claude
+Code's plugin registry already lists TokensBurned, because two hooks would count
+every session twice locally.
+
 ## Storage
 
 - The production service stores only authenticated aggregate usage and card policy.
-- Public cards are cached only for users who explicitly opt in; disabling publication removes cached variants and blocks the public route.
+- Public cards are cached only for users who explicitly opt in; disabling publication removes stored variants, purges the API's edge cache (which otherwise expires within five minutes), and blocks the public route. Downstream caches such as GitHub's image proxy may keep a copy for up to one hour.
 - Device bearer tokens stay in `~/.burn/credentials.json` with user-only file permissions, expire after 180 days, and can be revoked independently.
 
 ## Trust boundary

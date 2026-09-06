@@ -90,3 +90,24 @@ test("usage limits page has complete translations and working section targets", 
   assert.match(html, /href="\.\/limits\.html"/);
   assert.match(limitsHtml, /Content-Security-Policy/);
 });
+
+test("install commands use the published npm package, never a moving git ref (B8)", async () => {
+  const files = ["../public/app.js", "../public/index.html", "../README.md",
+    ...["es", "fr", "ja", "ko", "zh-CN"].map((language) => `../docs/readme/README.${language}.md`)];
+  for (const file of files) {
+    const content = await fs.readFile(new URL(file, import.meta.url), "utf8");
+    assert.doesNotMatch(content, /npm install -g github:/, `${file} must not install from a git ref`);
+  }
+  assert.match(js, /npm install -g tokensburned/);
+});
+
+test("documentation and the site no longer advertise the disabled OTLP path (C5)", async () => {
+  const files = ["../public/app.js", "../public/index.html", "../public/locales.js", "../README.md", "../GEMINI.md",
+    ...["es", "fr", "ja", "ko", "zh-CN"].map((language) => `../docs/readme/README.${language}.md`)];
+  for (const file of files) {
+    const content = await fs.readFile(new URL(file, import.meta.url), "utf8");
+    assert.doesNotMatch(content, /otlp|opentelemetry|tokensburned:telemetry/i, `${file} must not guide users to the disabled exporter path`);
+  }
+  await assert.rejects(() => fs.access(new URL("../commands/tokensburned/telemetry.toml", import.meta.url)));
+  assert.doesNotMatch(html, /harnessOtlp|harnessExtensionOtlp/);
+});

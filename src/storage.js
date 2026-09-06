@@ -53,6 +53,10 @@ export function defaultConfig() {
       minimum_supported_version: null,
       update_url: null,
     },
+    onboarding: {
+      // How many SessionStart "not connected" reminders have been shown (B5).
+      connect_notices: 0,
+    },
   };
 }
 
@@ -89,6 +93,7 @@ export async function readConfig() {
     privacy: { ...defaults.privacy, ...stored.privacy },
     server: { ...defaults.server, ...stored.server },
     updates: { ...defaults.updates, ...stored.updates },
+    onboarding: { ...defaults.onboarding, ...stored.onboarding },
   };
 }
 

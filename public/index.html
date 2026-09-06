@@ -67,17 +67,17 @@
         <header class="section-heading">
           <p data-i18n="installKicker">SUPPORTED HARNESSES</p>
           <h2 id="install-title" data-i18n="installTitle">Pick your coding harness.</h2>
-          <p data-i18n="installLede">Each integration uses the strongest official capability available. The panel tells you when collection is native, OTLP based, or CLI assisted.</p>
+          <p data-i18n="installLede">Each integration uses the strongest official capability available. The panel tells you when collection is native, plugin assisted, or CLI assisted.</p>
         </header>
 
         <div class="installer">
           <div class="harness-list" role="tablist" aria-label="Choose a coding harness" data-i18n-aria-label="harnessLabel">
             <button type="button" role="tab" aria-selected="true" aria-controls="install-panel" data-harness="claude" class="active"><strong>Claude Code</strong><span data-i18n="harnessNativeHook">native hook</span></button>
             <button type="button" role="tab" aria-selected="false" aria-controls="install-panel" data-harness="codex"><strong>Codex</strong><span data-i18n="harnessNativePlugin">native plugin</span></button>
-            <button type="button" role="tab" aria-selected="false" aria-controls="install-panel" data-harness="gemini"><strong>Gemini CLI</strong><span data-i18n="harnessExtensionOtlp">extension + OTLP</span></button>
+            <button type="button" role="tab" aria-selected="false" aria-controls="install-panel" data-harness="gemini"><strong>Gemini CLI</strong><span data-i18n="harnessExtensionCli">extension + CLI</span></button>
             <button type="button" role="tab" aria-selected="false" aria-controls="install-panel" data-harness="copilot"><strong>Copilot CLI</strong><span data-i18n="harnessPluginCli">plugin + CLI</span></button>
             <button type="button" role="tab" aria-selected="false" aria-controls="install-panel" data-harness="cline"><strong>Cline CLI</strong><span data-i18n="harnessPluginCli">plugin + CLI</span></button>
-            <button type="button" role="tab" aria-selected="false" aria-controls="install-panel" data-harness="opencode"><strong>OpenCode</strong><span data-i18n="harnessOtlp">OTLP adapter</span></button>
+            <button type="button" role="tab" aria-selected="false" aria-controls="install-panel" data-harness="opencode"><strong>OpenCode</strong><span data-i18n="harnessFallback">CLI fallback</span></button>
             <button type="button" role="tab" aria-selected="false" aria-controls="install-panel" data-harness="other"><strong data-i18n="otherHarnesses">Cursor, Aider, other</strong><span data-i18n="harnessFallback">CLI fallback</span></button>
           </div>
 
@@ -102,7 +102,7 @@
         <aside class="cli-fallback" aria-labelledby="fallback-title">
           <div><p data-i18n="fallbackKicker">WORKS EVERYWHERE</p><h3 id="fallback-title" data-i18n="fallbackTitle">CLI fallback</h3><span data-i18n="fallbackLede">Use this when your harness has no stable token hook yet.</span></div>
           <div class="command-block compact-command">
-            <pre><code id="fallback-command">npm install -g github:Parsifal1986/TokensBurned
+            <pre><code id="fallback-command">npm install -g tokensburned
 tokensburned connect</code></pre>
             <button type="button" data-copy-target="fallback-command" data-i18n="copy">copy</button>
           </div>

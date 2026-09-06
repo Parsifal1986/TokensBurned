@@ -100,7 +100,11 @@ function addDimension(target, key, tokens) {
   incrementOwnCounter(target, key, tokens);
 }
 
-function boundedDimensions(values, maximum = 64) {
+// Must not exceed MAX_DIMENSIONS_PER_KIND in the Worker's src/protocol.js (32);
+// a larger map makes the whole upload fail with 400 too_many_dimensions (B2).
+export const MAX_DIMENSIONS_PER_KIND = 32;
+
+function boundedDimensions(values, maximum = MAX_DIMENSIONS_PER_KIND) {
   const entries = Object.entries(values).sort((left, right) => right[1] - left[1]);
   if (entries.length <= maximum) return Object.fromEntries(entries);
   const kept = entries.slice(0, maximum - 1);
@@ -183,21 +187,55 @@ export function mergeSnapshotEntries(outbox, entries) {
 export function pendingEnvelopes(outbox) {
   return Object.values(outbox.days)
     .filter((day) => Number(day.revision) > Number(day.acked_revision || 0))
+    // A day the server rejected as invalid stays parked at that revision so it
+    // cannot poison later batches; any new local change (new revision) retries it.
+    .filter((day) => Number(day.revision) !== Number(day.rejected_revision || 0))
     .sort((left, right) => left.day.localeCompare(right.day))
-    .map(({ acked_revision: _acked, ...day }) => day);
+    .map(({ acked_revision: _acked, rejected_revision: _rejected, rejected_code: _code, ...day }) => day);
 }
 
+export function rejectEnvelopes(outbox, rejections) {
+  let rejected = 0;
+  for (const rejection of rejections || []) {
+    if (!rejection || !Object.hasOwn(outbox.days, rejection.day)) continue;
+    const day = outbox.days[rejection.day];
+    if (!day || Number(day.revision) !== Number(rejection.revision)) continue;
+    day.rejected_revision = Number(rejection.revision);
+    day.rejected_code = String(rejection.code || "invalid_payload").slice(0, 64);
+    rejected += 1;
+  }
+  return rejected;
+}
+
+// Only `acked_days` advance acknowledgements. Days the Worker reports in
+// `throttled_days` (write window not yet open) are deliberately ignored here so
+// they stay pending and are retried after `next_flush_after` seconds (C1).
 export function acknowledgeEnvelopes(outbox, acknowledgements, uploadedAt = new Date()) {
+  let acknowledged = 0;
   for (const acknowledgement of acknowledgements || []) {
-    if (!Object.hasOwn(outbox.days, acknowledgement.day)) continue;
+    if (!acknowledgement || !Object.hasOwn(outbox.days, acknowledgement.day)) continue;
     const day = outbox.days[acknowledgement.day];
     if (!day) continue;
+    const previous = Number(day.acked_revision || 0);
     day.acked_revision = Math.max(
-      Number(day.acked_revision || 0),
+      previous,
       Math.min(Number(day.revision), Number(acknowledgement.revision || 0)),
     );
+    if (day.acked_revision > previous) acknowledged += 1;
   }
-  outbox.last_successful_upload_at = uploadedAt.toISOString();
+  if (acknowledged > 0) outbox.last_successful_upload_at = uploadedAt.toISOString();
+  return acknowledged;
+}
+
+export function deferOutbox(outbox, throttledDays, nextFlushAfter, now = Date.now()) {
+  if (!Array.isArray(throttledDays) || throttledDays.length === 0) {
+    delete outbox.next_flush_at;
+    return null;
+  }
+  const seconds = Number(nextFlushAfter);
+  const delay = Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds, 86_400) : 3600;
+  outbox.next_flush_at = new Date(now + delay * 1000).toISOString();
+  return outbox.next_flush_at;
 }
 
 export function pruneOutbox(outbox, now = Date.now()) {
@@ -296,7 +334,11 @@ export async function syncUsageEntries(entries, {
     const merged = mergeSnapshotEntries(outbox, entries);
     pruneOutbox(outbox, now);
     const lastUpload = Date.parse(outbox.last_successful_upload_at || "");
-    const due = force || !Number.isFinite(lastUpload) || now - lastUpload >= minIntervalMs;
+    const nextFlush = Date.parse(outbox.next_flush_at || "");
+    const due = force || (
+      (!Number.isFinite(lastUpload) || now - lastUpload >= minIntervalMs)
+      && (!Number.isFinite(nextFlush) || now >= nextFlush)
+    );
     const pending = pendingEnvelopes(outbox);
     return { merged, due, pending: pending.length, days: due ? pending : [], generation: Number(outbox.generation || 0) };
   });
@@ -314,6 +356,8 @@ export async function syncUsageEntries(entries, {
   await mutateOutbox(outboxFile, async (outbox) => {
     if (Number(outbox.generation || 0) === snapshot.generation) {
       acknowledgeEnvelopes(outbox, result.acked_days, new Date(now));
+      rejectEnvelopes(outbox, result.rejected_days);
+      deferOutbox(outbox, result.throttled_days, result.next_flush_after, now);
     }
   });
   return { ...result, ...snapshot.merged };

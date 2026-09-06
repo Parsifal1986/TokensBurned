@@ -12,6 +12,9 @@ export function onboardingHarness(env = process.env) {
   return env.TOKENSBURNED_HARNESS || undefined;
 }
 
+// Remind an unconnected install at most this many times, then stay quiet (B5).
+export const MAX_CONNECT_NOTICES = 3;
+
 export async function sessionStartContext({
   env = process.env,
   now = Date.now(),
@@ -31,19 +34,33 @@ export async function sessionStartContext({
     connected = false;
   }
 
-  if (!connected) {
-    context.push("TokensBurned is installed but not connected. Briefly tell the user they can run the plugin's connect command to authorize GitHub and optionally import up to 90 days of token-only session history. The public card stays off unless they explicitly publish it. Never claim prompts or responses are uploaded.");
+  let config = null;
+  let dirty = false;
+  try {
+    config = await readConfigImpl();
+  } catch {
+    config = null;
   }
 
-  if (env.TOKENSBURNED_DISABLE_UPDATE_CHECK !== "1") {
+  if (!connected) {
+    const shown = Number(config?.onboarding?.connect_notices || 0);
+    if (!config || shown < MAX_CONNECT_NOTICES) {
+      context.push("TokensBurned is installed but not connected. Briefly tell the user they can run the plugin's connect command to authorize GitHub and optionally import up to 90 days of token-only session history. The public card stays off unless they explicitly publish it. Never claim prompts or responses are uploaded.");
+      if (config) {
+        config.onboarding = { ...config.onboarding, connect_notices: shown + 1 };
+        dirty = true;
+      }
+    }
+  }
+
+  if (config && env.TOKENSBURNED_DISABLE_UPDATE_CHECK !== "1") {
     try {
-      const config = await readConfigImpl();
       const result = await checkForUpdateImpl(config, {
         fetchImpl,
         now,
         timeoutMs: 1_500,
       });
-      if (result.checked) await writeConfigImpl(config);
+      if (result.checked) dirty = true;
       const prompt = updatePrompt(result.release, {
         currentVersion: VERSION,
         harness: onboardingHarness(env),
@@ -51,6 +68,14 @@ export async function sessionStartContext({
       if (prompt) context.push(prompt);
     } catch {
       // Session startup must never fail because the optional release check failed.
+    }
+  }
+
+  if (config && dirty) {
+    try {
+      await writeConfigImpl(config);
+    } catch {
+      // A read-only config directory must not break session startup.
     }
   }
 

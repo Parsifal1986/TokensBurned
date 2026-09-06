@@ -12,10 +12,10 @@ TokensBurned は各 AI coding harness の token 数とモデル情報だけを�
 | --- | --- | --- |
 | Claude Code | `/plugin marketplace add Parsifal1986/TokensBurned`<br>`/plugin install tokensburned@tokensburned`<br>`/tokensburned:connect` | ネイティブ SessionEnd hook と承認済み履歴 |
 | Codex | `codex plugin marketplace add Parsifal1986/TokensBurned`<br>`codex plugin add tokensburned@tokensburned`<br>`$tokensburned:connect` | ネイティブ plugin と承認済み履歴 |
-| Gemini CLI | `gemini extensions install https://github.com/Parsifal1986/TokensBurned`<br>`/tokensburned:connect`<br>`/tokensburned:telemetry` | 公式 GenAI OTLP、`logPrompts=false` |
-| Copilot CLI | `copilot plugin install https://github.com/Parsifal1986/TokensBurned` | Plugin workflow + CLI/OTLP |
+| Gemini CLI | `gemini extensions install https://github.com/Parsifal1986/TokensBurned`<br>`/tokensburned:connect` | Extension + 明示的な CLI import |
+| Copilot CLI | `copilot plugin install https://github.com/Parsifal1986/TokensBurned` | Plugin workflow + CLI |
 | Cline CLI | `cline plugin install https://github.com/Parsifal1986/TokensBurned.git` | ネイティブ `afterRun().result.usage` |
-| その他 | `npm install -g github:Parsifal1986/TokensBurned` | 明示的な OTLP または batch API |
+| その他 | `npm install -g tokensburned` | 明示的な batch import |
 
 Copilot の lifecycle hook は現時点で token 数を提供しないため、ネイティブ plugin を使っても収集は CLI 補助です。Cline plugin は CLI、SDK、Kanban 向けで、エディタ拡張にはまだ適用されません。
 
