@@ -80,7 +80,7 @@ test("device flow registers a per-device public key and signs polling", async ()
     devicePrivateKeyJwk: authorization.device_proof_keys.privateKeyJwk,
   });
   assert.equal(calls[0].body.device_name, "Codex");
-  assert.equal(calls[0].init.headers["X-TokensBurned-Client-Version"], "0.6.3");
+  assert.equal(calls[0].init.headers["X-TokensBurned-Client-Version"], "0.6.4");
   assert.deepEqual(Object.keys(calls[0].body.public_key_jwk).sort(), ["crv", "kty", "x", "y"]);
   assert.deepEqual(calls[1].body, { device_code: "opaque" });
   assert.match(calls[1].init.headers["X-TokensBurned-Timestamp"], /^\d{10}$/);
@@ -99,7 +99,7 @@ test("client release check uses the public version endpoint", async () => {
   assert.equal(release.latest_version, "0.5.0");
   assert.equal(calls[0].url, "https://api.example/v1/client/version");
   assert.equal(calls[0].init.method, "GET");
-  assert.equal(calls[0].init.headers["X-TokensBurned-Client-Version"], "0.6.3");
+  assert.equal(calls[0].init.headers["X-TokensBurned-Client-Version"], "0.6.4");
 });
 
 test("reconnect polling sends only the old device ID and requires an explicit reuse result", async () => {
