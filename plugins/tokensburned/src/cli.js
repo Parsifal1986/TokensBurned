@@ -43,7 +43,7 @@ import {
   startDeviceAuthorization,
   updateServerPrivacy,
 } from "./server.js";
-import { resetOutboxAcknowledgements, syncUsageEntries } from "./server-outbox.js";
+import { nextUploadAt, pendingEnvelopes, readOutbox, resetOutboxAcknowledgements, syncUsageEntries } from "./server-outbox.js";
 import { formatTokens, localDateKey, percentages } from "./utils.js";
 
 const COLORS = {
@@ -781,6 +781,48 @@ async function setPrivacy(args) {
 async function updateStatus() {
   const config = await readConfig();
   await reportAvailableUpdate(config, { force: true });
+  await catchUp();
+}
+
+// Merge the last two days of every installed harness and push what is due, so
+// `tokensburned update` doubles as a manual "make sure everything is uploaded".
+async function catchUp() {
+  const config = await readConfig();
+  const credentials = await readCredentials();
+  if (!config.server.enabled || !credentials.device_token) {
+    console.log("○ Not connected; nothing to upload. Run `tokensburned connect` first.");
+    return;
+  }
+  const harnesses = [];
+  for (const adapter of adapters) {
+    if (await adapter.detect()) harnesses.push(adapter.id);
+  }
+  let buckets = 0;
+  for (const harness of harnesses) {
+    try {
+      const result = await backfillHistory({ harnesses: [harness], days: 2, quiet: true, force: false });
+      buckets += result.entries.length;
+    } catch {
+      // A harness without readable history is skipped; the others still count.
+    }
+  }
+  let worker = null;
+  try {
+    worker = await ensureUploadWorker();
+  } catch {
+    worker = null;
+  }
+  const outbox = await readOutbox(paths.serverOutbox);
+  const pending = pendingEnvelopes(outbox).length;
+  console.log(`${color("✓", "green")} Merged ${buckets} recent bucket${buckets === 1 ? "" : "s"} from ${harnesses.join(", ") || "no harness"}.`);
+  if (pending === 0) {
+    console.log("  Server is up to date.");
+  } else if (worker && (worker.spawned || worker.reason === "active") && Number.isFinite(worker.fireAt)) {
+    console.log(`  ${pending} day${pending === 1 ? "" : "s"} pending; a background worker uploads at ${new Date(worker.fireAt).toISOString()}.`);
+  } else {
+    const at = nextUploadAt(outbox, UPLOAD_INTERVAL_MS);
+    console.log(`  ${pending} day${pending === 1 ? "" : "s"} pending; next upload window opens at ${new Date(Math.max(at, Date.now())).toISOString()}.`);
+  }
 }
 
 async function disconnect(args) {

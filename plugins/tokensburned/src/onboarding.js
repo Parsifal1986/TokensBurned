@@ -61,7 +61,12 @@ export async function sessionStartContext({
         timeoutMs: 1_500,
       });
       if (result.checked) dirty = true;
-      const prompt = updatePrompt(result.release, {
+      // Between checks, keep reminding from the cached release metadata so an
+      // outdated install is noticed even when the daily check already ran.
+      const release = result.checked
+        ? result.release
+        : (config.updates?.latest_version ? config.updates : null);
+      const prompt = updatePrompt(release, {
         currentVersion: VERSION,
         harness: onboardingHarness(env),
       });
