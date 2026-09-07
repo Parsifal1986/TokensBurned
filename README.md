@@ -174,11 +174,14 @@ tokensburned connect
 
 `burn` remains a shorter alias for `tokensburned`.
 
-The `SessionEnd` hook reduces the finished session into the local outbox every
-time. Because sessions in desktop or long-running editors rarely end, the `Stop`
-hook also merges the current transcript at most every 20 minutes and the
-`SessionStart` hook flushes anything a previous session left pending. Uploads
-to the server happen at most once per hour; the server acknowledges
+The `Stop` and `SessionEnd` hooks reduce the current transcript into the local
+outbox after every turn (parsing even a large transcript takes well under
+100 ms in a detached process), and `SessionStart` re-merges transcripts touched
+in the last two days so nothing is lost when a session never ends cleanly.
+Uploads to the server happen at most once per hour. When days are pending but
+the window is closed, the hook leaves behind a single waiting worker per
+machine that uploads once the window opens and then exits, so the last data of
+a session reaches the server even if no hook fires again; the server acknowledges
 only days it actually stored and the client keeps everything else pending until
 the next window. `tokensburned backfill` uploads immediately.
 

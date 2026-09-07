@@ -11,6 +11,7 @@ import {
   HARNESS_LABELS,
   providerLabel,
   SYNC_INTERVAL_MS,
+  UPLOAD_INTERVAL_MS,
   VERSION,
 } from "./constants.js";
 import { configureProfile, githubIdentity, syncProfile } from "./github.js";
@@ -18,6 +19,7 @@ import { hookInstallNotice, installClaudeHook } from "./hooks.js";
 import { collectHistoryEntries } from "./history.js";
 import { publicStats, renderSvg } from "./render.js";
 import { eventFromHookPayload, normalizeEvent } from "./schema.js";
+import { ensureUploadWorker, runUploadWorker } from "./upload-worker.js";
 import {
   paths,
   defaultConfig,
@@ -211,10 +213,19 @@ async function handleHook(args) {
   }
 
   let merged = false;
-  if (typeof payload.transcript_path === "string") {
+  if (payload.hook_event_name === "SessionStart") {
     try {
-      // SessionEnd and Stop run often; let the outbox's hourly throttle decide
-      // whether an upload is due instead of forcing one each time (B1).
+      // The new transcript is empty. Re-merge every transcript touched in the
+      // last two days instead, so a session whose last turns never reached the
+      // outbox (killed process, sleep, crash) is caught up on the next start.
+      await backfillHistory({ harnesses: [adapter.id], days: 2, quiet: true, force: false });
+      merged = true;
+    } catch {
+      // Best-effort; never break the harness.
+    }
+  } else if (typeof payload.transcript_path === "string") {
+    try {
+      // Stop and SessionEnd merge after every turn; only uploads are spaced out.
       await backfillHistory({
         harnesses: [adapter.id],
         filesByHarness: { [adapter.id]: [payload.transcript_path] },
@@ -228,13 +239,13 @@ async function handleHook(args) {
   }
   if (!merged) {
     try {
-      // SessionStart (transcript not written yet) or an unreadable transcript:
-      // still push whatever earlier sessions left pending in the outbox.
+      // Nothing readable: still push whatever earlier sessions left pending.
       await flushPendingUploads();
     } catch {
       // Best-effort; never break the harness.
     }
   }
+  await ensureWorker();
 }
 
 async function flushPendingUploads() {
@@ -247,7 +258,21 @@ async function flushPendingUploads() {
     devicePrivateKeyJwk: credentials.device_private_key_jwk,
     apiOrigin: config.server.api_origin || API_ORIGIN,
     force: false,
+    minIntervalMs: UPLOAD_INTERVAL_MS,
   });
+}
+
+// If the upload window is closed and days are pending, leave one waiting
+// worker behind so the data reaches the server even if no hook fires again.
+async function ensureWorker() {
+  try {
+    const config = await readConfig();
+    const credentials = await readCredentials();
+    if (!config.server.enabled || !credentials.device_token) return;
+    await ensureUploadWorker();
+  } catch {
+    // Best-effort; never break the caller.
+  }
 }
 
 function artifacts(stats, config) {
@@ -388,9 +413,13 @@ async function backfillHistory({
       devicePrivateKeyJwk: credentials.device_private_key_jwk,
       apiOrigin: config.server.api_origin || API_ORIGIN,
       force,
+      minIntervalMs: UPLOAD_INTERVAL_MS,
     });
-    config.server.backfill_completed_at = new Date().toISOString();
-    await writeConfig(config);
+    if (force) {
+      // Only explicit imports mark the backfill as done; hooks run every turn.
+      config.server.backfill_completed_at = new Date().toISOString();
+      await writeConfig(config);
+    }
   }
   if (!quiet) {
     const files = Object.values(result.summary).reduce((sum, item) => sum + item.files, 0);
@@ -566,6 +595,7 @@ async function backfillCommand(args) {
     dryRun: has(args, "--dry-run"),
     force: true,
   });
+  await ensureWorker();
 }
 
 async function serverStatus() {
@@ -875,6 +905,7 @@ export async function runCli(args) {
     }
     case "ingest": return ingest(rest);
     case "hook": return handleHook(rest);
+    case "upload-worker": { await runUploadWorker(); return; }
     case "setup": return setup(rest);
     case "sync": return sync();
     case "render": return render();

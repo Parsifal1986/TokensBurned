@@ -37,10 +37,16 @@ client retries each day separately and parks only the rejected days at their
 current revision, so one bad day never blocks the rest; a later local change to
 that day produces a new revision and retries it automatically.
 
-The `SessionEnd` hook merges the session transcript into the outbox on every
-session, the `Stop` hook does the same at most every 20 minutes (the launcher
-checks the outbox mtime before spawning), and `SessionStart` flushes pending
-days without reading any transcript. Uploads happen at most once per hour; only the explicit `backfill` command
+The `Stop` and `SessionEnd` hooks merge the session transcript into the outbox
+after every turn, and `SessionStart` re-merges every transcript modified in the
+last two days. Uploads happen at most once per hour. If days are pending while
+the window is closed, `ensureUploadWorker` (`src/upload-worker.js`) spawns one
+detached `burn upload-worker` process guarded by `~/.burn/upload-worker.json`
+(pid + planned time; a dead pid or a plan more than ten minutes overdue counts
+as stale). The worker sleeps in bounded steps, re-reads the outbox when it wakes,
+uploads once the window opens, follows server deferrals for at most two hours,
+and removes its lock on exit. Cline's `afterRun` hook and the `backfill` command
+use the same helper, so every install surface shares one worker per `BURN_HOME`; only the explicit `backfill` command
 and `connect --backfill` force an immediate upload.
 
 On reconnect, the client supplies the previous device ID (never the old secret) to
