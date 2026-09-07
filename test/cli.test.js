@@ -337,6 +337,48 @@ test("Stop merges every turn, SessionStart catches up, and one waiting worker up
   assert.equal(outbox.days[dayKey].acked_revision, outbox.days[dayKey].revision);
 });
 
+test("update reports the release, merges recent sessions and uploads what is due", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-update-catchup-"));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  const burnHome = path.join(home, ".burn");
+  const sessions = path.join(home, ".codex", "sessions");
+  await fs.mkdir(sessions, { recursive: true });
+  await fs.mkdir(burnHome, { recursive: true });
+  const at = new Date(Date.now() - 60_000).toISOString();
+  await fs.writeFile(path.join(sessions, "rollout.jsonl"), [
+    { timestamp: at, type: "session_meta", payload: { session_id: "update-session" } },
+    { timestamp: at, type: "turn_context", payload: { model: "gpt-5" } },
+    { timestamp: at, type: "event_msg", payload: { type: "token_count", info: { total_token_usage: { input_tokens: 100, cached_input_tokens: 20, output_tokens: 50, reasoning_output_tokens: 10 } } } },
+  ].map((line) => JSON.stringify(line)).join("\n") + "\n");
+  const countFile = path.join(home, "uploads.txt");
+  const mockFetch = path.join(home, "mock-fetch.mjs");
+  await fs.writeFile(mockFetch, `
+  import fs from "node:fs/promises";
+  globalThis.fetch = async (url, init) => {
+    const pathname = new URL(url).pathname;
+    if (pathname === "/v1/client/version") {
+      return new Response(JSON.stringify({ latest_version: "9.9.9", minimum_supported_version: "0.6.1", update_url: "https://example.test/update" }));
+    }
+    if (pathname !== "/v1/ingest/batch") return new Response("{}");
+    const { days } = JSON.parse(init.body);
+    await fs.appendFile(process.env.BURN_TEST_COUNT_FILE, "x");
+    return new Response(JSON.stringify({ accepted: days.length, acked_days: days }));
+  };
+  `);
+  await fs.writeFile(path.join(burnHome, "config.json"), JSON.stringify({ server: { enabled: true, api_origin: "https://api.example.test" }, updates: {} }));
+  await fs.writeFile(path.join(burnHome, "credentials.json"), JSON.stringify({ device_token: `tb_live_updatedevice.${"o".repeat(43)}` }));
+  const env = { ...process.env, HOME: home, BURN_HOME: burnHome, NO_COLOR: "1", BURN_TEST_COUNT_FILE: countFile, CODEX_PLUGIN_ROOT: path.resolve(".") };
+  delete env.TOKENSBURNED_DISABLE_UPDATE_CHECK;
+  const { stdout } = await execFileAsync(process.execPath, ["--import", mockFetch, cli, "update"], { env });
+  assert.match(stdout, /9\.9\.9 is available/);
+  assert.match(stdout, /codex plugin add tokensburned@tokensburned/);
+  assert.match(stdout, /Merged 1 recent bucket from codex/);
+  assert.match(stdout, /Server is up to date/);
+  assert.equal(await fs.readFile(countFile, "utf8"), "x", "the merged day was uploaded during update");
+  const outbox = JSON.parse(await fs.readFile(path.join(burnHome, "server-outbox.json"), "utf8"));
+  assert.ok(Object.values(outbox.days).every((day) => day.acked_revision === day.revision));
+});
+
 test("connect polling survives network errors, 429 and 5xx, but stops on authorization_failed (B3)", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-connect-retry-"));
   t.after(() => fs.rm(home, { recursive: true, force: true }));

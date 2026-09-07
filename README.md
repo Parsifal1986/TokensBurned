@@ -190,8 +190,12 @@ assistant to mention the connect command at most three times (tracked in
 `~/.burn/config.json` under `onboarding.connect_notices`), then stays silent.
 
 Installed harness plugins also perform a best-effort release check at SessionStart,
-throttled to once every 24 hours. Update failures never block startup, and applying
-an available update always requires an explicit user request.
+throttled to once every 24 hours; while the installed version is older than the
+published one, every SessionStart reminds the assistant to mention it. Update
+failures never block startup, and applying an available update always requires
+an explicit user request. `tokensburned update` also merges the last two days of
+every installed harness and uploads whatever is due, so it doubles as a manual
+"make sure everything reached the server".
 
 ## Privacy boundary
 

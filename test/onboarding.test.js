@@ -32,7 +32,12 @@ test("SessionStart checks once per day and prompts without updating silently", a
 
   const second = await sessionStartContext({ ...dependencies, now: dependencies.now + 60_000 });
   assert.match(second, /not connected/);
-  assert.doesNotMatch(second, /codex plugin add/);
+  assert.match(second, /codex plugin add/, "the cached release keeps reminding until the install is updated");
+  assert.equal(requests, 1, "but the endpoint is asked at most once per day");
+
+  config.updates.latest_version = "0.0.1";
+  const upToDate = await sessionStartContext({ ...dependencies, now: dependencies.now + 120_000 });
+  assert.doesNotMatch(upToDate, /codex plugin add/);
   assert.equal(requests, 1);
 });
 
