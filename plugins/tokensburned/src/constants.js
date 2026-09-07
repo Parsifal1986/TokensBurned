@@ -1,11 +1,14 @@
 import os from "node:os";
 import path from "node:path";
 
-export const VERSION = "0.6.7";
+export const VERSION = "0.6.8";
 export const STATS_VERSION = 2;
 export const SYNC_INTERVAL_MS = 3 * 60 * 60 * 1000;
-// Minimum spacing between server uploads; the server may ask for more.
-export const UPLOAD_INTERVAL_MS = 60 * 60 * 1000;
+// Server write window for the current day (one write per UTC hour). The
+// override exists only so tests can exercise window boundaries quickly.
+export const UPLOAD_INTERVAL_MS = Number(process.env.TOKENSBURNED_UPLOAD_WINDOW_MS) > 0
+  ? Number(process.env.TOKENSBURNED_UPLOAD_WINDOW_MS)
+  : 60 * 60 * 1000;
 export const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 export const API_ORIGIN = process.env.TOKENSBURNED_API_ORIGIN || "https://api.tokensburned.com";
 

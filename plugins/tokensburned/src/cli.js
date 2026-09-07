@@ -43,7 +43,7 @@ import {
   startDeviceAuthorization,
   updateServerPrivacy,
 } from "./server.js";
-import { nextUploadAt, pendingEnvelopes, readOutbox, resetOutboxAcknowledgements, syncUsageEntries } from "./server-outbox.js";
+import { deferredEnvelopes, nextUploadAt, pendingEnvelopes, readOutbox, resetOutboxAcknowledgements, syncUsageEntries } from "./server-outbox.js";
 import { formatTokens, localDateKey, percentages } from "./utils.js";
 
 const COLORS = {
@@ -813,15 +813,20 @@ async function catchUp() {
     worker = null;
   }
   const outbox = await readOutbox(paths.serverOutbox);
-  const pending = pendingEnvelopes(outbox).length;
+  const now = Date.now();
+  const pending = pendingEnvelopes(outbox, now).length;
+  const deferred = deferredEnvelopes(outbox, now);
   console.log(`${color("✓", "green")} Merged ${buckets} recent bucket${buckets === 1 ? "" : "s"} from ${harnesses.join(", ") || "no harness"}.`);
-  if (pending === 0) {
+  if (pending === 0 && deferred.length === 0) {
     console.log("  Server is up to date.");
   } else if (worker && (worker.spawned || worker.reason === "active") && Number.isFinite(worker.fireAt)) {
     console.log(`  ${pending} day${pending === 1 ? "" : "s"} pending; a background worker uploads at ${new Date(worker.fireAt).toISOString()}.`);
-  } else {
-    const at = nextUploadAt(outbox, UPLOAD_INTERVAL_MS);
-    console.log(`  ${pending} day${pending === 1 ? "" : "s"} pending; next upload window opens at ${new Date(Math.max(at, Date.now())).toISOString()}.`);
+  } else if (pending > 0) {
+    const at = nextUploadAt(outbox, UPLOAD_INTERVAL_MS, now);
+    console.log(`  ${pending} day${pending === 1 ? "" : "s"} pending; next upload window opens at ${new Date(Math.max(at, now)).toISOString()}.`);
+  }
+  for (const day of deferred) {
+    console.log(`  ${day.day} deferred by the server until ${day.retry_at}.`);
   }
 }
 

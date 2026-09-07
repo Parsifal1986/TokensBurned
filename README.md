@@ -178,8 +178,9 @@ The `Stop` and `SessionEnd` hooks reduce the current transcript into the local
 outbox after every turn (parsing even a large transcript takes well under
 100 ms in a detached process), and `SessionStart` re-merges transcripts touched
 in the last two days so nothing is lost when a session never ends cleanly.
-Uploads to the server happen at most once per hour. When days are pending but
-the window is closed, the hook leaves behind a single waiting worker per
+Uploads to the server happen at most once per UTC hour, aligned to the hour
+boundary the server enforces; a day the server has deferred waits on its own
+without holding back the others. When days are pending but the window is closed, the hook leaves behind a single waiting worker per
 machine that uploads once the window opens and then exits, so the last data of
 a session reaches the server even if no hook fires again; the server acknowledges
 only days it actually stored and the client keeps everything else pending until

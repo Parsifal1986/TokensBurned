@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
+  nextUploadAt,
   MAX_DIMENSIONS_PER_KIND,
   acknowledgeEnvelopes,
   mergeSnapshotEntries,
@@ -179,7 +180,11 @@ test("throttled days stay pending and defer the next flush; only acknowledged da
   let outbox = JSON.parse(await fs.readFile(outboxFile, "utf8"));
   assert.equal(pendingEnvelopes(outbox).length, 1, "a throttled day is not acknowledged");
   assert.equal(outbox.last_successful_upload_at, null);
-  assert.equal(outbox.next_flush_at, new Date(now + 1200_000).toISOString());
+  const [throttledDay] = Object.values(outbox.days);
+  assert.equal(throttledDay.retry_at, new Date(now + 1200_000).toISOString(), "the deferral is recorded on the day itself");
+  assert.equal(outbox.next_flush_at, undefined, "no global deferral");
+  assert.equal(pendingEnvelopes(outbox, now).length, 0, "a deferred day is not sendable before its window");
+  assert.equal(nextUploadAt(outbox, 3600_000, now), now + 1200_000);
 
   // Without force, nothing is sent until the server's retry window opens.
   const deferred = await syncUsageEntries([entry()], { ...options, now: now + 600_000 });
@@ -192,7 +197,49 @@ test("throttled days stay pending and defer the next flush; only acknowledged da
   outbox = JSON.parse(await fs.readFile(outboxFile, "utf8"));
   assert.equal(pendingEnvelopes(outbox).length, 0);
   assert.equal(outbox.last_successful_upload_at, new Date(now + 1200_000).toISOString());
-  assert.equal(outbox.next_flush_at, undefined);
+  assert.equal(Object.values(outbox.days)[0].retry_at, undefined, "acknowledgement clears the deferral");
+});
+
+test("a deferred yesterday does not block today's hourly upload", async () => {
+  const outboxFile = path.join(await fs.mkdtemp(path.join(os.tmpdir(), "burn-defer-")), "outbox.json");
+  const now = Date.UTC(2026, 8, 7, 18, 37, 0);
+  const uploads = [];
+  const fetchImpl = async (_url, init) => {
+    const { days } = JSON.parse(init.body);
+    uploads.push(days.map((day) => day.day));
+    const today = days.filter((day) => day.day === "2026-09-07");
+    const yesterday = days.filter((day) => day.day === "2026-09-06");
+    return new Response(JSON.stringify({
+      accepted: days.length, acked_days: today,
+      throttled_days: yesterday.map((day) => ({ day: day.day, revision: day.revision, retry_after: 19_380 })),
+      next_flush_after: yesterday.length ? 19_380 : 3600,
+    }));
+  };
+  const bucketFor = (iso) => Math.floor(Date.parse(iso) / 1000 / 900);
+  const entries = [
+    entry({ session: "y", bucket: bucketFor("2026-09-06T10:00:00Z"), input: 10 }),
+    entry({ session: "t", bucket: bucketFor("2026-09-07T18:00:00Z"), input: 20 }),
+  ];
+  await syncUsageEntries(entries, { outboxFile, now, token: "token", fetchImpl });
+  assert.deepEqual(uploads, [["2026-09-06", "2026-09-07"]]);
+  let outbox = JSON.parse(await fs.readFile(outboxFile, "utf8"));
+  assert.equal(outbox.days["2026-09-06"].retry_at, new Date(now + 19_380_000).toISOString());
+  assert.equal(outbox.days["2026-09-07"].acked_revision, outbox.days["2026-09-07"].revision);
+
+  // A new turn at 18:57 changes today; the next UTC hour is 19:00, not midnight.
+  const later = Date.UTC(2026, 8, 7, 18, 57, 0);
+  await syncUsageEntries([entry({ session: "t", bucket: bucketFor("2026-09-07T18:45:00Z"), input: 30 })], { outboxFile, now: later, token: "token", fetchImpl });
+  outbox = JSON.parse(await fs.readFile(outboxFile, "utf8"));
+  assert.equal(uploads.length, 1, "still inside the 18:00 window");
+  assert.equal(nextUploadAt(outbox, 3600_000, later), Date.UTC(2026, 8, 7, 19, 0, 0));
+  assert.equal(pendingEnvelopes(outbox, later).length, 1, "only today is sendable");
+
+  const nextHour = Date.UTC(2026, 8, 7, 19, 0, 1);
+  await syncUsageEntries([], { outboxFile, now: nextHour, token: "token", fetchImpl });
+  assert.deepEqual(uploads.at(-1), ["2026-09-07"], "yesterday stays parked until its own window");
+  outbox = JSON.parse(await fs.readFile(outboxFile, "utf8"));
+  assert.equal(pendingEnvelopes(outbox, nextHour).length, 0);
+  assert.equal(nextUploadAt(outbox, 3600_000, nextHour), now + 19_380_000, "with only a deferred day left, the deferral decides");
 });
 
 test("acknowledgements ignore throttled_days and older Workers without the field still work", () => {
