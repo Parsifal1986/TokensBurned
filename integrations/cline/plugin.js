@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { API_ORIGIN } from "../../src/constants.js";
 import { readConfig, readCredentials } from "../../src/storage.js";
 import { syncUsageEntries } from "../../src/server-outbox.js";
+import { ensureUploadWorker } from "../../src/upload-worker.js";
 
 const session = crypto.createHash("sha256")
   .update(`cline:${process.pid}:${crypto.randomUUID()}`)
@@ -67,6 +68,8 @@ async function uploadUsage(context) {
       timeoutMs: 2500,
       minIntervalMs: 60 * 60 * 1000,
     });
+    // Same single waiting worker as the CLI hooks (lock lives in BURN_HOME).
+    await ensureUploadWorker();
   } catch {
     // Telemetry must never delay or break the Cline run.
   }

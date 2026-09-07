@@ -238,6 +238,17 @@ export function deferOutbox(outbox, throttledDays, nextFlushAfter, now = Date.no
   return outbox.next_flush_at;
 }
 
+// Earliest time the next upload may run: the client's minimum spacing after
+// the last successful upload, or a later moment the server asked for.
+export function nextUploadAt(outbox, minIntervalMs) {
+  const lastUpload = Date.parse(outbox.last_successful_upload_at || "");
+  const nextFlush = Date.parse(outbox.next_flush_at || "");
+  return Math.max(
+    Number.isFinite(lastUpload) ? lastUpload + minIntervalMs : 0,
+    Number.isFinite(nextFlush) ? nextFlush : 0,
+  );
+}
+
 export function pruneOutbox(outbox, now = Date.now()) {
   const today = Math.floor(now / 86_400_000);
   const oldest = today - MAX_DAY_AGE;
@@ -259,7 +270,7 @@ export function pruneOutbox(outbox, now = Date.now()) {
   return { sources, days };
 }
 
-async function readOutbox(file) {
+export async function readOutbox(file) {
   try {
     const value = JSON.parse(await fs.readFile(file, "utf8"));
     if (value?.version !== 1 || !value.sources || !value.days) {
@@ -333,12 +344,7 @@ export async function syncUsageEntries(entries, {
     pruneOutbox(outbox, now);
     const merged = mergeSnapshotEntries(outbox, entries);
     pruneOutbox(outbox, now);
-    const lastUpload = Date.parse(outbox.last_successful_upload_at || "");
-    const nextFlush = Date.parse(outbox.next_flush_at || "");
-    const due = force || (
-      (!Number.isFinite(lastUpload) || now - lastUpload >= minIntervalMs)
-      && (!Number.isFinite(nextFlush) || now >= nextFlush)
-    );
+    const due = force || now >= nextUploadAt(outbox, minIntervalMs);
     const pending = pendingEnvelopes(outbox);
     return { merged, due, pending: pending.length, days: due ? pending : [], generation: Number(outbox.generation || 0) };
   });

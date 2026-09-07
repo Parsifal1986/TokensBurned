@@ -241,8 +241,8 @@ test("SessionEnd hook uploads at most once per hour instead of forcing every ses
   assert.ok(Object.values(outbox.days).every((day) => day.acked_revision === day.revision));
 });
 
-test("SessionStart hook flushes pending outbox days without a transcript, and Stop hooks throttle on outbox age", async (t) => {
-  const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-hook-flush-"));
+test("Stop merges every turn, SessionStart catches up, and one waiting worker uploads when the window opens", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-hook-worker-"));
   t.after(() => fs.rm(home, { recursive: true, force: true }));
   const burnHome = path.join(home, ".burn");
   const sessions = path.join(home, ".codex", "sessions");
@@ -250,11 +250,12 @@ test("SessionStart hook flushes pending outbox days without a transcript, and St
   await fs.mkdir(burnHome, { recursive: true });
   const at = new Date(Date.now() - 60_000).toISOString();
   const transcript = path.join(sessions, "rollout.jsonl");
+  const line = (usage) => JSON.stringify({ timestamp: at, type: "event_msg", payload: { type: "token_count", info: { total_token_usage: usage } } });
   await fs.writeFile(transcript, [
-    { timestamp: at, type: "session_meta", payload: { session_id: "flush-session" } },
-    { timestamp: at, type: "turn_context", payload: { model: "gpt-5" } },
-    { timestamp: at, type: "event_msg", payload: { type: "token_count", info: { total_token_usage: { input_tokens: 100, cached_input_tokens: 20, output_tokens: 50, reasoning_output_tokens: 10 } } } },
-  ].map((line) => JSON.stringify(line)).join("\n") + "\n");
+    JSON.stringify({ timestamp: at, type: "session_meta", payload: { session_id: "worker-session" } }),
+    JSON.stringify({ timestamp: at, type: "turn_context", payload: { model: "gpt-5" } }),
+    line({ input_tokens: 100, cached_input_tokens: 20, output_tokens: 50, reasoning_output_tokens: 10 }),
+  ].join("\n") + "\n");
   const countFile = path.join(home, "uploads.txt");
   const mockFetch = path.join(home, "mock-fetch.mjs");
   await fs.writeFile(mockFetch, `
@@ -262,7 +263,7 @@ test("SessionStart hook flushes pending outbox days without a transcript, and St
   globalThis.fetch = async (url, init) => {
     if (new URL(url).pathname !== "/v1/ingest/batch") return new Response("{}");
     const { days } = JSON.parse(init.body);
-    await fs.appendFile(process.env.BURN_TEST_COUNT_FILE, days.map((day) => day.day).join(",") + ";");
+    await fs.appendFile(process.env.BURN_TEST_COUNT_FILE, process.argv.includes("upload-worker") ? "worker;" : "hook;");
     return new Response(JSON.stringify({ accepted: days.length, acked_days: days }));
   };
   `);
@@ -270,15 +271,17 @@ test("SessionStart hook flushes pending outbox days without a transcript, and St
     server: { enabled: true, api_origin: "https://api.example.test" },
     updates: { last_checked_at: new Date().toISOString() },
   }));
-  await fs.writeFile(path.join(burnHome, "credentials.json"), JSON.stringify({ device_token: `tb_live_flushdevice.${"o".repeat(43)}` }));
+  await fs.writeFile(path.join(burnHome, "credentials.json"), JSON.stringify({ device_token: `tb_live_workerdevice.${"o".repeat(43)}` }));
   const outboxFile = path.join(burnHome, "server-outbox.json");
-  const env = { ...process.env, HOME: home, BURN_HOME: burnHome, NO_COLOR: "1", BURN_TEST_COUNT_FILE: countFile, CODEX_PLUGIN_ROOT: path.resolve(".") };
-  const run = async (script, payload) => {
-    const child = execFile(process.execPath, ["--import", mockFetch, script, ...(script === cli ? ["hook", "codex"] : [])], { env });
+  const lockFile = path.join(burnHome, "upload-worker.json");
+  // NODE_OPTIONS reaches the detached worker, which is spawned without --import.
+  const env = { ...process.env, HOME: home, BURN_HOME: burnHome, NO_COLOR: "1", BURN_TEST_COUNT_FILE: countFile, NODE_OPTIONS: `--import ${mockFetch}`, CODEX_PLUGIN_ROOT: path.resolve(".") };
+  const hook = async (payload) => {
+    const child = execFile(process.execPath, [cli, "hook", "codex"], { env });
     child.stdin.end(JSON.stringify(payload));
     await new Promise((resolve, reject) => child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`exit ${code}`)))));
   };
-  const waitFor = async (predicate, timeoutMs = 10_000) => {
+  const waitFor = async (predicate, timeoutMs = 20_000) => {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       if (await predicate()) return true;
@@ -286,36 +289,52 @@ test("SessionStart hook flushes pending outbox days without a transcript, and St
     }
     return false;
   };
-  const uploads = async () => fs.readFile(countFile, "utf8").catch(() => "");
+  const uploads = async () => (await fs.readFile(countFile, "utf8").catch(() => "")).split(";").filter(Boolean);
+  const readOutbox = async () => JSON.parse(await fs.readFile(outboxFile, "utf8"));
+  const exists = (file) => fs.access(file).then(() => true, () => false);
 
-  // 1. A SessionEnd merges the transcript and uploads (first window).
-  await run(cli, { transcript_path: transcript, hook_event_name: "SessionEnd" });
-  assert.equal((await uploads()).split(";").filter(Boolean).length, 1);
+  // 1. First SessionEnd: merge and upload right away (no earlier upload), no worker needed.
+  await hook({ transcript_path: transcript, hook_event_name: "SessionEnd" });
+  assert.deepEqual(await uploads(), ["hook"]);
+  assert.equal(await exists(lockFile), false, "nothing pending, so no worker");
 
-  // 2. Park a pending day and age the last upload so the next flush is due.
-  const outbox = JSON.parse(await fs.readFile(outboxFile, "utf8"));
+  // 2. Park a pending day with the last upload two hours old: SessionStart
+  //    (transcript not yet written) catches up recent transcripts and flushes.
+  let outbox = await readOutbox();
   const [dayKey] = Object.keys(outbox.days);
   outbox.days[dayKey].revision += 1;
   outbox.last_successful_upload_at = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
   await fs.writeFile(outboxFile, JSON.stringify(outbox));
+  await hook({ transcript_path: path.join(sessions, "not-yet.jsonl"), hook_event_name: "SessionStart" });
+  assert.deepEqual(await uploads(), ["hook", "hook"], "SessionStart flushed the pending day");
+  assert.equal((await readOutbox()).days[dayKey].acked_revision, outbox.days[dayKey].revision);
 
-  // 3. SessionStart carries a transcript path that does not exist yet: it must
-  //    still flush the pending day without reading anything.
-  await run(cli, { transcript_path: path.join(sessions, "not-yet.jsonl"), hook_event_name: "SessionStart" });
-  assert.equal((await uploads()).split(";").filter(Boolean).length, 2, "SessionStart flushed the pending day");
-  assert.equal(JSON.parse(await fs.readFile(outboxFile, "utf8")).days[dayKey].acked_revision, outbox.days[dayKey].revision);
+  // 3. The window is now closed (last upload seconds ago, opens in ~4 s).
+  //    A Stop merges the new turn immediately and leaves one worker waiting.
+  outbox = await readOutbox();
+  outbox.last_successful_upload_at = new Date(Date.now() - 60 * 60 * 1000 + 4_000).toISOString();
+  await fs.writeFile(outboxFile, JSON.stringify(outbox));
+  await fs.appendFile(transcript, line({ input_tokens: 300, cached_input_tokens: 20, output_tokens: 150, reasoning_output_tokens: 10 }) + "\n");
+  await hook({ transcript_path: transcript, hook_event_name: "Stop" });
+  outbox = await readOutbox();
+  const source = Object.values(outbox.sources).find((entry) => entry.request_count === 2);
+  assert.ok(source, "Stop merged the new turn without any throttle");
+  assert.equal(outbox.days[dayKey].revision > outbox.days[dayKey].acked_revision, true, "day is pending again");
+  assert.deepEqual(await uploads(), ["hook", "hook"], "window closed: the hook itself did not upload");
+  const lock = JSON.parse(await fs.readFile(lockFile, "utf8"));
+  assert.ok(Number.isInteger(lock.pid) && lock.pid > 0);
+  assert.ok(Date.parse(lock.fire_at) > Date.now() - 1000);
 
-  // 4. The launcher skips Stop events while the outbox is fresh, and forwards
-  //    them once it is older than the throttle window.
-  const launcher = path.resolve("scripts/hook.js");
-  const before = (await fs.stat(outboxFile)).mtimeMs;
-  await run(launcher, { transcript_path: transcript, hook_event_name: "Stop" });
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-  assert.equal((await fs.stat(outboxFile)).mtimeMs, before, "fresh outbox: Stop hook did not spawn a worker");
-  const old = new Date(Date.now() - 30 * 60 * 1000);
-  await fs.utimes(outboxFile, old, old);
-  await run(launcher, { transcript_path: transcript, hook_event_name: "Stop" });
-  assert.ok(await waitFor(async () => (await fs.stat(outboxFile)).mtimeMs > old.getTime() + 1000), "stale outbox: Stop hook merged the transcript");
+  // 4. A second Stop while the worker waits does not start another one.
+  await hook({ transcript_path: transcript, hook_event_name: "Stop" });
+  assert.equal(JSON.parse(await fs.readFile(lockFile, "utf8")).pid, lock.pid, "single worker per BURN_HOME");
+
+  // 5. When the window opens the worker uploads once and disappears.
+  assert.ok(await waitFor(async () => (await uploads()).length === 3), "worker uploaded when the window opened");
+  assert.deepEqual(await uploads(), ["hook", "hook", "worker"]);
+  assert.ok(await waitFor(() => exists(lockFile).then((present) => !present)), "worker removed its lock and exited");
+  outbox = await readOutbox();
+  assert.equal(outbox.days[dayKey].acked_revision, outbox.days[dayKey].revision);
 });
 
 test("connect polling survives network errors, 429 and 5xx, but stops on authorization_failed (B3)", async (t) => {
@@ -382,9 +401,11 @@ test("hooks install refuses to duplicate the plugin's SessionEnd hook (B9)", asy
     JSON.stringify({ version: 2, plugins: { "swift-lsp@claude-plugins-official": [{ scope: "user" }] } }));
   const installed = await run(baseEnv);
   assert.match(installed.stdout, /hook installed/);
-  const hooks = JSON.parse(await fs.readFile(settings, "utf8")).hooks.SessionEnd;
-  assert.equal(hooks.length, 1);
-  assert.match(hooks[0].hooks[0].command, /burn hook claude/);
+  const installedHooks = JSON.parse(await fs.readFile(settings, "utf8")).hooks;
+  for (const event of ["SessionStart", "Stop", "SessionEnd"]) {
+    assert.equal(installedHooks[event].length, 1, `${event} installed once`);
+    assert.match(installedHooks[event][0].hooks[0].command, /burn hook claude/);
+  }
   const again = await run(baseEnv);
   assert.match(again.stdout, /already installed/);
 });
