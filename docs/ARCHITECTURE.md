@@ -27,8 +27,11 @@ wrote, or whose stored revision already covers the submitted one; days that fell
 inside a closed write window are listed in an optional `throttled_days` array with
 a `retry_after`. The local outbox advances `acked_revision` only for acknowledged
 days, records `last_successful_upload_at` only when at least one day was
-acknowledged, and defers the next flush by the server's `next_flush_after`.
-Older Workers omit these fields, which the client treats as "nothing throttled".
+acknowledged, and stores each throttled day's `retry_at` on that day, so a
+deferred yesterday never blocks today's hourly window. The client's own window
+mirrors the Worker: after a successful upload it waits for the next UTC hour
+boundary, not a fixed spacing. Older Workers omit these fields, which the client
+treats as "nothing throttled".
 
 Each dimension map (harness, provider, model) is capped locally at 32 keys, the
 Worker's limit, with the smallest values folded into `other`. If the Worker still
@@ -39,8 +42,8 @@ that day produces a new revision and retries it automatically.
 
 The `Stop` and `SessionEnd` hooks merge the session transcript into the outbox
 after every turn, and `SessionStart` re-merges every transcript modified in the
-last two days. Uploads happen at most once per hour. If days are pending while
-the window is closed, `ensureUploadWorker` (`src/upload-worker.js`) spawns one
+last two days. Uploads happen at most once per UTC hour. If days are pending
+while the window is closed, `ensureUploadWorker` (`src/upload-worker.js`) spawns one
 detached `burn upload-worker` process guarded by `~/.burn/upload-worker.json`
 (pid + planned time; a dead pid or a plan more than ten minutes overdue counts
 as stale). The worker sleeps in bounded steps, re-reads the outbox when it wakes,

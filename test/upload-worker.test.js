@@ -18,18 +18,18 @@ function outboxWith({ lastUpload, nextFlush, pending = true, now = Date.now() } 
     version: 1,
     sources: {},
     days: pending
-      ? { [day]: { day, revision: 7, acked_revision: 3, input_tokens: 1, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0, reasoning_tokens: 0, request_count: 1, hours: {}, dimensions: { harness: {}, provider: {}, model: {} } } }
+      ? { [day]: { day, revision: 7, acked_revision: 3, input_tokens: 1, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0, reasoning_tokens: 0, request_count: 1, hours: {}, dimensions: { harness: {}, provider: {}, model: {} }, ...(nextFlush ? { retry_at: new Date(nextFlush).toISOString() } : {}) } }
       : {},
     last_successful_upload_at: lastUpload ? new Date(lastUpload).toISOString() : null,
-    ...(nextFlush ? { next_flush_at: new Date(nextFlush).toISOString() } : {}),
   };
 }
 
-test("nextUploadAt honours both the client spacing and a server deferral", () => {
-  const now = 1_800_000_000_000;
-  assert.equal(nextUploadAt(outboxWith(), HOUR), 0, "never uploaded: due immediately");
-  assert.equal(nextUploadAt(outboxWith({ lastUpload: now }), HOUR), now + HOUR);
-  assert.equal(nextUploadAt(outboxWith({ lastUpload: now, nextFlush: now + 2 * HOUR }), HOUR), now + 2 * HOUR);
+test("nextUploadAt waits for the next UTC window boundary, or the deferral when only deferred days remain", () => {
+  const now = 1_800_000_000_000; // exactly on an hour boundary
+  assert.equal(nextUploadAt(outboxWith({ now }), HOUR, now), 0, "never uploaded: due immediately");
+  assert.equal(nextUploadAt(outboxWith({ lastUpload: now, now }), HOUR, now), now + HOUR);
+  assert.equal(nextUploadAt(outboxWith({ lastUpload: now + 25 * 60 * 1000, now }), HOUR, now), now + HOUR, "boundary, not spacing");
+  assert.equal(nextUploadAt(outboxWith({ lastUpload: now, nextFlush: now + 2 * HOUR, now }), HOUR, now), now + 2 * HOUR);
 });
 
 test("a worker lock is live only while its process exists and its plan is not stale", () => {
@@ -59,7 +59,7 @@ test("ensureUploadWorker spawns at most one worker and only when something is pe
   await fs.writeFile(outboxFile, JSON.stringify(outboxWith({ lastUpload: now })));
   const first = await ensureUploadWorker({ outboxFile, lockFile, now, spawnImpl, alive });
   assert.equal(first.spawned, true);
-  assert.equal(first.fireAt, now + HOUR);
+  assert.equal(first.fireAt, (Math.floor(now / HOUR) + 1) * HOUR, "next UTC hour boundary");
   assert.equal(JSON.parse(await fs.readFile(lockFile, "utf8")).pid, 1001);
 
   const second = await ensureUploadWorker({ outboxFile, lockFile, now: now + 1000, spawnImpl, alive });
@@ -88,7 +88,7 @@ test("runUploadWorker sleeps until the window opens, uploads once and removes it
   await fs.writeFile(path.join(home, "config.json"), JSON.stringify({ server: { enabled: true, api_origin: "https://api.example.test" } }));
   await fs.writeFile(path.join(home, "credentials.json"), JSON.stringify({ device_token: `tb_live_unitdevice.${"o".repeat(43)}` }));
   let now = 1_800_000_000_000;
-  await fs.writeFile(outboxFile, JSON.stringify(outboxWith({ lastUpload: now - 30 * 60 * 1000, now })));
+  await fs.writeFile(outboxFile, JSON.stringify(outboxWith({ lastUpload: now, now })));
   await fs.writeFile(lockFile, JSON.stringify({ pid: process.pid, fire_at: new Date(now).toISOString() }));
   const sleeps = [];
   const sleep = async (ms) => { sleeps.push(ms); now += ms; };
@@ -100,7 +100,7 @@ test("runUploadWorker sleeps until the window opens, uploads once and removes it
   };
   const result = await runUploadWorker({ outboxFile, lockFile, clock: () => now, sleep, fetchImpl });
   assert.equal(result.reason, "nothing-pending");
-  assert.deepEqual(sleeps, [15 * 60 * 1000, 15 * 60 * 1000], "slept in bounded steps up to the window");
+  assert.deepEqual(sleeps, [15 * 60 * 1000, 15 * 60 * 1000, 15 * 60 * 1000, 15 * 60 * 1000], "slept in bounded steps up to the next hour boundary");
   assert.deepEqual(uploads, ["/v1/ingest/batch"]);
   await assert.rejects(fs.access(lockFile), "lock removed on exit");
 

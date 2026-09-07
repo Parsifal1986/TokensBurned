@@ -184,14 +184,32 @@ export function mergeSnapshotEntries(outbox, entries) {
   return { changedSources, changedDays };
 }
 
-export function pendingEnvelopes(outbox) {
+function pendingByRevision(outbox) {
   return Object.values(outbox.days)
     .filter((day) => Number(day.revision) > Number(day.acked_revision || 0))
     // A day the server rejected as invalid stays parked at that revision so it
     // cannot poison later batches; any new local change (new revision) retries it.
     .filter((day) => Number(day.revision) !== Number(day.rejected_revision || 0))
-    .sort((left, right) => left.day.localeCompare(right.day))
-    .map(({ acked_revision: _acked, rejected_revision: _rejected, rejected_code: _code, ...day }) => day);
+    .sort((left, right) => left.day.localeCompare(right.day));
+}
+
+function retryAt(day) {
+  const at = Date.parse(day.retry_at || "");
+  return Number.isFinite(at) ? at : 0;
+}
+
+// Days that may be sent now: pending by revision and not inside a server
+// deferral. Deferrals are per day because the Worker closes yesterday's write
+// window for the rest of the UTC day while today stays writable every hour.
+export function pendingEnvelopes(outbox, now = Date.now()) {
+  return pendingByRevision(outbox)
+    .filter((day) => retryAt(day) <= now)
+    .map(({ acked_revision: _acked, rejected_revision: _rejected, rejected_code: _code, retry_at: _retry, ...day }) => day);
+}
+
+// Days still waiting for their server retry window.
+export function deferredEnvelopes(outbox, now = Date.now()) {
+  return pendingByRevision(outbox).filter((day) => retryAt(day) > now);
 }
 
 export function rejectEnvelopes(outbox, rejections) {
@@ -221,32 +239,42 @@ export function acknowledgeEnvelopes(outbox, acknowledgements, uploadedAt = new 
       previous,
       Math.min(Number(day.revision), Number(acknowledgement.revision || 0)),
     );
-    if (day.acked_revision > previous) acknowledged += 1;
+    if (day.acked_revision > previous) {
+      acknowledged += 1;
+      delete day.retry_at;
+    }
   }
   if (acknowledged > 0) outbox.last_successful_upload_at = uploadedAt.toISOString();
   return acknowledged;
 }
 
 export function deferOutbox(outbox, throttledDays, nextFlushAfter, now = Date.now()) {
-  if (!Array.isArray(throttledDays) || throttledDays.length === 0) {
-    delete outbox.next_flush_at;
-    return null;
+  delete outbox.next_flush_at; // pre-0.6.8 global deferral
+  let earliest = null;
+  for (const throttled of Array.isArray(throttledDays) ? throttledDays : []) {
+    if (!throttled || !Object.hasOwn(outbox.days, throttled.day)) continue;
+    const day = outbox.days[throttled.day];
+    if (!day || Number(day.revision) !== Number(throttled.revision)) continue;
+    const seconds = Number(throttled.retry_after ?? nextFlushAfter);
+    const delay = Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds, 86_400) : 3600;
+    const at = now + delay * 1000;
+    day.retry_at = new Date(at).toISOString();
+    earliest = earliest === null ? at : Math.min(earliest, at);
   }
-  const seconds = Number(nextFlushAfter);
-  const delay = Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds, 86_400) : 3600;
-  outbox.next_flush_at = new Date(now + delay * 1000).toISOString();
-  return outbox.next_flush_at;
+  return earliest === null ? null : new Date(earliest).toISOString();
 }
 
-// Earliest time the next upload may run: the client's minimum spacing after
-// the last successful upload, or a later moment the server asked for.
-export function nextUploadAt(outbox, minIntervalMs) {
+// Earliest time the next upload may run. The Worker accepts one write per UTC
+// window, so the client waits for the next window boundary after its last
+// successful upload rather than a fixed spacing; when every pending day is
+// deferred by the server, the earliest deferral decides instead.
+export function nextUploadAt(outbox, windowMs, now = Date.now()) {
   const lastUpload = Date.parse(outbox.last_successful_upload_at || "");
-  const nextFlush = Date.parse(outbox.next_flush_at || "");
-  return Math.max(
-    Number.isFinite(lastUpload) ? lastUpload + minIntervalMs : 0,
-    Number.isFinite(nextFlush) ? nextFlush : 0,
-  );
+  const boundary = Number.isFinite(lastUpload) ? (Math.floor(lastUpload / windowMs) + 1) * windowMs : 0;
+  if (pendingEnvelopes(outbox, now).length > 0) return boundary;
+  const deferred = deferredEnvelopes(outbox, now);
+  if (deferred.length === 0) return boundary;
+  return Math.max(boundary, Math.min(...deferred.map(retryAt)));
 }
 
 export function pruneOutbox(outbox, now = Date.now()) {
@@ -344,12 +372,13 @@ export async function syncUsageEntries(entries, {
     pruneOutbox(outbox, now);
     const merged = mergeSnapshotEntries(outbox, entries);
     pruneOutbox(outbox, now);
-    const due = force || now >= nextUploadAt(outbox, minIntervalMs);
-    const pending = pendingEnvelopes(outbox);
-    return { merged, due, pending: pending.length, days: due ? pending : [], generation: Number(outbox.generation || 0) };
+    const due = force || now >= nextUploadAt(outbox, minIntervalMs, now);
+    const pending = pendingEnvelopes(outbox, now);
+    const waiting = pendingByRevision(outbox).length;
+    return { merged, due, waiting, days: due ? pending : [], generation: Number(outbox.generation || 0) };
   });
   if (!snapshot.due || snapshot.days.length === 0) {
-    return { accepted: 0, deferred: snapshot.due ? 0 : snapshot.pending, ...snapshot.merged };
+    return { accepted: 0, deferred: snapshot.waiting, ...snapshot.merged };
   }
   const result = await uploadDailyEnvelopes(snapshot.days, {
     token,

@@ -3,7 +3,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { API_ORIGIN, BURN_HOME, SERVER_OUTBOX_PATH, UPLOAD_INTERVAL_MS } from "./constants.js";
-import { nextUploadAt, pendingEnvelopes, readOutbox, syncUsageEntries } from "./server-outbox.js";
+import { deferredEnvelopes, nextUploadAt, pendingEnvelopes, readOutbox, syncUsageEntries } from "./server-outbox.js";
 import { readConfig, readCredentials } from "./storage.js";
 
 // A single short-lived process that waits for the server's upload window and
@@ -65,8 +65,10 @@ export async function ensureUploadWorker({
   alive = isProcessAlive,
 } = {}) {
   const outbox = await readOutbox(outboxFile);
-  if (pendingEnvelopes(outbox).length === 0) return { spawned: false, reason: "nothing-pending" };
-  const fireAt = Math.max(now, nextUploadAt(outbox, UPLOAD_INTERVAL_MS));
+  if (pendingEnvelopes(outbox, now).length === 0 && deferredEnvelopes(outbox, now).length === 0) {
+    return { spawned: false, reason: "nothing-pending" };
+  }
+  const fireAt = Math.max(now, nextUploadAt(outbox, UPLOAD_INTERVAL_MS, now));
   // A server deferral further away than a worker may live (e.g. a closed
   // write window until midnight UTC) is left to a later hook instead.
   if (fireAt - now > WORKER_MAX_LIFETIME_MS) return { spawned: false, reason: "too-far", fireAt };
@@ -118,9 +120,11 @@ export async function runUploadWorker({
       const lock = await readLock(lockFile);
       if (lock?.pid !== pid) return { reason: "lost-lock" };
       const outbox = await readOutbox(outboxFile);
-      if (pendingEnvelopes(outbox).length === 0) return { reason: "nothing-pending" };
       const now = clock();
-      const due = nextUploadAt(outbox, UPLOAD_INTERVAL_MS);
+      if (pendingEnvelopes(outbox, now).length === 0 && deferredEnvelopes(outbox, now).length === 0) {
+        return { reason: "nothing-pending" };
+      }
+      const due = nextUploadAt(outbox, UPLOAD_INTERVAL_MS, now);
       if (due - now > maxLifetimeMs - (now - started)) return { reason: "too-far" };
       if (now < due) {
         // Keep the plan visible to spawners, then sleep in bounded steps so a
@@ -133,6 +137,7 @@ export async function runUploadWorker({
       const credentials = await readCredentials();
       if (!config.server.enabled || !credentials.device_token) return { reason: "not-connected" };
       const before = outbox.last_successful_upload_at || null;
+      const sendable = pendingEnvelopes(outbox, now).length;
       await syncUsageEntries([], {
         token: credentials.device_token,
         credentialApiOrigin: credentials.api_origin,
@@ -145,8 +150,14 @@ export async function runUploadWorker({
         now: clock(),
       });
       const after = await readOutbox(outboxFile);
-      if (pendingEnvelopes(after).length === 0) return { reason: "nothing-pending" };
-      const progressed = (after.last_successful_upload_at || null) !== before || after.next_flush_at;
+      const later = clock();
+      if (pendingEnvelopes(after, later).length === 0 && deferredEnvelopes(after, later).length === 0) {
+        return { reason: "nothing-pending" };
+      }
+      // Progress means the server acknowledged something or deferred a day
+      // (which drops it out of the sendable set until its retry window).
+      const progressed = (after.last_successful_upload_at || null) !== before
+        || pendingEnvelopes(after, later).length < sendable;
       // Nothing acknowledged and no deferral: retrying now would spin. Leave it
       // to the next hook rather than hammering the server.
       if (!progressed) return { reason: "no-progress" };

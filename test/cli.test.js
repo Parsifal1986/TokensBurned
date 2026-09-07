@@ -275,13 +275,14 @@ test("Stop merges every turn, SessionStart catches up, and one waiting worker up
   const outboxFile = path.join(burnHome, "server-outbox.json");
   const lockFile = path.join(burnHome, "upload-worker.json");
   // NODE_OPTIONS reaches the detached worker, which is spawned without --import.
-  const env = { ...process.env, HOME: home, BURN_HOME: burnHome, NO_COLOR: "1", BURN_TEST_COUNT_FILE: countFile, NODE_OPTIONS: `--import ${mockFetch}`, CODEX_PLUGIN_ROOT: path.resolve(".") };
+  const WINDOW = 10_000; // shrink the UTC write window so the boundary arrives within seconds
+  const env = { ...process.env, HOME: home, BURN_HOME: burnHome, NO_COLOR: "1", BURN_TEST_COUNT_FILE: countFile, NODE_OPTIONS: `--import ${mockFetch}`, CODEX_PLUGIN_ROOT: path.resolve("."), TOKENSBURNED_UPLOAD_WINDOW_MS: String(WINDOW) };
   const hook = async (payload) => {
     const child = execFile(process.execPath, [cli, "hook", "codex"], { env });
     child.stdin.end(JSON.stringify(payload));
     await new Promise((resolve, reject) => child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`exit ${code}`)))));
   };
-  const waitFor = async (predicate, timeoutMs = 20_000) => {
+  const waitFor = async (predicate, timeoutMs = 30_000) => {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       if (await predicate()) return true;
@@ -309,10 +310,12 @@ test("Stop merges every turn, SessionStart catches up, and one waiting worker up
   assert.deepEqual(await uploads(), ["hook", "hook"], "SessionStart flushed the pending day");
   assert.equal((await readOutbox()).days[dayKey].acked_revision, outbox.days[dayKey].revision);
 
-  // 3. The window is now closed (last upload seconds ago, opens in ~4 s).
-  //    A Stop merges the new turn immediately and leaves one worker waiting.
+  // 3. Close the window: pretend the last upload happened in the current
+  //    window so the next boundary is 6-16 s away. A Stop merges the new turn
+  //    immediately and leaves one worker waiting.
   outbox = await readOutbox();
-  outbox.last_successful_upload_at = new Date(Date.now() - 60 * 60 * 1000 + 4_000).toISOString();
+  const boundary = Math.ceil((Date.now() + 6_000) / WINDOW) * WINDOW;
+  outbox.last_successful_upload_at = new Date(boundary - WINDOW).toISOString();
   await fs.writeFile(outboxFile, JSON.stringify(outbox));
   await fs.appendFile(transcript, line({ input_tokens: 300, cached_input_tokens: 20, output_tokens: 150, reasoning_output_tokens: 10 }) + "\n");
   await hook({ transcript_path: transcript, hook_event_name: "Stop" });
