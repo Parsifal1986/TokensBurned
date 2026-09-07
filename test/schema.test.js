@@ -80,3 +80,16 @@ test("hook launcher sanitizes raw payloads before crossing the process boundary"
   assert.equal(sanitized.transcript_path, "/allowed/by-child-boundary/session.jsonl");
   assert.doesNotMatch(JSON.stringify(sanitized), /private prompt|private response|private source/);
 });
+
+test("hook payloads keep the event name and Stop hooks are throttled by outbox age", async () => {
+  const { sanitizeHookPayload, isHookDue, STOP_HOOK_INTERVAL_MS } = await import("../src/schema.js");
+  const sanitized = sanitizeHookPayload({ hook_event_name: "Stop", transcript_path: "/t.jsonl", prompt: "x" });
+  assert.equal(sanitized.hook_event_name, "Stop");
+  assert.equal("prompt" in sanitized, false);
+  const now = 10_000_000;
+  assert.equal(isHookDue("SessionEnd", now - 1, now), true);
+  assert.equal(isHookDue("SessionStart", now - 1, now), true);
+  assert.equal(isHookDue("Stop", undefined, now), true, "no outbox yet");
+  assert.equal(isHookDue("Stop", now - 1000, now), false, "outbox touched a second ago");
+  assert.equal(isHookDue("Stop", now - STOP_HOOK_INTERVAL_MS, now), true);
+});

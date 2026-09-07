@@ -241,6 +241,83 @@ test("SessionEnd hook uploads at most once per hour instead of forcing every ses
   assert.ok(Object.values(outbox.days).every((day) => day.acked_revision === day.revision));
 });
 
+test("SessionStart hook flushes pending outbox days without a transcript, and Stop hooks throttle on outbox age", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-hook-flush-"));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  const burnHome = path.join(home, ".burn");
+  const sessions = path.join(home, ".codex", "sessions");
+  await fs.mkdir(sessions, { recursive: true });
+  await fs.mkdir(burnHome, { recursive: true });
+  const at = new Date(Date.now() - 60_000).toISOString();
+  const transcript = path.join(sessions, "rollout.jsonl");
+  await fs.writeFile(transcript, [
+    { timestamp: at, type: "session_meta", payload: { session_id: "flush-session" } },
+    { timestamp: at, type: "turn_context", payload: { model: "gpt-5" } },
+    { timestamp: at, type: "event_msg", payload: { type: "token_count", info: { total_token_usage: { input_tokens: 100, cached_input_tokens: 20, output_tokens: 50, reasoning_output_tokens: 10 } } } },
+  ].map((line) => JSON.stringify(line)).join("\n") + "\n");
+  const countFile = path.join(home, "uploads.txt");
+  const mockFetch = path.join(home, "mock-fetch.mjs");
+  await fs.writeFile(mockFetch, `
+  import fs from "node:fs/promises";
+  globalThis.fetch = async (url, init) => {
+    if (new URL(url).pathname !== "/v1/ingest/batch") return new Response("{}");
+    const { days } = JSON.parse(init.body);
+    await fs.appendFile(process.env.BURN_TEST_COUNT_FILE, days.map((day) => day.day).join(",") + ";");
+    return new Response(JSON.stringify({ accepted: days.length, acked_days: days }));
+  };
+  `);
+  await fs.writeFile(path.join(burnHome, "config.json"), JSON.stringify({
+    server: { enabled: true, api_origin: "https://api.example.test" },
+    updates: { last_checked_at: new Date().toISOString() },
+  }));
+  await fs.writeFile(path.join(burnHome, "credentials.json"), JSON.stringify({ device_token: `tb_live_flushdevice.${"o".repeat(43)}` }));
+  const outboxFile = path.join(burnHome, "server-outbox.json");
+  const env = { ...process.env, HOME: home, BURN_HOME: burnHome, NO_COLOR: "1", BURN_TEST_COUNT_FILE: countFile, CODEX_PLUGIN_ROOT: path.resolve(".") };
+  const run = async (script, payload) => {
+    const child = execFile(process.execPath, ["--import", mockFetch, script, ...(script === cli ? ["hook", "codex"] : [])], { env });
+    child.stdin.end(JSON.stringify(payload));
+    await new Promise((resolve, reject) => child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`exit ${code}`)))));
+  };
+  const waitFor = async (predicate, timeoutMs = 10_000) => {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (await predicate()) return true;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return false;
+  };
+  const uploads = async () => fs.readFile(countFile, "utf8").catch(() => "");
+
+  // 1. A SessionEnd merges the transcript and uploads (first window).
+  await run(cli, { transcript_path: transcript, hook_event_name: "SessionEnd" });
+  assert.equal((await uploads()).split(";").filter(Boolean).length, 1);
+
+  // 2. Park a pending day and age the last upload so the next flush is due.
+  const outbox = JSON.parse(await fs.readFile(outboxFile, "utf8"));
+  const [dayKey] = Object.keys(outbox.days);
+  outbox.days[dayKey].revision += 1;
+  outbox.last_successful_upload_at = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  await fs.writeFile(outboxFile, JSON.stringify(outbox));
+
+  // 3. SessionStart carries a transcript path that does not exist yet: it must
+  //    still flush the pending day without reading anything.
+  await run(cli, { transcript_path: path.join(sessions, "not-yet.jsonl"), hook_event_name: "SessionStart" });
+  assert.equal((await uploads()).split(";").filter(Boolean).length, 2, "SessionStart flushed the pending day");
+  assert.equal(JSON.parse(await fs.readFile(outboxFile, "utf8")).days[dayKey].acked_revision, outbox.days[dayKey].revision);
+
+  // 4. The launcher skips Stop events while the outbox is fresh, and forwards
+  //    them once it is older than the throttle window.
+  const launcher = path.resolve("scripts/hook.js");
+  const before = (await fs.stat(outboxFile)).mtimeMs;
+  await run(launcher, { transcript_path: transcript, hook_event_name: "Stop" });
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  assert.equal((await fs.stat(outboxFile)).mtimeMs, before, "fresh outbox: Stop hook did not spawn a worker");
+  const old = new Date(Date.now() - 30 * 60 * 1000);
+  await fs.utimes(outboxFile, old, old);
+  await run(launcher, { transcript_path: transcript, hook_event_name: "Stop" });
+  assert.ok(await waitFor(async () => (await fs.stat(outboxFile)).mtimeMs > old.getTime() + 1000), "stale outbox: Stop hook merged the transcript");
+});
+
 test("connect polling survives network errors, 429 and 5xx, but stops on authorization_failed (B3)", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-connect-retry-"));
   t.after(() => fs.rm(home, { recursive: true, force: true }));

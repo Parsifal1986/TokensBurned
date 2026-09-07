@@ -3,7 +3,9 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { sanitizeHookPayload } from "../src/schema.js";
+import fs from "node:fs/promises";
+import { SERVER_OUTBOX_PATH } from "../src/constants.js";
+import { isHookDue, sanitizeHookPayload } from "../src/schema.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const harness = process.env.CODEX_PLUGIN_ROOT
@@ -27,6 +29,10 @@ try {
   process.exit(0);
 }
 if (!payload) process.exit(0);
+if (payload.hook_event_name === "Stop") {
+  const mtime = await fs.stat(SERVER_OUTBOX_PATH).then((stat) => stat.mtimeMs, () => undefined);
+  if (!isHookDue("Stop", mtime)) process.exit(0);
+}
 const allowedEnvironment = [
   "HOME", "USER", "LOGNAME", "PATH", "SHELL", "TMPDIR", "TEMP", "TMP",
   "SYSTEMROOT", "WINDIR", "PATHEXT", "COMSPEC",
