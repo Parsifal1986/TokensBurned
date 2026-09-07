@@ -8,6 +8,22 @@
             "type": "command",
             "command": "TOKENSBURNED_EXTENSION_PATH=\"${extensionPath}\" node \"${CODEX_PLUGIN_ROOT:-${COPILOT_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${TOKENSBURNED_EXTENSION_PATH}}}}/scripts/onboarding.js\"",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "TOKENSBURNED_EXTENSION_PATH=\"${extensionPath}\" node \"${CODEX_PLUGIN_ROOT:-${COPILOT_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${TOKENSBURNED_EXTENSION_PATH}}}}/scripts/hook.js\"",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "TOKENSBURNED_EXTENSION_PATH=\"${extensionPath}\" node \"${CODEX_PLUGIN_ROOT:-${COPILOT_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${TOKENSBURNED_EXTENSION_PATH}}}}/scripts/hook.js\"",
+            "timeout": 3
           }
         ]
       }

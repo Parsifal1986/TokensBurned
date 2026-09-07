@@ -143,5 +143,20 @@ export function sanitizeHookPayload(payload) {
   if (typeof payload.transcript_path === "string") {
     sanitized.transcript_path = payload.transcript_path;
   }
+  if (typeof payload.hook_event_name === "string") {
+    sanitized.hook_event_name = payload.hook_event_name.slice(0, 32);
+  }
   return sanitized;
+}
+
+export const STOP_HOOK_INTERVAL_MS = 20 * 60 * 1000;
+
+// SessionEnd is rare and always worth processing. Stop fires after every
+// assistant turn, so it only re-reads the transcript when the outbox has not
+// been touched for a while; SessionStart flushes whatever an earlier session
+// left pending. Both matter for harnesses whose sessions rarely end cleanly.
+export function isHookDue(eventName, outboxMtimeMs, now = Date.now()) {
+  if (eventName !== "Stop") return true;
+  if (!Number.isFinite(outboxMtimeMs)) return true;
+  return now - outboxMtimeMs >= STOP_HOOK_INTERVAL_MS;
 }

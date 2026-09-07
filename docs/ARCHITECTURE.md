@@ -38,7 +38,9 @@ current revision, so one bad day never blocks the rest; a later local change to
 that day produces a new revision and retries it automatically.
 
 The `SessionEnd` hook merges the session transcript into the outbox on every
-session but uploads at most once per hour; only the explicit `backfill` command
+session, the `Stop` hook does the same at most every 20 minutes (the launcher
+checks the outbox mtime before spawning), and `SessionStart` flushes pending
+days without reading any transcript. Uploads happen at most once per hour; only the explicit `backfill` command
 and `connect --backfill` force an immediate upload.
 
 On reconnect, the client supplies the previous device ID (never the old secret) to
@@ -93,7 +95,7 @@ Deploy the migrations and Worker before this client to enable these policies.
 
 ## Hook installation
 
-The Claude Code plugin ships its own `SessionEnd` hook in `hooks/hooks.json`.
+The Claude Code plugin ships its own `SessionStart`, `Stop` and `SessionEnd` hooks in `hooks/hooks.json`.
 `tokensburned hooks install` writes an equivalent hook into
 `~/.claude/settings.json` only for installs that do not use the plugin: it
 refuses when it runs inside the plugin (`CLAUDE_PLUGIN_ROOT`) or when Claude

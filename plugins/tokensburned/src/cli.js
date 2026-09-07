@@ -210,20 +210,44 @@ async function handleHook(args) {
     }
   }
 
+  let merged = false;
   if (typeof payload.transcript_path === "string") {
     try {
-      // SessionEnd runs after every session; let the outbox's hourly throttle
-      // decide whether an upload is due instead of forcing one each time (B1).
+      // SessionEnd and Stop run often; let the outbox's hourly throttle decide
+      // whether an upload is due instead of forcing one each time (B1).
       await backfillHistory({
         harnesses: [adapter.id],
         filesByHarness: { [adapter.id]: [payload.transcript_path] },
         quiet: true,
         force: false,
       });
+      merged = true;
     } catch {
       // Session telemetry is best-effort and must never break the harness.
     }
   }
+  if (!merged) {
+    try {
+      // SessionStart (transcript not written yet) or an unreadable transcript:
+      // still push whatever earlier sessions left pending in the outbox.
+      await flushPendingUploads();
+    } catch {
+      // Best-effort; never break the harness.
+    }
+  }
+}
+
+async function flushPendingUploads() {
+  const config = await readConfig();
+  const credentials = await readCredentials();
+  if (!config.server.enabled || !credentials.device_token) return;
+  await syncUsageEntries([], {
+    token: credentials.device_token,
+    credentialApiOrigin: credentials.api_origin,
+    devicePrivateKeyJwk: credentials.device_private_key_jwk,
+    apiOrigin: config.server.api_origin || API_ORIGIN,
+    force: false,
+  });
 }
 
 function artifacts(stats, config) {
