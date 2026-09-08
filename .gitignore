@@ -12,3 +12,23 @@ output/
 
 # Local work logs (not for publication)
 /log/
+
+# Private development notes and agent memory: never publish to GitHub
+/AGENTS.md
+/MEMORY.md
+/memory/
+/memories/
+logs/
+worklogs/
+dev-logs/
+plans/
+*.log
+
+# Documentation is private unless explicitly allowlisted for users
+/docs/*
+!/docs/readme/
+!/docs/cli-collection.md
+!/docs/usage-import.md
+/plugins/tokensburned/docs/*
+!/plugins/tokensburned/docs/cli-collection.md
+!/plugins/tokensburned/docs/usage-import.md
