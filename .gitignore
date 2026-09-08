@@ -32,3 +32,6 @@ plans/
 /plugins/tokensburned/docs/*
 !/plugins/tokensburned/docs/cli-collection.md
 !/plugins/tokensburned/docs/usage-import.md
+
+# Local browser verification artifacts
+/.playwright-cli/

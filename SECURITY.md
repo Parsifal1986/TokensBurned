@@ -1,51 +1,35 @@
-# Security and privacy boundary
+# Security policy
 
-TokensBurned is designed so its privacy promise is also its architecture.
+TokensBurned collects AI coding usage metadata while keeping conversation content and source code on your device.
 
-## Data it may read
+## Reporting a vulnerability
 
-TokensBurned may read:
+Report suspected vulnerabilities through [GitHub private vulnerability reporting](https://github.com/Parsifal1986/TokensBurned/security/advisories/new). Include the affected client version, reproduction steps, and the potential impact. Do not include credentials, private transcripts, or customer data in a report.
 
-- usage metadata delivered by an official harness lifecycle hook;
-- known harness configuration fields needed for best-effort provider and model attribution;
-- its own files under `~/.burn`;
-- after explicit backfill consent, JSONL files under the selected harness directory (`~/.codex/sessions` or `~/.claude/projects`), limited to a user-selected 1–90 day range; reading both requires the explicit `--all-harnesses` flag;
-- at `Stop` and `SessionEnd`, the single transcript path supplied by the harness, and at `SessionStart` the transcripts modified in the last two days under the harness's own session directory, only when the user has already connected TokensBurned.
+Please avoid public issues for undisclosed vulnerabilities. Use the latest published client release when confirming an issue.
 
-The history parser uses resolved-path boundary checks and rejects a transcript outside the recognized harness directory. It streams each file and extracts only usage counters, model identifiers, session identifiers, and timestamps. It does not retain message content.
+## Local data access
 
-## Data sent to the API
+The client reads usage metadata from supported tools, configuration fields needed for provider and model attribution, and its own files under `BURN_HOME` (default: `~/.burn`). See [supported sources](docs/cli-collection.md) for the local paths and formats.
 
-Native ingestion sends only:
+After you connect, installed plugin hooks can process that tool's usage history. Running `tokensburned run` enables collection from the selected local sources. Explicit history imports are limited to the tool and date range you select. JSON and JSONL records are parsed locally; message content is not retained in statistics or uploaded. SQLite sources are opened read-only and queried for usage fields.
 
-- input, output, cache-read, cache-write, and reasoning token counts;
-- harness, provider, and model labels (for an endpoint TokensBurned does not recognize, the provider label is the endpoint hostname only, never its path, port, or credentials);
-- a device/day revision with hourly aggregate slots and request counts.
+Collected statistics contain token counts, request counts, tool/provider/model labels, and activity times. Request and session identifiers used for local deduplication are not included in usage uploads. Provider attribution can include an endpoint hostname, but excludes URL paths, credentials, and query strings.
 
-Prompts, responses, tool payloads, source code, repository names, transcript paths, raw session files, machine information, API keys, and GitHub credentials are not included in ingestion requests.
+## Uploads and credentials
 
-The API's OTLP endpoints are disabled in production and are not a supported data path; only the signed protocol v2 daily envelopes described above are accepted.
+Usage uploads contain aggregate counts, attribution labels, and activity dates and hours. They exclude prompts, responses, tool payloads, source code, repository names, paths, raw transcripts, and provider credentials.
 
-Profile cards are private by default. Publishing requires the explicit `tokensburned privacy public` command (or `connect --publish-card`). A published card may expose totals, harness/provider/model labels, activity heatmaps, rank, and GitHub identity. The stored server policy belongs to the verified GitHub account and is authoritative across every connected device: connecting another device inherits the existing policy and never resets or republishes it. URL query parameters can hide fields but cannot publish a field the account has disabled. `tokensburned privacy private` makes the route unavailable and removes the stored SVG right away, and the API's edge cache drops its copy within five minutes; copies already held by GitHub's image proxy or other downstream caches can remain visible for up to one hour.
+Connection requires authorization through GitHub. Approve only a connection you initiated and verify the code displayed by your client. TokensBurned stores its device credential and signing key in `BURN_HOME` with user-only permissions. Do not copy or publish this directory. Run `tokensburned disconnect` to revoke the current connection.
 
-## Authentication and local behavior
+## Background operation
 
-GitHub OAuth is used to verify account identity. The browser requires the short code shown by the client, displays the requesting device name (as reported by the device, not verified), and requires a second confirmation before redirecting to GitHub. The confirmation sets a short-lived, `HttpOnly`, `SameSite=Lax` cookie bound to that authorization, and the GitHub callback completes only in the same browser: a forwarded GitHub authorization link opened elsewhere is rejected without binding any identity, so someone cannot attach your GitHub account to their device by sending you a link. The success page shows the device name, code, and time so an unexpected connection can be recognized and revoked. The short authorization can be claimed only once. The resulting GitHub user token is used once to read the authenticated identity and is not stored. If the GitHub exchange fails, the authorization is marked failed and the waiting terminal reports the reason immediately instead of timing out.
+On macOS and Linux, `tokensburned run` installs a user-level service that continues after the terminal closes. It requires no root access. `tokensburned run --stop` removes login startup and stops that collector without deleting queued usage. `tokensburned run --foreground` runs collection in the current terminal.
 
-TokensBurned issues a 180-day device credential for usage uploads and account self-service actions. New connections also create a unique P-256 signing key: the server receives only the public key, while the credential and private key stay in `~/.burn/credentials.json` with user-only permissions. Authenticated requests are signed over the method, URL, timestamp, and canonical body so a bearer token copied on its own cannot be replayed from another client. `tokensburned disconnect` revokes the current device. `tokensburned delete-server-data` deletes the user's aggregates, devices, account profile, and public card. Outstanding allowances remain under a keyed account identifier after deletion: recent connection times for their 24-hour window and slot release times for up to 30 days, capped by credential expiry. These records contain no raw GitHub ID, username, credential, or usage totals and are cleaned up regularly after expiry. Aggregates are otherwise retained until you delete them; expired authorization attempts are cleaned up, expired device credentials cannot upload or access account data (signed revocation retries remain allowed), and each GitHub account has five device slots, including devices cooling down for up to 30 days after revocation. Credential expiry releases a slot immediately, even during cooldown. The same device can reuse its reserved slot after GitHub authorization. Successful credential issuance is limited to five connections per rolling 10 minutes and ten per rolling 24 hours.
+Plugin hooks may start a temporary upload process. All supported collection paths share the local queue and upload schedule. No traffic proxy or recurring Git synchronization job is installed. Plugins can check for updates but do not install them without your request.
 
-The plugin's lifecycle hooks (`SessionStart`, `Stop`, `SessionEnd`) sanitize the event before launching a short-lived detached process because lifecycle hooks have a tight timeout. They send the child only an allow-listed environment and the reduced JSON on standard input; they do not copy raw hook payloads or the parent process's credentials into environment variables. When days are pending but the hourly upload window is closed, a hook may leave one detached `burn upload-worker` process behind; it holds a pid lock in `~/.burn`, sleeps until the window opens, uploads once, and exits (never longer than two hours). It is the only process TokensBurned leaves running, at most one per machine. TokensBurned does not install a cron job, launch agent, daemon, traffic proxy, or recurring Git synchronization task for server ingestion.
+## Publishing and removal
 
-At `SessionStart`, the plugin may query the public TokensBurned release endpoint at most once every 24 hours. It stores only the last-check time and public release metadata in `~/.burn/config.json`. A failed check never blocks startup, and the plugin never installs an update without an explicit user request.
+Cards are private by default. Publishing with `tokensburned privacy public` makes your selected activity data and GitHub identity publicly visible. Visibility settings apply across your connected devices.
 
-Unauthenticated device-flow endpoints use persistent per-client rate limits. API and authorization responses disable caching and apply restrictive browser security headers.
-
-Production service credentials are maintained outside this client repository and must never be committed.
-
-Please report security issues privately to the maintainers before opening a public issue.
-
-## Standalone local collector
-
-The opt-in `run` command continuously reads supported local usage and writes only aggregate queues and local checkpoint/status metadata. An explicit `run` installs a user-level login service on macOS/Linux; `run --foreground` is available for diagnostics. The service has no root privileges, copies only runtime code to BURN_HOME and never embeds credentials or arbitrary shell environment. `run --stop` removes login startup without deleting queued data. Upload times, leases, server backoff and account credentials use the shared uploader; there is no force-upload control. OpenCode support uses `sqlite3 -readonly` with an explicit metadata projection, excludes message parts and rejects unknown v2 data. Cursor and Aider logs are not inferred into token consumption. See [source contracts](docs/cli-collection.md).
-
-Retired static-card commands (`setup`, plain `sync`, `render`, `clean`) fail before side effects; old hook sync configuration no longer writes to GitHub. Maintenance account deletion and visibility controls remain explicit. Integration commands being absent from daily help is a usability distinction, not a security boundary.
+Use `tokensburned privacy private` to hide the card. Previously downloaded or externally cached images may remain visible. Use `tokensburned help --advanced` for account data removal commands and review the displayed confirmation before proceeding.

@@ -118,7 +118,7 @@ test("reconnect polling sends only the old device ID and requires an explicit re
   assert.deepEqual(sent, { device_code: "opaque", previous_device_id: previousDeviceId });
   await assert.rejects(() => pollDeviceAuthorization("opaque", {
     ...options, fetchImpl: async () => response({ status: "authorized", token }),
-  }), /does not support safe device reconnection/);
+  }), /could not confirm a safe reconnection/);
   await assert.rejects(() => pollDeviceAuthorization("opaque", {
     ...options, fetchImpl: async () => response({ status: "authorized", token: `tb_live_other_device.${"s".repeat(43)}`, device_reused: true }),
   }), /inconsistent device identity/);

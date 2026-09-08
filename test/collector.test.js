@@ -41,7 +41,7 @@ test("OpenCode reads finalized numeric metadata without content, rejects unknown
   await f.insert("invalid", message({ tokens: { input: 100, output: 10 } }));
   await assert.rejects(readOpenCodeUsage({ file: f.database, now }), /Unsupported OpenCode usage counters/);
   await f.sql("DELETE FROM message WHERE id='invalid'; CREATE TABLE session_message(id TEXT); INSERT INTO session_message VALUES('v2');");
-  await assert.rejects(readOpenCodeUsage({ file: f.database, now }), /v2.*not supported/);
+  await assert.rejects(readOpenCodeUsage({ file: f.database, now }), /Unsupported OpenCode usage schema/);
 });
 
 test("collector discovers new local usage, deduplicates rescans, waits for server time and retries offline without a hook", async t => {

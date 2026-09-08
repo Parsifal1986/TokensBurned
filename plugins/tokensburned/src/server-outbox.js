@@ -76,6 +76,9 @@ function snapshot(entry) {
     key: entry.observation_id ? `observation\u0000${entry.observation_id}` : [session, bucket, harness, model].join("\u0000"),
     value: {
       ...(entry.observation_id ? { observation_id: entry.observation_id, observation_hash: entry.observation_hash } : {}),
+      ...(entry.harness === "cline" && entry.cline_usage_scope && entry.cline_usage_detail ? {
+        cline_usage_scope: entry.cline_usage_scope, cline_usage_detail: entry.cline_usage_detail,
+      } : {}),
       bucket,
       day,
       hour,
@@ -102,8 +105,7 @@ function addDimension(target, key, tokens) {
   incrementOwnCounter(target, key, tokens);
 }
 
-// Must not exceed MAX_DIMENSIONS_PER_KIND in the Worker's src/protocol.js (32);
-// a larger map makes the whole upload fail with 400 too_many_dimensions (B2).
+// Bound attribution metadata while preserving totals in an overflow category.
 export const MAX_DIMENSIONS_PER_KIND = 32;
 
 function boundedDimensions(values, maximum = MAX_DIMENSIONS_PER_KIND) {
@@ -172,15 +174,17 @@ export function mergeSnapshotEntries(outbox, entries) {
     }
     const { key, value } = snapshot(entry);
     const previous = observations.get(key) || outbox.sources[key];
-    if (previous && JSON.stringify(previous) !== JSON.stringify(value)) {
+    const clineCompatible = previous && compatibleClineDetail(previous, value);
+    if (previous && JSON.stringify(previous) !== JSON.stringify(value) && !clineCompatible) {
       throw new Error("Conflicting usage for an existing request id; no observations were imported.");
     }
-    observations.set(key, value);
+    observations.set(key, clineCompatible && value.cline_usage_detail === "output-total" && previous.cline_usage_detail !== "output-total" ? previous : value);
   }
   const affected = new Set();
   let changedSources = 0;
   for (const entry of entries) {
-    const { key, value } = snapshot(entry);
+    const parsed = snapshot(entry);
+    const key = parsed.key, value = entry.observation_id ? observations.get(key) : parsed.value;
     const previous = outbox.sources[key];
     if (previous && value.revision < previous.revision) continue;
     if (previous && JSON.stringify(previous) === JSON.stringify(value)) continue;
@@ -201,6 +205,24 @@ export function mergeSnapshotEntries(outbox, entries) {
   return { changedSources, changedDays };
 }
 
+// Cline's official persistence codec drops reasoning detail, not output tokens.
+// This narrowly permits a richer partition of the same request; general imports
+// and two contradictory detailed observations remain immutable.
+function compatibleClineDetail(previous, next) {
+  if (next.harness !== "cline" || !/^[a-f0-9]{64}$/.test(next.cline_usage_scope || "")) return false;
+  if (!["reported", "output-total"].includes(next.cline_usage_detail)) return false;
+  if (previous.cline_usage_scope) {
+    if (previous.cline_usage_scope !== next.cline_usage_scope) return false;
+    if (previous.cline_usage_detail !== "output-total" && next.cline_usage_detail !== "output-total") return false;
+  } else if (previous.observation_hash === next.observation_hash) {
+    return true; // Add detail metadata to an otherwise identical pre-upgrade row.
+  } else if (next.cline_usage_detail !== "output-total") return false;
+  for (const key of ["observation_id", "session", "bucket", "harness", "provider", "model", "input_tokens", "cache_read_tokens", "cache_write_tokens", "request_count"]) {
+    if (previous[key] !== next[key]) return false;
+  }
+  return previous.output_tokens + previous.reasoning_tokens === next.output_tokens + next.reasoning_tokens;
+}
+
 function pendingByRevision(outbox) {
   return Object.values(outbox.days)
     .filter((day) => Number(day.revision) > Number(day.acked_revision || 0))
@@ -215,9 +237,7 @@ function retryAt(day) {
   return Number.isFinite(at) ? at : 0;
 }
 
-// Days that may be sent now: pending by revision and not inside a server
-// deferral. Deferrals are per day because the Worker closes yesterday's write
-// window for the rest of the UTC day while today stays writable every hour.
+// Keep pending days queued until their individual retry times have passed.
 export function pendingEnvelopes(outbox, now = Date.now()) {
   return pendingByRevision(outbox)
     .filter((day) => retryAt(day) <= now)
@@ -242,7 +262,7 @@ export function rejectEnvelopes(outbox, rejections) {
   return rejected;
 }
 
-// Only `acked_days` advance acknowledgements. Days the Worker reports in
+// Only `acked_days` advance acknowledgements. Days the response lists in
 // `throttled_days` (write window not yet open) are deliberately ignored here so
 // they stay pending and are retried after `next_flush_after` seconds (C1).
 export function acknowledgeEnvelopes(outbox, acknowledgements, uploadedAt = new Date()) {
@@ -298,8 +318,8 @@ export async function rememberServerPlan(plan, outboxFile = SERVER_OUTBOX_PATH, 
   return mutateOutbox(outboxFile, async (outbox) => { outbox.plan = normalizedPlan(plan, now); });
 }
 
-// Earliest time the next upload may run. The Worker accepts one write per UTC
-// window, so the client waits for the next window boundary after its last
+// Earliest time the next upload may run. The client waits for the next UTC
+// window boundary after its last
 // successful upload rather than a fixed spacing; when every pending day is
 // deferred by the server, the earliest deferral decides instead.
 export function nextUploadAt(outbox, windowMs, now = Date.now()) {

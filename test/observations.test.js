@@ -108,7 +108,7 @@ test("Cline skips incompatible metrics and no connection; storage errors never a
 
 test("doctor distinguishes supported capability from observed usage", () => {
   const lines = capabilityLines({ sources: { a: { harness: "cline", bucket: Math.floor(now / 900_000) } } });
-  assert.match(lines.find(line => line.startsWith("Gemini")), /not implemented.*history not supported.*none observed/);
+  assert.match(lines.find(line => line.startsWith("Gemini")), /JSON\/JSONL.*history supported.*none observed/);
   assert.match(lines.find(line => line.startsWith("Cline")), /afterModel.*UTC bucket.*\d{4}-/);
 });
 

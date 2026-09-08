@@ -71,7 +71,7 @@ test("connect preserves the legacy device ID and ACKs, including across disconne
 
   mode = "legacy";
   const savedCredentials = await fs.readFile(credentialsFile, "utf8");
-  await assert.rejects(connect, (error) => /does not support safe device reconnection/.test(error.stderr));
+  await assert.rejects(connect, (error) => /could not confirm a safe reconnection/.test(error.stderr));
   assert.equal(await fs.readFile(credentialsFile, "utf8"), savedCredentials);
   assert.equal(JSON.parse(await fs.readFile(outboxFile)).days.day.acked_revision, 5);
 
@@ -141,7 +141,7 @@ test("backfill defaults to the current harness and requires explicit cross-harne
   const all = await execFileAsync(process.execPath, [cli, "backfill", "--dry-run", "--days", "1", "--all-harnesses"], {
     env: baseEnv,
   });
-  assert.match(all.stdout, /from 2 claude-code, codex history files/);
+  assert.match(all.stdout, /claude-code, codex, gemini-cli, opencode, cline: 2 usage records/);
 
   await assert.rejects(
     execFileAsync(process.execPath, [cli, "backfill", "--dry-run", "--days", "1"], { env: baseEnv }),
@@ -191,7 +191,7 @@ test("disconnect keeps credentials after a server failure and only records confi
   await assert.rejects(disconnect, (error) => /Server unavailable/.test(error.stderr));
   assert.deepEqual(JSON.parse(await fs.readFile(credentialsFile)), credentials);
   assert.deepEqual(JSON.parse(await fs.readFile(configFile)), config);
-  // Older supported Workers may return 204; do not invent a release timestamp.
+  // Compatible responses may return 204; do not invent a release timestamp.
   await fs.writeFile(mock, `globalThis.fetch = async () => new Response(null, { status: 204 });`);
   const result = await disconnect();
   assert.match(result.stdout, /Cloud history was kept/);
@@ -382,7 +382,7 @@ test("update checks releases but merges usage without bypassing the server uploa
   const { stdout } = await update();
   assert.match(stdout, /9\.9\.9 is available/);
   assert.match(stdout, /codex plugin add tokensburned@tokensburned/);
-  assert.match(stdout, /Merged 1 recent bucket from codex/);
+  assert.match(stdout, /Merged 1 recent usage record from codex/);
   assert.match(stdout, /Server is up to date/);
   assert.equal(await fs.readFile(countFile, "utf8"), "x", "the merged day was uploaded during update");
   const outbox = JSON.parse(await fs.readFile(path.join(burnHome, "server-outbox.json"), "utf8"));

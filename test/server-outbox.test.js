@@ -244,7 +244,7 @@ test("a deferred yesterday does not block today's hourly upload", async () => {
   assert.equal(nextUploadAt(outbox, 3600_000, nextHour), now + 19_380_000, "with only a deferred day left, the deferral decides");
 });
 
-test("acknowledgements ignore throttled_days and older Workers without the field still work", () => {
+test("acknowledgements ignore throttled_days and responses without optional fields remain compatible", () => {
   const outbox = outboxInternals.emptyOutbox();
   mergeSnapshotEntries(outbox, [entry()]);
   const [day] = pendingEnvelopes(outbox);
@@ -278,7 +278,7 @@ test("the hook path (force: false) uploads at most once per hour (B1)", async (t
   assert.equal(pendingEnvelopes(JSON.parse(await fs.readFile(outboxFile, "utf8"))).length, 0);
 });
 
-test("dimension maps are capped at the Worker's 32-entry limit and still sum exactly (B2)", () => {
+test("bounded attribution maps preserve exact totals", () => {
   const outbox = outboxInternals.emptyOutbox();
   const entries = Array.from({ length: 40 }, (_, index) => entry({
     session: `session-${index}`, model: `model-${index}`, input: 100 + index,

@@ -4,6 +4,11 @@ import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 import { stableHash, toFiniteInteger } from "./utils.js";
+import { readOpenCodeUsage, openCodeDatabase } from "./opencode-usage.js";
+import { readGeminiUsage, geminiHistoryRoot } from "./gemini-usage.js";
+import { readClineUsage, clineHistoryRoot } from "./cline-usage.js";
+
+export const HISTORY_SOURCES = ["claude-code", "codex", "gemini-cli", "opencode", "cline"];
 
 const BUCKET_SECONDS = 15 * 60;
 const MAX_DAYS = 90;
@@ -12,6 +17,9 @@ export function historyRoots(home = os.homedir()) {
   return {
     codex: path.join(home, ".codex", "sessions"),
     "claude-code": path.join(home, ".claude", "projects"),
+    "gemini-cli": geminiHistoryRoot(process.env, home),
+    opencode: openCodeDatabase(process.env, home),
+    cline: clineHistoryRoot(process.env, home),
   };
 }
 
@@ -231,6 +239,15 @@ export async function collectHistoryEntries({
   const entries = [];
   const summary = {};
   for (const harness of harnesses) {
+    if (!HISTORY_SOURCES.includes(harness)) throw new Error(`Unsupported history harness: ${harness}`);
+    const native = { "gemini-cli": readGeminiUsage, opencode: readOpenCodeUsage, cline: readClineUsage }[harness];
+    if (native) {
+      if (filesByHarness?.[harness]) throw new Error("Native usage backfill requires a history root, not individual transcript files");
+      const rows = await native({ ...(harness === "opencode" ? { file: roots[harness] } : { root: roots[harness] }), now, days: range });
+      entries.push(...rows);
+      summary[harness] = { files: 0, files_with_usage: 0, observations: rows.length };
+      continue;
+    }
     const files = filesByHarness?.[harness] || await walkJsonl(roots[harness], minimumMtime);
     let acceptedFiles = 0;
     for (const file of files) {

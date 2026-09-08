@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Prepare local catalog changes only. Publishing and deployment remain separate.
+// Pin the plugin catalogs to a published GitHub Release. Writes local changes only; publishing remains a separate step.
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -19,7 +19,7 @@ async function github(resource) {
 }
 async function main() {
   const version = stableVersion(process.argv[2]);
-  if (!version) throw new Error('Usage: node scripts/promote-release.mjs vMAJOR.MINOR.PATCH [cloud-checkout]');
+  if (!version) throw new Error('Usage: node scripts/promote-release.mjs vMAJOR.MINOR.PATCH');
   const tag = `v${version}`;
   const release = await github(`releases/tags/${tag}`);
   validatePublishedRelease(release, version);
@@ -28,7 +28,7 @@ async function main() {
   const metadata = await github(`contents/package.json?ref=${commit.sha}`);
   const pkg = JSON.parse(Buffer.from(metadata.content, 'base64').toString('utf8'));
   if (pkg.version !== version) throw new Error('Tag and package version disagree');
-  // Validate all inputs before changing either local catalog.
+  // Validate all inputs before changing either catalog.
   const entries = [];
   for (const [filename, source] of [
     ['.agents/plugins/marketplace.json', {source:'url',url:`https://github.com/${repo}.git`}],
@@ -41,15 +41,8 @@ async function main() {
     if ('version' in plugin) plugin.version=version;
     entries.push([file,JSON.stringify(catalog,null,2)+'\n']);
   }
-  if (process.argv[3]) {
-    const file=path.resolve(process.argv[3],'src/release.js');
-    const previous=await fs.readFile(file,'utf8');
-    const next=previous.replace(/release_tag: "[^"]+"/,`release_tag: "${tag}"`).replace(/latest_version: "[^"]+"/,`latest_version: "${version}"`).replace(/update_url: "[^"]+"/,`update_url: "https://github.com/${repo}/releases/tag/${tag}"`);
-    if (!next.includes('channel: "stable"')) throw new Error('Cloud checkout must support stable releases');
-    entries.push([file,next]);
-  }
   for (const [file,content] of entries) await fs.writeFile(file,content);
-  console.log(`Prepared stable ${tag} at ${commit.sha}. Review and publish catalog/API changes separately.`);
+  console.log(`Pinned plugin catalogs to ${tag} at ${commit.sha}. Review and publish the catalog changes separately.`);
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch(error=>{console.error(error.message);process.exitCode=1;});

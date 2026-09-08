@@ -1,184 +1,215 @@
 <div align="center">
   <img src="public/favicon.svg" width="112" alt="TokensBurned logo" />
   <h1>TokensBurned</h1>
-  <p><strong>Track your token usage. Share it on GitHub or your own website without uploading prompts or source code.</strong></p>
+  <p><strong>Privacy-first AI coding activity for your GitHub profile.</strong></p>
   <p>
     <a href="https://tokensburned.com/"><img alt="Website" src="https://img.shields.io/badge/website-tokensburned.com-eb6733?style=flat-square"></a>
-    <a href="https://github.com/Parsifal1986/TokensBurned/actions/workflows/pages.yml"><img alt="GitHub Pages" src="https://img.shields.io/github/actions/workflow/status/Parsifal1986/TokensBurned/pages.yml?style=flat-square&label=pages"></a>
+    <a href="https://www.npmjs.com/package/tokensburned"><img alt="npm" src="https://img.shields.io/npm/v/tokensburned?style=flat-square&label=npm"></a>
+    <a href="https://github.com/Parsifal1986/TokensBurned/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/Parsifal1986/TokensBurned?style=flat-square&label=release"></a>
+    <a href="https://github.com/Parsifal1986/TokensBurned/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Parsifal1986/TokensBurned/ci.yml?style=flat-square&label=ci"></a>
     <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-f1eadf?style=flat-square"></a>
   </p>
   <p>
     <strong>English</strong> · <a href="docs/readme/README.zh-CN.md">简体中文</a> · <a href="docs/readme/README.ja.md">日本語</a> · <a href="docs/readme/README.ko.md">한국어</a> · <a href="docs/readme/README.es.md">Español</a> · <a href="docs/readme/README.fr.md">Français</a>
   </p>
-  <h3><a href="https://tokensburned.com/#card-builder">Open the interactive card builder →</a></h3>
-  <p><sub>Choose a light/dark/auto theme and optional card elements. The preview uses fictional local data.</sub></p>
+  <p>
+    <a href="#quick-start">Quick start</a> ·
+    <a href="#profile-card">Profile card</a> ·
+    <a href="#command-line">Command line</a> ·
+    <a href="#privacy-and-security">Privacy</a> ·
+    <a href="#documentation">Documentation</a>
+  </p>
 </div>
 
-TokensBurned records token counts and model metadata from supported AI coding harnesses. It aggregates usage locally, uploads on the server schedule, and serves an automatically updating SVG for your GitHub profile, personal website, or anywhere that supports SVG images.
+TokensBurned turns the token usage of your AI coding tools into a live SVG card for your GitHub profile. The client reads usage metadata from harnesses such as Claude Code and Codex, reduces it locally to aggregate counters, and uploads only those aggregates. Prompts, responses, and source code never leave your machine.
 
 <div align="center">
-  <img src="public/demo/card-full.svg" width="840" alt="New TokensBurned card with fictional sample data" />
-  <p><sub>Bundled fictional data. Viewing this README does not request your live card.</sub></p>
+  <img src="assets/demo-card-builder.gif" width="840" alt="TokensBurned card builder preview" />
+  <p><sub><a href="https://tokensburned.com/#card-builder">Open the interactive card builder</a>. The preview uses fictional local data.</sub></p>
 </div>
 
-## Why TokensBurned
+## Features
 
-- **One live link.** Your profile updates without scheduled jobs or noisy README commits.
-- **Observed usage.** Harness, provider, and model stay separate. TokensBurned does not call every Claude Code session “Claude.”
-- **Local reduction.** Raw sessions are reduced on your machine before upload.
-- **Hard privacy boundary.** Prompts, responses, source code, repository names, transcript paths, and API keys are not uploaded.
-- **Private until you publish.** Connecting and uploading aggregates do not create a public card; publishing is a separate explicit command.
-- **Clear support status.** Installing a plugin or the CLI does not add support for a harness without a usage adapter.
+- **Live profile card.** Display usage totals, a seven-day trend, an activity heatmap, tool breakdowns, and optional streak, cache, and rank badges. Embed one image link in your profile.
+- **Local reduction.** Usage records are processed on your device. Only aggregate counts and attribution metadata are uploaded.
+- **Strict privacy boundary.** Prompts, responses, source code, repository names, transcript paths, and API keys are never retained in usage statistics or uploaded. See [Privacy and security](#privacy-and-security).
+- **Private by default.** Connecting an account and uploading aggregates does not create a public card. Publishing is a separate, explicit command.
+- **Accurate attribution.** Harness, provider, and model are recorded as separate identities. A Claude Code session that talks to a different provider is labeled as such.
+- **Honest compatibility.** Native hooks, plugin workflows, and the standalone CLI are labeled separately so you know how each harness is measured.
 
-## Install for your harness
+## Supported harnesses
+
+This table describes the current source. For an installed release, consult the README at its [release tag](https://github.com/Parsifal1986/TokensBurned/releases).
+
+| Harness | Install surface | Token source | Support level |
+| --- | --- | --- | --- |
+| Claude Code | Plugin marketplace | Lifecycle hooks and approved local history | Native |
+| Codex | Plugin marketplace | Plugin hooks and approved local history | Native |
+| Cline CLI / SDK / classic IDE | Cline plugin and standalone CLI | `afterModel`, SDK messages and classic task metrics | Format-scoped per-call capture and backfill |
+| OpenCode | Standalone CLI | v1/v2 SQLite and legacy message JSON | Finalized request usage; history backfill |
+| Gemini CLI | Gemini extension and standalone CLI | Recorded JSON/JSONL usage | Background collection and backfill |
+| GitHub Copilot CLI | Setup plugin and live extension | Official `assistant.usage` events | Live per-call capture; no transcript backfill |
+| Cursor, Aider, others | Standalone CLI | Integrator-supplied observed usage | No automatic capture |
+
+TokensBurned uses reported token counts, not estimates based on prompt length or cost. Support depends on the tool version and available usage records. Details for each source are in [Local collection contracts](docs/cli-collection.md).
+
+## Quick start
+
+Background collection requires Node.js 20 or newer and the standalone CLI:
+
+```sh
+npm install -g tokensburned
+```
 
 <table>
   <tr>
     <td width="50%" valign="top">
       <h3>Claude Code</h3>
-      <p><strong>Native plugin + SessionEnd hook</strong></p>
       <pre><code>/plugin marketplace add Parsifal1986/TokensBurned
 /plugin install tokensburned@tokensburned
 /reload-plugins
 /tokensburned:connect</code></pre>
-      <p>Optional history:</p>
+      <p>Optional history import (preview first):</p>
       <pre><code>/tokensburned:backfill --dry-run --days 90</code></pre>
     </td>
     <td width="50%" valign="top">
       <h3>Codex</h3>
-      <p><strong>Native marketplace plugin + focused skills</strong></p>
       <pre><code>codex plugin marketplace add Parsifal1986/TokensBurned
 codex plugin add tokensburned@tokensburned</code></pre>
-      <p>Start a new task, then use:</p>
+      <p>Start a new task, then use the bundled skills:</p>
       <pre><code>$tokensburned:connect
 $tokensburned:backfill
 $tokensburned:server
 $tokensburned:privacy
 $tokensburned:update
 $tokensburned:doctor</code></pre>
-      <p>SessionStart checks for a newer release at most once per day. It prompts with the native plugin-manager command but never installs silently.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Cline CLI / SDK</h3>
+      <pre><code>cline plugin install https://github.com/Parsifal1986/TokensBurned.git</code></pre>
+      <p>Compatible hosts report per-message usage through <code>afterModel</code>. The background collector also reads SDK message histories and classic IDE task metrics. Hooks and SDK history share request identities, so collecting both does not add tokens twice. See the <a href="docs/cli-collection.md">supported formats and limits</a>.</p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>OpenCode and other tools</h3>
+      <pre><code>npm install -g tokensburned
+tokensburned connect
+tokensburned run --harness opencode</code></pre>
+      <p>The collector reads OpenCode v1/v2 SQLite usage and legacy message JSON. SQLite requires <code>sqlite3</code>. Cursor and Aider do not yet have automatic readers.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Gemini CLI</h3>
+      <pre><code>gemini extensions install https://github.com/Parsifal1986/TokensBurned
+gemini
+/tokensburned:connect</code></pre>
+      <p>The extension provides setup skills. Start <code>tokensburned run --harness gemini-cli</code> to collect recorded JSON/JSONL session usage, including child sessions. Preview history with <code>tokensburned backfill --harness gemini-cli --dry-run</code>.</p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>GitHub Copilot CLI</h3>
+      <pre><code>copilot plugin install https://github.com/Parsifal1986/TokensBurned</code></pre>
+      <p>After connecting, run <code>tokensburned integrations install copilot</code> and start <code>copilot --experimental</code>. The live extension records official per-call usage events, including subagents. These events cannot be recovered from ordinary session history. The setup plugin alone does not enable capture.</p>
     </td>
   </tr>
 </table>
 
-### Supported harnesses
+### Using the CLI with plugins
 
-| Harness | Status | Scope |
-| --- | --- | --- |
-| Claude Code | Supported | Native plugin hooks and local history reader |
-| Codex | Supported | Native plugin hooks and local history reader |
-| OpenCode | Limited, experimental | Standalone collector for v1 SQLite only; requires `sqlite3`. v2 and legacy JSON storage are unsupported. |
-| Cline CLI / SDK | Conditional, experimental | Requires a host exposing `afterModel.assistantMessage.metrics`, model identity and stable message IDs. Contract-tested; no native end-to-end certification or history backfill. Editor extensions are unsupported. |
-| Cursor | **Not supported** | No token-usage collection adapter |
-| Aider | **Not supported** | No token-usage collection adapter |
-| Gemini CLI | **Not supported for usage collection** | Setup extension exists; automatic collection and history backfill are not implemented |
-| GitHub Copilot CLI | **Not supported for usage collection** | Setup plugin exists; automatic collection and history backfill are not implemented |
-| Other harnesses | **Not supported** | No supported collection adapter |
+Use the same `BURN_HOME` directory (default: `~/.burn`) and connection for the CLI and plugins. Keep them on the same version. The client deduplicates supported usage records, so the background collector and plugin hooks can run together.
 
-Manual usage import is an integration interface, **not harness support**. Installing the standalone CLI does not make Cursor, Aider, Gemini or Copilot usage appear automatically. See [collection requirements](docs/cli-collection.md) for the limited OpenCode and Cline paths.
+Do not configure separate data directories to collect the same history, or manually import records that an automatic collector already tracks. Doing so can duplicate usage.
 
-## Build your profile card
+## Profile card
 
-First opt in with `tokensburned privacy public`. This publishes totals, harness/provider/model breakdowns, activity heatmaps, rank, and your GitHub identity. The policy belongs to the verified GitHub account, so every connected device inherits the same choice without asking again. Then open the [interactive card builder](https://tokensburned.com/#card-builder), enter your GitHub username, choose the visible elements, and copy the generated Markdown. Query parameters can hide published sections, but cannot enable fields disabled by the account's server-side policy.
+Cards are private until you opt in:
 
-Embed the card once:
+```sh
+tokensburned privacy public
+```
+
+Publishing exposes totals, harness, provider, and model breakdowns, activity heatmaps, rank, and your GitHub identity. The setting belongs to your GitHub account, so every connected device shares the same choice. Then open the [card builder](https://tokensburned.com/#card-builder), enter your GitHub username, pick a preset, and paste the Markdown into your profile README:
 
 ```markdown
 [![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg?theme=auto)](https://tokensburned.com/)
 ```
 
+<div align="center">
+  <img src="public/demo/card-full.svg" width="840" alt="TokensBurned card rendered from fictional sample data" />
+  <p><sub>Rendered from bundled fictional data. Viewing this README does not call the TokensBurned API.</sub></p>
+</div>
+
 ### Card elements
 
-Every card keeps the flame character, seven-day trend, doodles and bottom phrase. Privacy settings still apply: a hidden activity history does not appear in the trend.
+Every card keeps the flame character, the seven-day trend, the doodles, and the caption. Optional elements are toggled with query parameters:
 
-| Optional element | Parameter | Default |
+| Element | Parameter | Default |
 | --- | --- | --- |
 | Activity heatmap | `heatmap=0\|1` | On |
 | Harness breakdown | `stack=0\|1` | On |
 | Consecutive active days | `streak=0\|1` | On |
-| Cached input share (seven days) | `cache=0\|1` | Off |
+| Cached input share over the last seven days | `cache=0\|1` | Off |
 | Rank badge | `rank=0\|1` | Off |
 
-Use `theme=auto|light|dark` for the appearance (`dark` if omitted). For example:
+`theme=auto|light|dark` selects the appearance. `dark` is used when the parameter is omitted, and `auto` follows the viewer's color scheme. For example:
 
 ```text
 ?theme=auto&heatmap=1&stack=1&streak=1&cache=1&rank=0
 ```
 
-The old full/compact/meme layout presets are retired. Use the current builder to generate links.
+Privacy settings always apply. A hidden activity history does not appear in the trend, and query parameters cannot reveal anything your account has not published. Use the card builder to generate a link with your preferred options.
 
-Cards are assembled on demand when the CDN cache misses; individual styles are not saved as SVG files in R2. Edge and browser caches last one hour. Local collection, cloud uploads and card caching have separate schedules, so updates are automatic, not instant.
+## Command line
 
-## Standalone CLI
-
-Install the [stable v0.6.9 release](https://github.com/Parsifal1986/TokensBurned/releases/tag/v0.6.9) below. The npm registry may lag behind GitHub releases.
+The standalone CLI collects usage from the supported tools listed above and manages your connection, uploads, and privacy settings. Requires Node.js 20 or newer.
 
 ```sh
-npm install -g https://github.com/Parsifal1986/TokensBurned/releases/download/v0.6.9/tokensburned-0.6.9.tgz
+npm install -g tokensburned
 tokensburned connect
 tokensburned run
 ```
 
-`run` starts a background user service and enables startup after login on macOS/Linux. It reads local sources once a minute, persists the queue, and retries network failures on the server schedule. Use `run --stop` to disable it or `run --foreground` for diagnostics; it does not need root. Codex and Claude Code use the existing history readers. OpenCode supports only the verified v1 SQLite format and requires `sqlite3`; Cursor and Aider are not supported.
-
-Daily commands are `connect`, `run`, `status` (the default), `privacy`, `doctor`, `update` and `disconnect`. No user command can force an early upload. Use `help --advanced` for maintenance operations such as scoped historical backfill and account deletion.
-
-The old `setup`, plain `sync`, `render` and `clean` commands are retired. Existing hook callers and integration entry points remain compatible. See [collection contracts and command migration](docs/cli-collection.md). [Manual usage import](docs/usage-import.md) is an integrator fallback, not a substitute for native collection.
-
-While TokensBurned is installed but not connected, the SessionStart hook asks the
-assistant to mention the connect command at most three times (tracked in
-`~/.burn/config.json` under `onboarding.connect_notices`), then stays silent.
-
-Installed harness plugins also perform a best-effort release check at SessionStart,
-throttled to once every 24 hours; while the installed version is older than the
-published one, every SessionStart reminds the assistant to mention it. Update
-failures never block startup, and applying an available update always requires
-an explicit user request. `tokensburned update` also merges the last two days of
-every installed, supported history adapter, then checks the shared cloud queue once.
-Only the release check is forced; usage remains queued until the server permits
-upload. For ongoing standalone collection and queue transport, use `tokensburned run`.
-
-## Privacy boundary
-
-| Uploaded | Never uploaded |
+| Command | Purpose |
 | --- | --- |
-| Token counts | Prompts and responses |
-| Harness, provider, model (an unrecognized gateway is recorded by hostname only) | Source code and tool payloads |
-| Hashed session identifier | Repository names and paths |
-| 15 minute time bucket | Transcript files and paths |
-| Request count | API keys and provider credentials |
+| `tokensburned` | Show local collection and upload status |
+| `tokensburned connect` | Authorize your GitHub account and create a device credential |
+| `tokensburned run` | Start background collection and enable login startup (macOS and Linux) |
+| `tokensburned privacy [public\|private]` | View or change card visibility |
+| `tokensburned doctor` | Diagnose collection, connection, and privacy |
+| `tokensburned update` | Check for a newer release and catch up recent history |
+| `tokensburned disconnect` | Revoke this device's credential |
 
-The lifecycle upload is short and best effort. Server aggregates are retained until you run `tokensburned delete-server-data`; credentials expire after 180 days and can be revoked sooner. Background collection is installed only by an explicit `run` command and uses the user service manager; no root daemon, traffic proxy or Git synchronization task is installed. See [SECURITY.md](SECURITY.md) for the complete boundary.
+`run` installs a user-level service that reads supported local sources once a minute, persists the queue, and retries on the service's schedule. It requires no root privileges. Use `run --stop` to remove login startup and `run --foreground` for diagnostics or on platforms without a supported service manager. `burn` is a shorter alias for `tokensburned`.
+
+Maintenance commands such as scoped history backfill, authenticated totals, and account deletion are listed by `tokensburned help --advanced`. Command migration notes and the manual import contract are in [Local collection contracts](docs/cli-collection.md) and [Usage import](docs/usage-import.md).
+
+## Privacy and security
+
+| Uploaded usage data | Never included in usage uploads |
+| --- | --- |
+| Aggregate token and request counts | Prompts, responses, source code, and tool payloads |
+| Tool, provider, and model labels | Repository names, file paths, and raw transcripts |
+| Activity dates and hours | Session IDs, API keys, and provider credentials |
+
+Usage files are processed locally. Raw message content is not retained in the client's statistics. An unrecognized provider endpoint may be labeled by hostname; review your attribution with `tokensburned doctor` before publishing.
+
+Cards are private by default. Use `tokensburned privacy public` to publish or `tokensburned privacy private` to hide your card. Use `tokensburned disconnect` to disconnect this device. For account data removal, see `tokensburned help --advanced`.
+
+Read [SECURITY.md](SECURITY.md) for the client's data handling and vulnerability reporting policy. Current account limits are available on the [usage limits page](https://tokensburned.com/limits.html).
+
+## Documentation
+
+- [Website and card builder](https://tokensburned.com/)
+- [Security and privacy boundary](SECURITY.md)
+- [Local collection contracts and command migration](docs/cli-collection.md)
+- [Usage import contract for integrators](docs/usage-import.md)
+- [Usage limits](https://tokensburned.com/limits.html)
+
+## Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, testing, and the rules for new collection paths. Report security issues privately as described in [SECURITY.md](SECURITY.md) before opening a public issue.
 
 ## License
 
-[MIT](LICENSE) © 2026 [parsifal1986](https://github.com/Parsifal1986). Issues and pull requests are welcome; contributor and implementation notes live in [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and [`docs/`](docs/).
-
-### Free device slots
-
-Each GitHub account has 5 device slots, shared across active devices and devices
-in a 30-day cooldown. Disconnecting revokes access immediately but reserves that
-slot for the same device for up to 30 days. Reconnecting the same device reuses the
-slot; disconnecting it again restarts the cooldown. Credential expiry releases
-the slot immediately, including during cooldown. Reconnecting after expiry needs
-a free slot and consumes a connection allowance. Other free slots remain usable.
-
-Keep the local device ID in `~/.burn` to reconnect as the same device. Disconnect
-does not delete cloud history. The CLI shows the server-confirmed slot release
-time after disconnecting. Deleting local files does not release a cloud slot.
-Successful connections, including reconnections and credential rotations, are
-limited per GitHub account to 5 per rolling 10 minutes and 10 per rolling 24 hours.
-Disconnecting does not refund that allowance; authorization polling does not use it.
-
-Deleting all server data removes usage, credentials, the account profile, and the
-public card, but does not refund allowances. A keyed account identifier, recent
-connection times, and outstanding slot release times remain until their normal
-deadlines. Connection windows last up to 24 hours; deleted device reservations
-last up to 30 days or credential expiry, whichever comes first. Expired records
-are cleaned up regularly. See [all usage limits](https://tokensburned.com/limits.html).
-
-### Stable plugin updates
-
-Plugin catalogs pin the last promoted GitHub Release by tag and commit. `tokensburned update` refreshes release metadata and prints the native plugin-manager commands; it does not install from the current development checkout. Versions with prerelease or local build suffixes skip remote update checks. Test those builds from a local checkout.
-
-After publishing a non-prerelease GitHub Release, maintainers can run `node scripts/promote-release.mjs vX.Y.Z /path/to/TokensBurned-Cloud` to prepare the pinned catalogs and API release metadata. The script verifies the published release, commit and package version, and writes local changes only. Review and publish those changes separately.
+[MIT](LICENSE) © 2026 [Parsifal1986](https://github.com/Parsifal1986)
