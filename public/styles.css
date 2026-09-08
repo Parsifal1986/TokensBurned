@@ -276,5 +276,5 @@ footer { min-height: 84px; padding: 25px max(24px, calc((100vw - 1440px) / 2)); 
 :root[data-theme="light"] .final-cta .button.primary { background:#30252a; border-color:#30252a; color:#fff6ed; }
 @media(max-width:1120px){.site-header{grid-template-columns:1fr auto}.site-header nav{display:none}}
 
-@font-face { font-family:"TokensBurned Note"; src:url("./fonts/tokensburned-note.woff2") format("woff2"); font-weight:400; font-style:normal; font-display:swap; }
-:lang(zh-CN) .hero-note { font-family:"TokensBurned Note","Kaiti SC",serif; font-size:21px; font-weight:400; }
+@font-face { font-family:"TokensBurned Note"; src:url("./fonts/tokensburned-doodle.woff2") format("woff2"); font-weight:400; font-style:normal; font-display:swap; }
+:lang(zh-CN) .hero-note { font-family:"TokensBurned Note",sans-serif; font-size:21px; font-weight:400; }

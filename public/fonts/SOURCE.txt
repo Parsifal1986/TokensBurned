@@ -1,5 +1,5 @@
-TokensBurned Note is a renamed web-only subset of LXGW WenKai Lite Regular v1.522.
-Source: https://github.com/lxgw/LxgwWenKai-Lite/releases/tag/v1.522
+TokensBurned Note is a renamed web-only subset of KNMaiyuan Regular.
+Source: https://github.com/maoken-fonts/KNMaiyuan
 License: SIL Open Font License 1.1; see OFL.txt.
-Original font SHA-256: 140c99ba4e28e817cec49bf82a0c5fcdc4fe633fb9dfda16d0ee8d59a8545f15
+Original font SHA-256: 94ea78c51086b1ea58c1744784b2335dea2c5ef1c5193b80e02c7d46b8e0283f
 Subset text: 再问一个问题。真的。，！
