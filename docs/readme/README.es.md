@@ -1,44 +1,77 @@
-<div align="center"><img src="../../assets/logo.svg" width="112" alt="Logotipo de TokensBurned" /><h1>TokensBurned</h1><p><strong>Muestra tu actividad de programación con IA en GitHub sin subir prompts ni código fuente.</strong></p><p><a href="../../README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <strong>Español</strong> · <a href="README.fr.md">Français</a></p></div>
+<div align="center"><img src="../../public/favicon.svg" width="112" alt="Logotipo de TokensBurned" /><h1>TokensBurned</h1><p><strong>Muestra tu actividad de programación con IA en GitHub sin subir prompts ni código fuente.</strong></p><p><a href="../../README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <strong>Español</strong> · <a href="README.fr.md">Français</a></p></div>
 
-<div align="center"><h3><a href="https://tokensburned.com/?lang=es#card-builder">Abrir el creador interactivo →</a></h3><p><sub>Elige diseño, tema claro/oscuro/automático y elementos. La vista previa usa datos ficticios locales.</sub></p></div>
+TokensBurned agrega localmente el uso de tokens de harnesses compatibles y lo envía según el calendario del servidor. Inserta el SVG en GitHub o en tu web personal. La imagen usa datos ficticios.
 
-TokensBurned recoge conteos de tokens y metadatos del modelo, los agrega localmente en bloques de 15 minutos y sirve un SVG vivo para tu perfil de GitHub. La tarjeta puede mostrar 24 horas, 7 días, 30 días, total histórico, mapas de calor, comparativas de harness/provider/model y una clasificación anónima.
+<div align="center"><img src="../../public/demo/card-full.svg" width="840" alt="TokensBurned — demo" /></div>
 
-<div align="center"><img src="../../assets/demo-card-builder.gif" width="840" alt="Demostración del constructor de tarjetas" /></div>
+## Compatibilidad
 
-## Instalación por harness
+| Harness | Status |
+| --- | --- |
+| Claude Code / Codex | Compatible: hooks del plugin e historial local |
+| OpenCode | Limitado, experimental: solo SQLite v1; requiere sqlite3. v2 y JSON no compatibles |
+| Cline CLI / SDK | Condicional, experimental: requiere uso, modelo e ID estables de afterModel. Solo pruebas de contrato; sin validación nativa integral, historial ni extensiones de editor |
+| Cursor / Aider | **No compatible: sin adaptador de uso** |
+| Gemini CLI / GitHub Copilot CLI | **Recogida de uso no compatible: solo configuración; sin captura automática ni historial** |
+| Other | **No compatible: sin adaptador de uso** |
 
-| Harness | Comando | Fuente de datos |
-| --- | --- | --- |
-| Claude Code | `/plugin marketplace add Parsifal1986/TokensBurned`<br>`/plugin install tokensburned@tokensburned`<br>`/tokensburned:connect` | Hook SessionEnd nativo + historial aprobado |
-| Codex | `codex plugin marketplace add Parsifal1986/TokensBurned`<br>`codex plugin add tokensburned@tokensburned`<br>`$tokensburned:connect` | Plugin nativo + historial aprobado |
-| Gemini CLI | `gemini extensions install https://github.com/Parsifal1986/TokensBurned`<br>`/tokensburned:connect` | Extensión + importación CLI explícita |
-| Copilot CLI | `copilot plugin install https://github.com/Parsifal1986/TokensBurned` | Plugin + CLI |
-| Cline CLI | `cline plugin install https://github.com/Parsifal1986/TokensBurned.git` | `afterModel.assistantMessage.metrics` nativo |
-| Otros | `npm install -g tokensburned` | Importación batch explícita |
+La importación manual y la instalación del CLI no equivalen a compatibilidad con un harness.
 
-Los hooks de Copilot todavía no exponen conteos de tokens, por lo que la recopilación sigue asistida por CLI. El plugin de Cline funciona en CLI, SDK y Kanban, no todavía en las extensiones de editor.
+### Claude Code
 
+```text
+/plugin marketplace add Parsifal1986/TokensBurned
+/plugin install tokensburned@tokensburned
+/reload-plugins
+/tokensburned:connect
+```
 
-## Recolección local
+### Codex
 
-Conecta con `tokensburned connect` y ejecuta `tokensburned run` para iniciar el servicio en segundo plano con arranque al iniciar sesión (macOS/Linux). Recoge Codex, Claude Code y OpenCode v1 SQLite compatible (requiere sqlite3); respeta el horario del servidor y reintenta tras fallos de red. `run --stop` lo detiene y desactiva el arranque automático; `run --foreground` permite diagnosticarlo. Cursor y Aider no tienen recogida automática. `help --advanced` muestra mantenimiento; `setup`, `sync` sin opciones, `render` y `clean` están retirados.
+```text
+codex plugin marketplace add Parsifal1986/TokensBurned
+codex plugin add tokensburned@tokensburned
+```
+
+```text
+$tokensburned:connect
+```
+
+### CLI — GitHub Release v0.6.9
+
+```sh
+npm install -g https://github.com/Parsifal1986/TokensBurned/releases/download/v0.6.9/tokensburned-0.6.9.tgz
+```
+
+`tokensburned connect` y ejecuta `tokensburned run` para iniciar el servicio en segundo plano con arranque al iniciar sesión (macOS/Linux). Recoge Codex, Claude Code y OpenCode v1 SQLite compatible (requiere sqlite3); respeta el horario del servidor y reintenta tras fallos de red. `run --stop` lo detiene y desactiva el arranque automático; `run --foreground` permite diagnosticarlo. Cursor y Aider no tienen recogida automática. `help --advanced` muestra mantenimiento; `setup`, `sync` sin opciones, `render` y `clean` están retirados.
 
 [Collection contracts](../cli-collection.md)
 
-## Tarjeta de perfil
+## SVG
 
-La tarjeta pública está desactivada por defecto. Primero ejecuta `tokensburned privacy public` para autorizar explícitamente la publicación de totales, harness/provider/model, mapas de actividad, rango e identidad de GitHub. Después usa el [constructor interactivo](https://tokensburned.com/?lang=es#card-builder). Los parámetros de URL solo pueden ocultar campos permitidos por el servidor.
+`tokensburned privacy public`
+
+[Card builder](https://tokensburned.com/?lang=es#card-builder)
 
 ```markdown
 [![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg?theme=auto)](https://tokensburned.com/?lang=es)
 ```
 
-- Compacta: `?layout=compact&compare=0&rank=1`
-- Meme: `?layout=full&heatmap=0&compare=0&meme=1`
-- Ocultar ranking: `&rank=0`
-- Seguir el tema del sistema: `&theme=auto`
-- Fijar claro u oscuro: `&theme=light` / `&theme=dark`
+Todas las tarjetas incluyen la llama, la tendencia de siete días, los garabatos y la frase inferior. La tendencia respeta el historial oculto.
+
+- Mapa de actividad: `heatmap=0|1`
+- Composición por harness: `stack=0|1`
+- Días activos consecutivos: `streak=0|1`
+- Proporción de entrada en caché, siete días: `cache=0|1`
+- Insignia de clasificación: `rank=0|1`
+
+Por defecto: heatmap / stack / streak activados; cache / rank desactivados. theme=auto|light|dark, con dark si se omite. Los diseños full / compact / meme antiguos están retirados.
+
+El SVG se genera cuando falla la caché CDN, sin guardar cada estilo en R2. La caché dura una hora; las actualizaciones no son instantáneas.
+
+## Actualizaciones estables
+
+update consulta las versiones estables de GitHub Release, no la rama main de desarrollo. Las versiones preliminares y locales se prueban localmente. La importación de historial durante update también respeta el calendario de subida del servidor.
 
 ## Privacidad
 

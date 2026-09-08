@@ -1,44 +1,77 @@
-<div align="center"><img src="../../assets/logo.svg" width="112" alt="TokensBurned logo" /><h1>TokensBurned</h1><p><strong>プロンプトやソースコードを送信せず、AI コーディング活動を GitHub Profile に表示します。</strong></p><p><a href="../../README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <strong>日本語</strong> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a> · <a href="README.fr.md">Français</a></p></div>
+<div align="center"><img src="../../public/favicon.svg" width="112" alt="TokensBurned logo" /><h1>TokensBurned</h1><p><strong>プロンプトやソースコードを送信せず、AI コーディング活動を GitHub Profile に表示します。</strong></p><p><a href="../../README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <strong>日本語</strong> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a> · <a href="README.fr.md">Français</a></p></div>
 
-<div align="center"><h3><a href="https://tokensburned.com/?lang=ja#card-builder">オンラインカード作成ツールを開く →</a></h3><p><sub>レイアウト、ライト/ダーク/自動テーマ、表示項目を選択できます。プレビューは架空のローカルデータです。</sub></p></div>
+TokensBurned は対応する harness の token 使用量をローカルで集計し、サーバーの予定に従って送信します。SVG は GitHub や個人サイトに埋め込めます。画像は架空のデータです。
 
-TokensBurned は各 AI coding harness の token 数とモデル情報だけを収集し、ローカルで 15 分単位に集約します。GitHub Profile 用のライブ SVG には 24 時間、7 日、30 日、累計、ヒートマップ、harness/provider/model 比較、匿名ランキングを表示できます。
+<div align="center"><img src="../../public/demo/card-full.svg" width="840" alt="TokensBurned — demo" /></div>
 
-<div align="center"><img src="../../assets/demo-card-builder.gif" width="840" alt="TokensBurned card builder demo" /></div>
+## 対応状況
 
-## インストール
+| Harness | Status |
+| --- | --- |
+| Claude Code / Codex | 対応：プラグイン hook とローカル履歴 |
+| OpenCode | 限定的・実験的：v1 SQLite のみ。sqlite3 が必要。v2 / JSON は未対応 |
+| Cline CLI / SDK | 条件付き・実験的：afterModel の使用量・モデル・安定した ID が必要。契約テストのみ。実環境の端から端までの検証・履歴取得・エディタ拡張対応はなし |
+| Cursor / Aider | **未対応：使用量アダプターなし** |
+| Gemini CLI / GitHub Copilot CLI | **使用量収集は未対応：設定プラグインのみ。自動収集・履歴取得なし** |
+| Other | **未対応：使用量アダプターなし** |
 
-| Harness | コマンド | データ経路 |
-| --- | --- | --- |
-| Claude Code | `/plugin marketplace add Parsifal1986/TokensBurned`<br>`/plugin install tokensburned@tokensburned`<br>`/tokensburned:connect` | ネイティブ SessionEnd hook と承認済み履歴 |
-| Codex | `codex plugin marketplace add Parsifal1986/TokensBurned`<br>`codex plugin add tokensburned@tokensburned`<br>`$tokensburned:connect` | ネイティブ plugin と承認済み履歴 |
-| Gemini CLI | `gemini extensions install https://github.com/Parsifal1986/TokensBurned`<br>`/tokensburned:connect` | Extension + 明示的な CLI import |
-| Copilot CLI | `copilot plugin install https://github.com/Parsifal1986/TokensBurned` | Plugin workflow + CLI |
-| Cline CLI | `cline plugin install https://github.com/Parsifal1986/TokensBurned.git` | ネイティブ `afterModel.assistantMessage.metrics` |
-| その他 | `npm install -g tokensburned` | 明示的な batch import |
+手動インポートや CLI のインストールは、harness 対応を意味しません。
 
-Copilot の lifecycle hook は現時点で token 数を提供しないため、ネイティブ plugin を使っても収集は CLI 補助です。Cline plugin は CLI、SDK、Kanban 向けで、エディタ拡張にはまだ適用されません。
+### Claude Code
 
+```text
+/plugin marketplace add Parsifal1986/TokensBurned
+/plugin install tokensburned@tokensburned
+/reload-plugins
+/tokensburned:connect
+```
 
-## ローカル収集
+### Codex
+
+```text
+codex plugin marketplace add Parsifal1986/TokensBurned
+codex plugin add tokensburned@tokensburned
+```
+
+```text
+$tokensburned:connect
+```
+
+### CLI — GitHub Release v0.6.9
+
+```sh
+npm install -g https://github.com/Parsifal1986/TokensBurned/releases/download/v0.6.9/tokensburned-0.6.9.tgz
+```
 
 `tokensburned connect` で接続し、`tokensburned run` でバックグラウンドサービスとログイン時の自動起動を設定します（macOS/Linux）。Codex、Claude Code、対応する OpenCode v1 SQLite（sqlite3 が必要）の利用量を収集し、サーバーの時刻に従って送信・再試行します。`run --stop` で停止と自動起動の解除、`run --foreground` で診断できます。Cursor と Aider の自動収集は未対応です。保守操作は `help --advanced` にあります。`setup`、引数なしの `sync`、`render`、`clean` は廃止されました。
 
 [Collection contracts](../cli-collection.md)
 
-## Profile カード
+## SVG
 
-公開カードは初期状態で無効です。まず `tokensburned privacy public` で、合計、harness/provider/model、ヒートマップ、ランキング、GitHub ID の公開に明示的に同意してください。その後、[オンライン builder](https://tokensburned.com/?lang=ja#card-builder) で表示要素を選択します。URL パラメータで非表示にはできますが、サーバー側で無効な項目を公開することはできません。
+`tokensburned privacy public`
+
+[Card builder](https://tokensburned.com/?lang=ja#card-builder)
 
 ```markdown
 [![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg?theme=auto)](https://tokensburned.com/?lang=ja)
 ```
 
-- Compact: `?layout=compact&compare=0&rank=1`
-- Meme: `?layout=full&heatmap=0&compare=0&meme=1`
-- ランク非表示: `&rank=0`
-- システムテーマに追従: `&theme=auto`
-- ライトまたはダークに固定: `&theme=light` / `&theme=dark`
+炎のキャラクター、7 日間の推移、落書き、短い一言は常に表示されます。非公開の履歴は推移にも表示されません。
+
+- ヒートマップ: `heatmap=0|1`
+- Harness 構成: `stack=0|1`
+- 連続活動日数: `streak=0|1`
+- 7 日間のキャッシュ入力比率: `cache=0|1`
+- 順位バッジ: `rank=0|1`
+
+既定：heatmap / stack / streak はオン、cache / rank はオフ。theme=auto|light|dark（省略時 dark）。旧 full / compact / meme レイアウトは廃止されました。
+
+SVG は CDN キャッシュミス時に生成し、スタイル別に R2 へ保存しません。キャッシュは 1 時間で、即時更新ではありません。
+
+## 正式版の更新
+
+update は正式 GitHub Release を確認します。main の開発版は取得しません。プレリリースとローカルビルドはローカルでテストします。更新時の履歴取り込みもサーバーの送信周期を守ります。
 
 ## プライバシー
 
