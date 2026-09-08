@@ -14,7 +14,7 @@ test("landing page declares privacy policy and ships a fictional demo", () => {
   assert.match(html, /name="referrer" content="no-referrer"/);
   assert.doesNotMatch(html, /v1\/cards\/u\/parsifal1986|value="parsifal1986"/);
   assert.match(demoCard, /sample-user/);
-  assert.match(demoCard, /STATIC SAMPLE \/ FICTIONAL DATA/);
+  assert.match(demoCard, /DEMO \/ NOT LIVE/);
   assert.doesNotMatch(demoCard, /parsifal1986/i);
 });
 

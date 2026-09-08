@@ -1,8 +1,7 @@
+import { renderArt } from "./card-art.js";
 const REPOSITORY = "https://github.com/Parsifal1986/TokensBurned";
 const CARD_ORIGIN = "https://api.tokensburned.com/v1/cards/u";
 const SITE_ORIGIN = "https://tokensburned.com/";
-const DEMO_CARD_VERSION = "theme-2";
-const demoCardCache = new Map();
 
 const harnesses = {
   claude: {
@@ -27,7 +26,7 @@ const harnesses = {
     status: "EXTENSION + CLI",
     title: "Gemini CLI",
     confidence: "Skills + CLI import",
-    summary: "The Gemini extension adds the setup skills. Gemini CLI's built-in telemetry exporter cannot authenticate against the TokensBurned API, so token totals come from the explicit CLI import.",
+    summary: "The Gemini extension adds setup skills, not automatic collection or history backfill. Explicit cloud import uses ingest --upload; plain ingest changes local statistics only.",
     steps: ["Install the extension", "Connect your GitHub identity", "Import approved totals with the CLI"],
     command: `gemini extensions install ${REPOSITORY}\ngemini\n/tokensburned:connect`,
     note: "Do not point Gemini's telemetry exporter at the API; that route is disabled. Only allow-listed token and identity fields are uploaded.",
@@ -36,37 +35,37 @@ const harnesses = {
     status: "OPEN PLUGIN SPEC",
     title: "GitHub Copilot CLI",
     confidence: "Plugin workflow + CLI data",
-    summary: "Copilot CLI can install the shared plugin and its skills. Copilot session hooks do not currently expose token totals, so collection uses the CLI ingest path.",
+    summary: "Copilot CLI provides the setup workflow. Automatic capture and history backfill are not implemented; finalized request usage can be imported with ingest --upload.",
     steps: ["Install the plugin", "Ask Copilot to connect", "Import or ingest approved totals"],
-    command: `copilot plugin install ${REPOSITORY}\n# In Copilot CLI:\nConnect TokensBurned, then preview my local history.`,
-    note: "The plugin is native. Token collection remains CLI assisted until Copilot exposes usage counts to hooks.",
+    command: `copilot plugin install ${REPOSITORY}\n# In Copilot CLI:\nConnect TokensBurned and show supported collection paths with doctor.`,
+    note: "Connecting does not start automatic collection. See docs/usage-import.md for the explicit cloud import contract.",
   },
   cline: {
     status: "CLINE CLI PLUGIN",
     title: "Cline CLI",
-    confidence: "CLI and SDK only",
-    summary: "Cline CLI can install a Git plugin with TokensBurned skills and lifecycle integration. The Cline editor extensions do not load CLI plugins yet.",
-    steps: ["Install the Git plugin", "Connect through the bundled skill", "Use explicit import or batch ingest"],
+    confidence: "Compatible CLI / SDK hosts",
+    summary: "The plugin reads per-model metrics and stable message IDs from compatible Cline afterModel hooks. It deduplicates requests locally before cloud upload.",
+    steps: ["Install the Git plugin", "Connect through the bundled skill", "Check queued usage with doctor"],
     command: `cline plugin install ${REPOSITORY}.git\n# In Cline CLI:\nConnect TokensBurned and show the privacy boundary.`,
-    note: "For Cline in VS Code or JetBrains, use the standalone CLI fallback below.",
+    note: "A host must load this plugin and provide afterModel message metrics. Legacy afterRun-only hosts need the explicit import fallback.",
   },
   opencode: {
-    status: "CLI FALLBACK",
+    status: "LOCAL COLLECTOR",
     title: "OpenCode",
-    confidence: "Explicit batch import",
-    summary: "OpenCode has a first-class plugin API that is still beta, so the current TokensBurned release uses the standalone CLI and its explicit batch import.",
-    steps: ["Install the TokensBurned CLI", "Connect GitHub", "Import approved totals with the CLI"],
-    command: "npm install -g tokensburned\ntokensburned connect\ntokensburned doctor",
-    note: "Native OpenCode plugin packaging is tracked separately so a beta API change cannot silently break collection.",
+    confidence: "v1 SQLite usage only",
+    summary: "The CLI can read finalized usage from a compatible local OpenCode v1 database and upload it on the server schedule while run stays active.",
+    steps: ["Install the CLI and sqlite3", "Connect GitHub", "Keep the local collector running"],
+    command: "npm install -g tokensburned\ntokensburned connect\ntokensburned run --harness opencode",
+    note: "Read-only numeric metadata. OpenCode v2 session_message data and legacy JSON storage are not supported; unknown formats are reported instead of guessed.",
   },
   other: {
-    status: "CLI FALLBACK",
+    status: "NO AUTOMATIC CAPTURE",
     title: "Cursor, Aider, and other harnesses",
-    confidence: "Explicit batch import",
-    summary: "Use the standalone client when the harness does not expose stable token metadata. It accepts revisioned batch input through the CLI; telemetry exporters are not supported.",
-    steps: ["Install the CLI", "Connect GitHub", "Run doctor and choose an approved data source"],
-    command: "npm install -g tokensburned\ntokensburned connect\ntokensburned doctor",
-    note: "TokensBurned does not estimate tokens from prompts and never labels inferred counts as observed usage.",
+    confidence: "Verified usage source required",
+    summary: "The CLI provides account management and scheduled transport, but does not yet collect native Cursor or Aider usage automatically.",
+    steps: ["Inspect current support", "Use a verified usage integration", "Let the collector handle queued uploads"],
+    command: "npm install -g tokensburned\ntokensburned doctor",
+    note: "Context sizes, cost estimates and mixed estimated/observed analytics are not accepted as exact token consumption. Connecting alone does not collect usage.",
   },
 };
 
@@ -172,88 +171,20 @@ const markdownOutput = document.querySelector("#card-markdown");
 const previewState = document.querySelector("#preview-state");
 const builderMessage = document.querySelector("#builder-message");
 const outputCopyButtons = document.querySelectorAll(".builder-output [data-copy-target]");
-let previewRevision = 0;
-let heroPreviewRevision = 0;
 let currentSiteTheme = "dark";
 
 function validGithubName(value) {
   return /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(value);
 }
 
-function setPreset(value) {
-  const heatmap = form.elements.heatmap;
-  const compare = form.elements.compare;
-  const meme = form.elements.meme;
-  if (value === "full") {
-    heatmap.checked = true;
-    compare.checked = true;
-    meme.checked = false;
-  } else if (value === "compact") {
-    heatmap.checked = false;
-    compare.checked = false;
-    meme.checked = false;
-  } else {
-    heatmap.checked = false;
-    compare.checked = false;
-    meme.checked = true;
-  }
-  heatmap.disabled = value === "compact";
-}
-
 function selectedCardOptions() {
-  const preset = form.elements.preset.value;
-  return {
-    layout: preset === "compact" ? "compact" : "full",
-    heatmap: preset === "compact" ? false : form.elements.heatmap.checked,
-    compare: form.elements.compare.checked,
-    rank: form.elements.rank.checked,
-    meme: form.elements.meme.checked,
-    theme: form.elements.cardTheme.value,
-  };
+  return {...Object.fromEntries(["heatmap","stack","streak","cache","rank"].map(key=>[key,form.elements[key].checked])), theme:form.elements.cardTheme.value};
 }
-
-function demoCardPath(options) {
-  return `demo/card-${options.layout}-h${Number(options.heatmap)}-c${Number(options.compare)}-r${Number(options.rank)}-m${Number(options.meme)}.svg?v=${DEMO_CARD_VERSION}`;
+function renderHeroPreview() {
+  heroPreview.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(renderArt({theme:currentSiteTheme,owner:"sample-user"}))}`;
 }
-
-function setSvgTheme(svg, theme) {
-  return svg.includes("data-card-theme=")
-    ? svg.replace(/data-card-theme="[^"]+"/, `data-card-theme="${theme}"`)
-    : svg.replace("<svg ", `<svg data-card-theme="${theme}" `);
-}
-
-async function loadDemoCard(path) {
-  let svg = demoCardCache.get(path);
-  if (svg) return svg;
-  const response = await fetch(path, { cache: "force-cache" });
-  if (!response.ok) throw new Error(`Demo card ${response.status}`);
-  svg = await response.text();
-  demoCardCache.set(path, svg);
-  return svg;
-}
-
-async function renderHeroPreview() {
-  const revision = ++heroPreviewRevision;
-  const path = `demo/card-full.svg?v=${DEMO_CARD_VERSION}`;
-  try {
-    const svg = await loadDemoCard(path);
-    if (revision !== heroPreviewRevision) return;
-    heroPreview.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(setSvgTheme(svg, currentSiteTheme))}`;
-  } catch {
-    if (revision !== heroPreviewRevision) return;
-    heroPreview.src = path;
-  }
-}
-
 function cardUrlFor(name, options) {
-  const params = new URLSearchParams({
-    layout: options.layout,
-    heatmap: options.heatmap ? "1" : "0",
-    compare: options.compare ? "1" : "0",
-    rank: options.rank ? "1" : "0",
-    meme: options.meme ? "1" : "0",
-    theme: options.theme,
-  });
+  const params = new URLSearchParams(Object.entries(options).map(([key,value])=>[key,typeof value === "boolean" ? Number(value) : value]));
   return `${CARD_ORIGIN}/${name}.svg?${params}`;
 }
 
@@ -285,33 +216,15 @@ function updateGeneratedLink(options) {
   return normalizedName;
 }
 
-async function renderStaticPreview() {
-  const revision = ++previewRevision;
+function renderStaticPreview() {
   const options = selectedCardOptions();
   const owner = updateGeneratedLink(options);
-  const path = demoCardPath(options);
   previewState.textContent = translate("previewSample");
   preview.alt = `${translate("previewAlt")} (@${owner})`;
-  try {
-    const svg = await loadDemoCard(path);
-    if (revision !== previewRevision) return;
-    const personalizedSvg = setSvgTheme(svg.replaceAll("sample-user", owner), options.theme);
-    preview.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(personalizedSvg)}`;
-  } catch {
-    if (revision !== previewRevision) return;
-    preview.src = path;
-    previewState.textContent = translate("previewFallback");
-  }
+  preview.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(renderArt({...options,owner}))}`;
 }
-
-form.addEventListener("input", (event) => {
-  if (event.target.name === "preset") setPreset(event.target.value);
-  renderStaticPreview();
-});
-form.addEventListener("submit", (event) => {
-  event.preventDefault();
-});
-setPreset("full");
+form.addEventListener("input", renderStaticPreview);
+form.addEventListener("submit", event=>event.preventDefault());
 
 const themeToggle = document.querySelector("[data-theme-toggle]");
 function applyTheme(theme) {

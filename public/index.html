@@ -11,24 +11,25 @@
     <meta property="og:description" content="Track token usage across coding harnesses and publish one live SVG card." />
     <meta property="og:image" content="https://tokensburned.com/social-card.svg" />
     <title>TokensBurned | AI coding activity for GitHub</title>
-    <link rel="icon" href="./favicon.ico" sizes="16x16 32x32 48x48" />
-    <link rel="icon" href="./favicon.svg" type="image/svg+xml" sizes="any" />
-    <link rel="apple-touch-icon" href="./apple-touch-icon.png" sizes="180x180" />
-    <link rel="stylesheet" href="./styles.css?v=theme-2" />
-    <script src="./locales.js?v=limits-1" defer></script>
-    <script src="./app.js?v=theme-2" defer></script>
+    <link rel="icon" href="./favicon.ico?v=flame-2" sizes="16x16 32x32 48x48" />
+    <link rel="icon" href="./favicon.svg?v=flame-2" type="image/svg+xml" sizes="any" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=flame-2" sizes="180x180" />
+    <link rel="stylesheet" href="./styles.css?v=card-release-2" />
+    <script src="./locales.js?v=card-release-1" defer></script>
+    <script type="module" src="./app.js?v=card-release-1"></script>
   </head>
   <body>
     <a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>
     <header class="site-header">
       <a class="wordmark" href="#top" aria-label="TokensBurned home" data-i18n-aria-label="homeLabel">
-        <img src="./favicon.svg" alt="" width="28" height="28" />
+        <img src="./favicon.svg?v=flame-2" alt="" width="28" height="28" />
         <span>tokensburned</span>
       </a>
       <nav aria-label="Primary navigation" data-i18n-aria-label="navLabel">
         <a href="#install" data-i18n="navInstall">Install</a>
         <a href="#card-builder" data-i18n="navBuilder">Card builder</a>
         <a href="#privacy" data-i18n="navPrivacy">Privacy</a>
+
         <a href="./limits.html" data-i18n="navLimits">Usage limits</a>
         <a href="https://github.com/Parsifal1986/TokensBurned">GitHub</a>
       </nav>
@@ -41,13 +42,15 @@
     <main id="main">
       <section class="hero" id="top" aria-labelledby="hero-title">
         <div class="hero-copy">
+          <svg class="hero-doodle" viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m45 5 6 18 18 6-18 6-6 18-6-18-18-6 18-6Z"/><path d="M65 53q26 5 21 30m-8-8 8 9 8-9"/></g></svg>
           <p class="kicker" data-i18n="heroKicker">AI CODING ACTIVITY FOR GITHUB</p>
-          <h1 id="hero-title" data-i18n="heroTitle">Your AI coding receipt.</h1>
+          <h1 id="hero-title" data-i18n="heroTitle">Track every token.</h1>
           <p class="lede" data-i18n="heroLede">Count tokens across coding harnesses, keep prompts and code on your machine, and publish one live profile card.</p>
           <div class="hero-actions">
             <a class="button primary" href="#install" data-i18n="heroInstall">Install for your harness</a>
             <a class="button secondary" href="#card-builder" data-i18n="heroBuilder">Build your card</a>
           </div>
+          <p class="hero-note" data-i18n="heroNote">One more prompt. I swear.</p>
           <dl class="hero-facts">
             <div><dt data-i18n="collected">Collected</dt><dd data-i18n="collectedValue">Token totals and model metadata</dd></div>
             <div><dt data-i18n="ignored">Ignored</dt><dd data-i18n="ignoredValue">Prompts, replies, code, repo names</dd></div>
@@ -55,12 +58,12 @@
         </div>
         <figure class="live-card">
           <figcaption><span data-i18n="staticExample">Static example</span><span data-i18n="sampleData">sample data</span></figcaption>
-          <img id="hero-card-preview" src="demo/card-full.svg?v=theme-2" width="840" height="700" alt="Static TokensBurned profile card with fictional sample data" data-i18n-alt="heroCardAlt" fetchpriority="high" />
+          <img id="hero-card-preview" src="demo/card-full.svg?v=card-2" width="820" height="661" alt="Static TokensBurned profile card with fictional sample data" data-i18n-alt="heroCardAlt" fetchpriority="high" />
         </figure>
       </section>
 
       <section class="proof-strip" aria-label="Project facts" data-i18n-aria-label="factsLabel">
-        <span data-i18n="factLicense">MIT licensed</span><span data-i18n="factApi">Serverless API</span><span data-i18n="factBuckets">15 minute aggregates</span><span data-i18n="factCommits">No profile commits</span>
+        <span data-i18n="factLicense">MIT licensed</span><span data-i18n="factApi">Serverless API</span><span data-i18n="factBuckets">Automatic updates</span><span data-i18n="factCommits">No profile commits</span>
       </section>
 
       <section class="install-section" id="install" aria-labelledby="install-title">
@@ -100,10 +103,11 @@
         </div>
 
         <aside class="cli-fallback" aria-labelledby="fallback-title">
-          <div><p data-i18n="fallbackKicker">WORKS EVERYWHERE</p><h3 id="fallback-title" data-i18n="fallbackTitle">CLI fallback</h3><span data-i18n="fallbackLede">Use this when your harness has no stable token hook yet.</span></div>
+          <div><p data-i18n="fallbackKicker">STANDALONE CLIENT</p><h3 id="fallback-title" data-i18n="fallbackTitle">CLI fallback</h3><span data-i18n="fallbackLede">Collect supported local usage while run stays active. Cursor and Aider automatic capture is not yet supported.</span></div>
           <div class="command-block compact-command">
             <pre><code id="fallback-command">npm install -g tokensburned
-tokensburned connect</code></pre>
+tokensburned connect
+tokensburned run</code></pre>
             <button type="button" data-copy-target="fallback-command" data-i18n="copy">copy</button>
           </div>
         </aside>
@@ -112,19 +116,14 @@ tokensburned connect</code></pre>
       <section class="builder-section" id="card-builder" aria-labelledby="builder-title">
         <header class="section-heading builder-heading">
           <p data-i18n="builderKicker">PROFILE CARD BUILDER</p>
-          <h2 id="builder-title" data-i18n="builderTitle">Make the damage fit.</h2>
+          <h2 id="builder-title" data-i18n="builderTitle">Make yourself a little heat.</h2>
           <p data-i18n="builderLede">Explore fictional samples locally. A live link works only after you explicitly enable a public card; the preview never calls the API.</p>
         </header>
 
         <div class="builder-shell">
           <form class="builder-controls" id="builder-form">
             <label class="username-field" for="github-name"><span data-i18n="githubUsername">GitHub username</span><input id="github-name" name="username" placeholder="your-github-name" data-i18n-placeholder="githubPlaceholder" autocomplete="off" spellcheck="false" maxlength="39" /></label>
-            <fieldset class="preset-grid">
-              <legend data-i18n="cardSize">Card size</legend>
-              <label><input type="radio" name="preset" value="full" checked /><span><strong data-i18n="presetFull">Full report</strong><small data-i18n="presetFullNote">Heatmaps and comparisons</small></span></label>
-              <label><input type="radio" name="preset" value="compact" /><span><strong data-i18n="presetCompact">Compact</strong><small data-i18n="presetCompactNote">Totals only</small></span></label>
-              <label><input type="radio" name="preset" value="meme" /><span><strong data-i18n="presetMeme">Meme receipt</strong><small data-i18n="presetMemeNote">Short and judgmental</small></span></label>
-            </fieldset>
+            <p data-i18n="fixedElements">Always included: flame, 7-day trend, doodles and a little one-liner.</p>
             <fieldset class="card-theme-grid">
               <legend data-i18n="cardTheme">Card theme</legend>
               <label><input type="radio" name="cardTheme" value="auto" /><span><strong data-i18n="themeAuto">Auto</strong><small data-i18n="themeAutoNote">Follow system</small></span></label>
@@ -133,10 +132,11 @@ tokensburned connect</code></pre>
             </fieldset>
             <fieldset class="option-list">
               <legend data-i18n="elements">Elements</legend>
-              <label><input type="checkbox" name="heatmap" checked /><span data-i18n="elementHeatmap">Daily and hourly heatmaps</span></label>
-              <label><input type="checkbox" name="compare" checked /><span data-i18n="elementCompare">Harness, provider, model comparison</span></label>
-              <label><input type="checkbox" name="rank" checked /><span data-i18n="elementRank">Site-wide rank</span></label>
-              <label><input type="checkbox" name="meme" /><span data-i18n="elementMeme">Meme stamp</span></label>
+              <label><input type="checkbox" name="heatmap" checked /><span data-i18n="cardHeatmap">Activity heatmap</span></label>
+              <label><input type="checkbox" name="stack" checked /><span data-i18n="cardHarness">Harness breakdown</span></label>
+              <label><input type="checkbox" name="streak" checked /><span data-i18n="cardStreak">Activity streak</span></label>
+              <label><input type="checkbox" name="cache" /><span data-i18n="cardCache">Cached input share (7d)</span></label>
+              <label><input type="checkbox" name="rank" /><span data-i18n="elementRank">Site-wide rank</span></label>
             </fieldset>
           </form>
 
@@ -161,19 +161,20 @@ tokensburned connect</code></pre>
         <dl>
           <div><dt data-i18n="privacyLeaves">Leaves your machine</dt><dd data-i18n="privacyLeavesValue">Token counts, harness, provider, model, hashed session ID, 15 minute bucket.</dd></div>
           <div><dt data-i18n="privacyStays">Stays on your machine</dt><dd data-i18n="privacyStaysValue">Prompts, responses, source code, repository names, transcript paths, API keys.</dd></div>
-          <div><dt data-i18n="privacyRuns">Runs automatically</dt><dd data-i18n="privacyRunsValue">A short best-effort lifecycle upload. No cron job, daemon, proxy, or Git commit.</dd></div>
+          <div><dt data-i18n="privacyRuns">Runs automatically</dt><dd data-i18n="privacyRunsValue">Hooks collect supported activity. The optional background collector starts at login and respects the server upload schedule.</dd></div>
         </dl>
       </section>
 
       <section class="final-cta" aria-labelledby="cta-title">
-        <img src="./favicon.svg" width="64" height="64" alt="" />
+        <img src="./favicon.svg?v=flame-2" width="64" height="64" alt="" />
         <h2 id="cta-title" data-i18n="ctaTitle">Document the damage.</h2>
         <p data-i18n="ctaLede">Open source, privacy bounded, and mildly judgmental.</p>
         <div class="hero-actions"><a class="button primary" href="#install" data-i18n="ctaInstall">Install TokensBurned</a><a class="button secondary" href="https://github.com/Parsifal1986/TokensBurned" data-i18n="ctaSource">Read the source</a></div>
       </section>
     </main>
 
-    <footer><span>TokensBurned</span><a href="./limits.html" data-i18n="navLimits">Usage limits</a><span data-i18n="footer">© 2026 parsifal1986. MIT licensed.</span></footer>
+    <footer><span>TokensBurned</span>
+        <a href="./limits.html" data-i18n="navLimits">Usage limits</a><span data-i18n="footer">© 2026 parsifal1986. MIT licensed.</span></footer>
     <span id="copy-status" class="sr-only" aria-live="polite"></span>
   </body>
 </html>
