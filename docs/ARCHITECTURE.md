@@ -48,9 +48,20 @@ detached `burn upload-worker` process guarded by `~/.burn/upload-worker.json`
 (pid + planned time; a dead pid or a plan more than ten minutes overdue counts
 as stale). The worker sleeps in bounded steps, re-reads the outbox when it wakes,
 uploads once the window opens, follows server deferrals for at most two hours,
-and removes its lock on exit. Cline's `afterRun` hook and the `backfill` command
-use the same helper, so every install surface shares one worker per `BURN_HOME`; only the explicit `backfill` command
-and `connect --backfill` force an immediate upload.
+and removes its lock on exit. Cline's `afterModel` hook and the `backfill` command
+use the same helper, so every install surface shares one worker per `BURN_HOME`.
+Explicit backfills, including `connect --backfill`, obey the shared upload schedule.
+Successful server next-flush waits are persisted across processes and take priority
+over an earlier local UTC boundary. Manual `ingest --upload` only queues data for
+a later normal sync; it neither sends requests nor starts a worker.
+
+The standalone `run` command installs a user-level login service (macOS launchd or Linux systemd) whose collector scans supported local sources once a
+minute and uses the same outbox and scheduling gate. Its process lock prevents
+concurrent collectors; persisted per-source checkpoints support catch-up and
+network failures retry without another hook. Unexpected crashes are restarted by the OS; the runtime snapshot survives plugin cache eviction. `run --foreground` bypasses service installation for diagnostics. See [collector contracts](cli-collection.md).
+`update` still queues recent supported history before one scheduled flush.
+`sync --cloud` is compatibility-only. The old static GitHub commands are retired;
+legacy hook settings cannot trigger GitHub repository writes.
 
 On reconnect, the client supplies the previous device ID (never the old secret) to
 the authorized device-code poll. After GitHub authorization, the Worker rotates

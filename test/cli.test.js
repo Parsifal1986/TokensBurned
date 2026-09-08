@@ -81,7 +81,7 @@ test("connect preserves the legacy device ID and ACKs, including across disconne
   assert.equal(JSON.parse(await fs.readFile(outboxFile)).days.day.acked_revision, 0);
 });
 
-test("CLI ingests, reports and renders without network", async () => {
+test("legacy local ingest remains offline; retired commands cannot mutate data", async () => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-test-"));
   const env = { ...process.env, BURN_HOME: home, NO_COLOR: "1" };
   const fixture = path.join(home, "event.json");
@@ -96,9 +96,12 @@ test("CLI ingests, reports and renders without network", async () => {
   const status = await execFileAsync(process.execPath, [cli], { env });
   assert.match(status.stdout, /Claude Code/);
   assert.match(status.stdout, /DeepSeek/);
-  await execFileAsync(process.execPath, [cli, "render"], { env });
-  const svg = await fs.readFile(path.join(home, "stats.svg"), "utf8");
-  assert.match(svg, /<svg/);
+  const before = await fs.readFile(path.join(home, "stats.json"), "utf8");
+  for (const command of ["setup", "sync", "render", "clean"]) {
+    await assert.rejects(execFileAsync(process.execPath, [cli, command, "--yes"], { env }), error => /is retired/.test(error.stderr));
+    assert.equal(await fs.readFile(path.join(home, "stats.json"), "utf8"), before);
+  }
+  await assert.rejects(fs.access(path.join(home, "stats.svg")));
   await fs.rm(home, { recursive: true, force: true });
 });
 
@@ -340,14 +343,15 @@ test("Stop merges every turn, SessionStart catches up, and one waiting worker up
   assert.equal(outbox.days[dayKey].acked_revision, outbox.days[dayKey].revision);
 });
 
-test("update reports the release, merges recent sessions and uploads what is due", async (t) => {
+test("update checks releases but merges usage without bypassing the server upload window", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-update-catchup-"));
   t.after(() => fs.rm(home, { recursive: true, force: true }));
   const burnHome = path.join(home, ".burn");
   const sessions = path.join(home, ".codex", "sessions");
   await fs.mkdir(sessions, { recursive: true });
   await fs.mkdir(burnHome, { recursive: true });
-  const at = new Date(Date.now() - 60_000).toISOString();
+  const initialNow = Date.now();
+  const at = new Date(initialNow - 60_000).toISOString();
   await fs.writeFile(path.join(sessions, "rollout.jsonl"), [
     { timestamp: at, type: "session_meta", payload: { session_id: "update-session" } },
     { timestamp: at, type: "turn_context", payload: { model: "gpt-5" } },
@@ -357,6 +361,8 @@ test("update reports the release, merges recent sessions and uploads what is due
   const mockFetch = path.join(home, "mock-fetch.mjs");
   await fs.writeFile(mockFetch, `
   import fs from "node:fs/promises";
+  const NativeDate = Date, clockNow = Number(process.env.BURN_TEST_NOW);
+  globalThis.Date = class extends NativeDate { constructor(...args) { super(...(args.length ? args : [clockNow])); } static now() { return clockNow; } };
   globalThis.fetch = async (url, init) => {
     const pathname = new URL(url).pathname;
     if (pathname === "/v1/client/version") {
@@ -365,14 +371,15 @@ test("update reports the release, merges recent sessions and uploads what is due
     if (pathname !== "/v1/ingest/batch") return new Response("{}");
     const { days } = JSON.parse(init.body);
     await fs.appendFile(process.env.BURN_TEST_COUNT_FILE, "x");
-    return new Response(JSON.stringify({ accepted: days.length, acked_days: days }));
+    return new Response(JSON.stringify({ accepted: days.length, acked_days: days, next_flush_after: 10800 }));
   };
   `);
   await fs.writeFile(path.join(burnHome, "config.json"), JSON.stringify({ server: { enabled: true, api_origin: "https://api.example.test" }, updates: {} }));
   await fs.writeFile(path.join(burnHome, "credentials.json"), JSON.stringify({ device_token: `tb_live_updatedevice.${"o".repeat(43)}` }));
-  const env = { ...process.env, HOME: home, BURN_HOME: burnHome, NO_COLOR: "1", BURN_TEST_COUNT_FILE: countFile, CODEX_PLUGIN_ROOT: path.resolve(".") };
+  const env = { ...process.env, HOME: home, BURN_HOME: burnHome, NO_COLOR: "1", BURN_TEST_COUNT_FILE: countFile, BURN_TEST_NOW: String(initialNow), CODEX_PLUGIN_ROOT: path.resolve(".") };
   delete env.TOKENSBURNED_DISABLE_UPDATE_CHECK;
-  const { stdout } = await execFileAsync(process.execPath, ["--import", mockFetch, cli, "update"], { env });
+  const update = (at = initialNow) => execFileAsync(process.execPath, ["--import", mockFetch, cli, "update", "--force"], { env: { ...env, BURN_TEST_NOW: String(at) } });
+  const { stdout } = await update();
   assert.match(stdout, /9\.9\.9 is available/);
   assert.match(stdout, /codex plugin add tokensburned@tokensburned/);
   assert.match(stdout, /Merged 1 recent bucket from codex/);
@@ -380,6 +387,19 @@ test("update reports the release, merges recent sessions and uploads what is due
   assert.equal(await fs.readFile(countFile, "utf8"), "x", "the merged day was uploaded during update");
   const outbox = JSON.parse(await fs.readFile(path.join(burnHome, "server-outbox.json"), "utf8"));
   assert.ok(Object.values(outbox.days).every((day) => day.acked_revision === day.revision));
+  await fs.appendFile(path.join(sessions, "rollout.jsonl"), JSON.stringify({ timestamp: at, type: "event_msg", payload: { type: "token_count", info: { total_token_usage: { input_tokens: 200, cached_input_tokens: 20, output_tokens: 80, reasoning_output_tokens: 10 } } } }) + "\n");
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const result = await update();
+    assert.match(result.stdout, /9\.9\.9 is available/, "release checks can still be forced");
+    assert.match(result.stdout, /next upload window/);
+    assert.equal(await fs.readFile(countFile, "utf8"), "x", "repeated updates cannot force a second upload");
+  }
+  const queued = JSON.parse(await fs.readFile(path.join(burnHome, "server-outbox.json"), "utf8"));
+  assert.equal(Object.values(queued.days)[0].input_tokens, 180, "new usage merged while upload was blocked");
+  assert.ok(Object.values(queued.days)[0].revision > Object.values(queued.days)[0].acked_revision);
+  await update(initialNow + 10800_000);
+  assert.equal(await fs.readFile(countFile, "utf8"), "xx", "the queued revision uploads at the server deadline");
+
 });
 
 test("connect polling survives network errors, 429 and 5xx, but stops on authorization_failed (B3)", async (t) => {

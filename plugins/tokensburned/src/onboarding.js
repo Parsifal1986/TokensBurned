@@ -1,4 +1,5 @@
 import { VERSION } from "./constants.js";
+import { detectedHarness } from "./capabilities.js";
 import {
   readConfig,
   readCredentials,
@@ -7,9 +8,7 @@ import {
 import { checkForUpdate, updatePrompt } from "./update.js";
 
 export function onboardingHarness(env = process.env) {
-  if (env.CODEX_PLUGIN_ROOT) return "codex";
-  if (env.CLAUDE_PLUGIN_ROOT) return "claude-code";
-  return env.TOKENSBURNED_HARNESS || undefined;
+  return detectedHarness(env);
 }
 
 // Remind an unconnected install at most this many times, then stay quiet (B5).
@@ -25,6 +24,10 @@ export async function sessionStartContext({
   checkForUpdateImpl = checkForUpdate,
 } = {}) {
   const context = [];
+  const harness = onboardingHarness(env);
+  if (harness && !["codex", "claude-code"].includes(harness)) {
+    context.push(`TokensBurned does not support history backfill for ${harness}. Connecting does not enable automatic collection. Run tokensburned doctor for capture capabilities; explicit cloud imports use ingest --upload and the contract in docs/usage-import.md.`);
+  }
   let connected = false;
   try {
     const credentials = await readCredentialsImpl();

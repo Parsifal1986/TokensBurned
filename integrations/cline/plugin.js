@@ -1,22 +1,45 @@
-import crypto from "node:crypto";
 import { API_ORIGIN } from "../../src/constants.js";
 import { readConfig, readCredentials } from "../../src/storage.js";
 import { syncUsageEntries } from "../../src/server-outbox.js";
+import { usageObservation } from "../../src/observations.js";
 import { ensureUploadWorker } from "../../src/upload-worker.js";
 
-const session = crypto.createHash("sha256")
-  .update(`cline:${process.pid}:${crypto.randomUUID()}`)
-  .digest("hex");
-const snapshots = new Map();
-
-function count(value) {
-  const number = Number(value || 0);
-  return Number.isSafeInteger(number) && number > 0 ? number : 0;
-}
-
-function safeDimension(value, fallback = "unknown") {
-  const normalized = String(value || fallback).trim().toLowerCase().replace(/[^a-z0-9._-]/g, "-");
-  return /^[a-z0-9]/.test(normalized) ? normalized.slice(0, 64) : fallback;
+// AgentAfterModelContext supplies per-call metrics, modelInfo, id and createdAt.
+// Never traverse content or snapshot.messages. Contract: Cline SDK shared/agent.ts.
+function observationFromModel(context, now = Date.now()) {
+  const message = context?.assistantMessage;
+  const usage = message?.metrics;
+  if (!message || message.role !== "assistant" || !usage) return null;
+  const counters = {};
+  for (const field of ["inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens", "reasoningTokenCount"]) {
+    const value = usage[field] ?? 0;
+    if (!Number.isSafeInteger(value) || value < 0) return null;
+    counters[field] = value;
+  }
+  const { inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, reasoningTokenCount } = counters;
+  if (!inputTokens && !outputTokens) return null;
+  // The normalized gateway input includes cache; output includes reasoning.
+  // Split subsets instead of adding them twice. Skip incompatible custom metrics.
+  if (cacheReadTokens + cacheWriteTokens > inputTokens || reasoningTokenCount > outputTokens) return null;
+  if (!Number.isFinite(message.createdAt)) return null;
+  return usageObservation({
+    id: message.id,
+    timestamp: new Date(message.createdAt).toISOString(),
+    usage_semantics: "exclusive-delta",
+    harness: { id: "cline" },
+    backend: {
+      provider: message.modelInfo?.provider || "unknown",
+      model: message.modelInfo?.id || "unknown",
+    },
+    usage: {
+      input_tokens: inputTokens - cacheReadTokens - cacheWriteTokens,
+      output_tokens: outputTokens - reasoningTokenCount,
+      cache_read_tokens: cacheReadTokens,
+      cache_write_tokens: cacheWriteTokens,
+      reasoning_tokens: reasoningTokenCount,
+    },
+    request_count: 1,
+  }, { now });
 }
 
 // Same storage as the CLI, so a custom BURN_HOME is honoured here too (B6).
@@ -31,56 +54,32 @@ async function connection() {
   };
 }
 
-async function uploadUsage(context) {
-  try {
-    const usage = context?.result?.usage || {};
-    const input = count(usage.inputTokens ?? usage.input_tokens);
-    const output = count(usage.outputTokens ?? usage.output_tokens);
-    const cacheRead = count(usage.cacheReadTokens ?? usage.cache_read_tokens);
-    const cacheWrite = count(usage.cacheWriteTokens ?? usage.cache_write_tokens);
-    if (input + output + cacheRead + cacheWrite === 0) return;
-    const bucket = Math.floor(Date.now() / 1000 / 900);
-    const previous = snapshots.get(bucket) || {
-      input: 0, output: 0, cache_read: 0, cache_write: 0, reasoning: 0, requests: 0, revision: 0,
-    };
-    const current = {
-      ...previous,
-      input: previous.input + input,
-      output: previous.output + output,
-      cache_read: previous.cache_read + cacheRead,
-      cache_write: previous.cache_write + cacheWrite,
-      requests: previous.requests + 1,
-      revision: previous.revision + 1,
-    };
-    snapshots.set(bucket, current);
-    const connected = await connection();
-    if (!connected) return;
-    const provider = safeDimension(context?.result?.providerId ?? context?.providerId);
-    const model = String(context?.result?.modelId ?? context?.modelId ?? "unknown").slice(0, 160);
-    await syncUsageEntries([{
-        bucket, session, harness: "cline", provider, model,
-        ...current,
-      }], {
-      token: connected.token,
-      credentialApiOrigin: connected.credentialApiOrigin,
-      devicePrivateKeyJwk: connected.devicePrivateKeyJwk,
-      apiOrigin: connected.origin,
-      timeoutMs: 2500,
-      minIntervalMs: 60 * 60 * 1000,
-    });
-    // Same single waiting worker as the CLI hooks (lock lives in BURN_HOME).
-    await ensureUploadWorker();
-  } catch {
-    // Telemetry must never delay or break the Cline run.
-  }
+export function createClinePlugin({
+  connectionImpl = connection,
+  queueImpl = syncUsageEntries,
+  workerImpl = ensureUploadWorker,
+  now = Date.now,
+} = {}) {
+  return {
+    name: "tokensburned",
+    manifest: { capabilities: ["hooks"] },
+    setup() {},
+    hooks: {
+      async afterModel(context) {
+        try {
+          const entry = observationFromModel(context, now());
+          if (!entry || !(await connectionImpl())) return;
+          // Persist and deduplicate before returning. The worker does networking
+          // outside the coding agent's model hook and obeys its upload window.
+          await queueImpl([entry], { upload: false });
+          await workerImpl();
+        } catch {
+          // Telemetry must never stop or modify the coding agent's reply.
+        }
+      },
+    },
+  };
 }
 
-const plugin = {
-  name: "tokensburned",
-  manifest: { capabilities: ["hooks"] },
-  setup() {},
-  hooks: { afterRun: uploadUsage },
-};
-
-export const clineInternals = { connection };
-export default plugin;
+export const clineInternals = { connection, observationFromModel };
+export default createClinePlugin();

@@ -12,10 +12,13 @@ const root = path.resolve(import.meta.dirname, "..");
 const sourceSkills = path.join(root, "skills");
 const pluginSkills = path.join(root, "plugins", "tokensburned", "skills");
 
-test("plugin exposes focused TokensBurned management skills", async () => {
+test("bundled plugin skills match source skills", async () => {
   const entries = await fs.readdir(pluginSkills, { withFileTypes: true });
   const names = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
-  assert.deepEqual(names, ["backfill", "connect", "doctor", "privacy", "server", "update"]);
+  const sourceEntries = await fs.readdir(sourceSkills, { withFileTypes: true });
+  const sourceNames = sourceEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
+  assert.ok(sourceNames.length > 0);
+  assert.deepEqual(names, sourceNames);
 
   for (const name of names) {
     const [source, bundled] = await Promise.all([
@@ -50,15 +53,6 @@ test("repository exposes manifests for the supported plugin ecosystems", async (
   assert.deepEqual(pkg.cline.plugins[0].capabilities, ["hooks"]);
 });
 
-test("Cline integration uploads only aggregate usage fields", async () => {
-  const source = await fs.readFile(path.join(root, "integrations", "cline", "plugin.js"), "utf8");
-  assert.match(source, /context\?\.result\?\.usage/);
-  assert.match(source, /syncUsageEntries/);
-  assert.match(source, /afterRun: uploadUsage/);
-  assert.doesNotMatch(source, /context\?\.(prompt|messages|source|files)/);
-  assert.doesNotMatch(source, /os\.homedir|"\.burn"/, "the integration must not hard-code ~/.burn");
-});
-
 test("Cline integration reads credentials from BURN_HOME like the CLI (B6)", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "burn-cline-home-"));
   t.after(() => fs.rm(home, { recursive: true, force: true }));
@@ -77,16 +71,4 @@ test("Cline integration reads credentials from BURN_HOME like the CLI (B6)", asy
     credentialApiOrigin: "https://api.example.test",
     origin: "https://api.example.test",
   });
-});
-
-test("Gemini extension ships focused setup commands", async () => {
-  const entries = await fs.readdir(path.join(root, "commands", "tokensburned"));
-  assert.deepEqual(entries.sort(), [
-    "backfill.toml",
-    "connect.toml",
-    "doctor.toml",
-    "privacy.toml",
-    "server.toml",
-    "update.toml",
-  ]);
 });

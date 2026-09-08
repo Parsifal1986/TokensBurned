@@ -14,10 +14,17 @@ TokensBurned は各 AI coding harness の token 数とモデル情報だけを�
 | Codex | `codex plugin marketplace add Parsifal1986/TokensBurned`<br>`codex plugin add tokensburned@tokensburned`<br>`$tokensburned:connect` | ネイティブ plugin と承認済み履歴 |
 | Gemini CLI | `gemini extensions install https://github.com/Parsifal1986/TokensBurned`<br>`/tokensburned:connect` | Extension + 明示的な CLI import |
 | Copilot CLI | `copilot plugin install https://github.com/Parsifal1986/TokensBurned` | Plugin workflow + CLI |
-| Cline CLI | `cline plugin install https://github.com/Parsifal1986/TokensBurned.git` | ネイティブ `afterRun().result.usage` |
+| Cline CLI | `cline plugin install https://github.com/Parsifal1986/TokensBurned.git` | ネイティブ `afterModel.assistantMessage.metrics` |
 | その他 | `npm install -g tokensburned` | 明示的な batch import |
 
 Copilot の lifecycle hook は現時点で token 数を提供しないため、ネイティブ plugin を使っても収集は CLI 補助です。Cline plugin は CLI、SDK、Kanban 向けで、エディタ拡張にはまだ適用されません。
+
+
+## ローカル収集
+
+`tokensburned connect` で接続し、`tokensburned run` でバックグラウンドサービスとログイン時の自動起動を設定します（macOS/Linux）。Codex、Claude Code、対応する OpenCode v1 SQLite（sqlite3 が必要）の利用量を収集し、サーバーの時刻に従って送信・再試行します。`run --stop` で停止と自動起動の解除、`run --foreground` で診断できます。Cursor と Aider の自動収集は未対応です。保守操作は `help --advanced` にあります。`setup`、引数なしの `sync`、`render`、`clean` は廃止されました。
+
+[Collection contracts](../cli-collection.md)
 
 ## Profile カード
 

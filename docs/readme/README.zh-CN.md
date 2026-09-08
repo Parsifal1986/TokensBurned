@@ -63,9 +63,9 @@ gemini
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <h3>Cline CLI</h3><p><strong>原生 afterRun 用量 hook</strong></p>
+      <h3>Cline CLI</h3><p><strong>逐次模型调用用量 hook</strong></p>
       <pre><code>cline plugin install https://github.com/Parsifal1986/TokensBurned.git</code></pre>
-      <p>只读取 Cline 返回的 <code>result.usage</code>。目前 Cline 插件仅适用于 CLI、SDK 和 Kanban。</p>
+      <p>兼容的 Cline CLI / SDK 宿主通过 afterModel 提供消息用量、模型身份、稳定消息 ID。客户端先持久化去重，再上传；旧的 afterRun-only 宿主需要显式导入。</p>
     </td>
     <td width="50%" valign="top">
       <h3>OpenCode、Cursor、Aider 等</h3><p><strong>独立 CLI</strong></p>
@@ -76,6 +76,8 @@ tokensburned doctor</code></pre>
     </td>
   </tr>
 </table>
+
+使用 `ingest --upload --dry-run` 预览云导入，再去掉 `--dry-run` 才写入云上传队列。普通 `ingest` 仍只更新本地统计。详见[云导入格式](../usage-import.md)。Gemini / Copilot 等的自动采集和历史回填尚未实现。
 
 ## 生成 GitHub Profile 卡片
 
@@ -101,23 +103,19 @@ tokensburned doctor</code></pre>
 | 跟随系统主题 | `&theme=auto` |
 | 固定浅色或深色 | `&theme=light` 或 `&theme=dark` |
 
-## CLI fallback
+## 独立 CLI
 
-```bash
+```sh
 npm install -g tokensburned
 tokensburned connect
+tokensburned run
 ```
 
-常用命令：
+`run` 会安装当前用户的后台服务并在登录后自启，每分钟检查本地用量，持久化去重，并在服务端允许的时间上传；断网后自动按退避时间重试。`run --stop` 停止并取消自启；`run --foreground` 可前台诊断。不需要 root。支持 Codex、Claude Code 和兼容的 OpenCode v1 SQLite 用量（需要 sqlite3）；Cursor、Aider 尚无可靠的自动采集来源，不能把估算日志当成真实消耗。
 
-- `tokensburned backfill --harness codex --dry-run`：只在本地预览 Codex 历史。
-- `tokensburned backfill --harness claude-code --days 30`：导入明确批准的 Claude Code 时间范围。
-- `tokensburned backfill --all-harnesses --days 30`：显式扫描所有已识别 harness。
-- `tokensburned server`：查看服务端统计与公开 SVG 地址。
-- `tokensburned privacy public|private`：显式开启或关闭公开卡片。
-- `tokensburned disconnect`：撤销当前设备凭证，保留历史，对应槽位最多冷却 30 天。
-- `tokensburned delete-server-data`：删除服务器聚合数据、设备、身份和卡片。
-- `tokensburned doctor`：查看检测结果和所有数据边界。
+日常仅需 `connect`、`run`、`status`（默认命令）、`privacy`、`doctor`、`update` 和 `disconnect`。历史回填、查询云端总量和删除数据放在 `help --advanced`。更新检查可以立即执行，上传不能绕过服务端周期。
+
+旧的 `setup`、普通 `sync`、`render`、`clean` 已废弃，执行会提示迁移，不写 GitHub 也不删除待上传数据。详见[采集范围与命令迁移](../cli-collection.md)。
 
 ## 隐私边界
 
@@ -129,7 +127,7 @@ tokensburned connect
 | 15 分钟时间桶 | transcript 文件与路径 |
 | 请求次数 | API key 与 provider 凭证 |
 
-公开卡片默认关闭。服务端聚合数据会保留到你执行 `tokensburned delete-server-data`；设备凭证 180 天后过期，也可以提前撤销。TokensBurned 不安装 cron、daemon、proxy 或 Git 同步任务。完整说明见 [SECURITY.md](../../SECURITY.md)。项目采用 [MIT License](../../LICENSE)。
+公开卡片默认关闭。服务端聚合数据会保留到你执行 `tokensburned delete-server-data`；设备凭证 180 天后过期，也可以提前撤销。只有明确执行 `run` 才安装用户级后台服务，不安装 root daemon、流量代理或 Git 同步任务。完整说明见 [SECURITY.md](../../SECURITY.md)。项目采用 [MIT License](../../LICENSE)。
 
 ### 免费版设备槽位
 

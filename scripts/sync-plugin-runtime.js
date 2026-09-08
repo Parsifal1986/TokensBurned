@@ -18,6 +18,8 @@ await replaceDirectory("src");
 await replaceDirectory("bin");
 await replaceDirectory("commands");
 await replaceDirectory("skills");
+await fs.mkdir(path.join(plugin, "docs"), { recursive: true });
+for (const name of ["usage-import.md", "cli-collection.md"]) await fs.copyFile(path.join(root, "docs", name), path.join(plugin, "docs", name));
 await fs.mkdir(path.join(plugin, "scripts"), { recursive: true });
 for (const name of ["hook.js", "onboarding.js"]) {
   await fs.copyFile(path.join(root, "scripts", name), path.join(plugin, "scripts", name));

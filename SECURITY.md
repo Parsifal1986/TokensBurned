@@ -43,3 +43,9 @@ Unauthenticated device-flow endpoints use persistent per-client rate limits. API
 Production service credentials are maintained outside this client repository and must never be committed.
 
 Please report security issues privately to the maintainers before opening a public issue.
+
+## Standalone local collector
+
+The opt-in `run` command continuously reads supported local usage and writes only aggregate queues and local checkpoint/status metadata. An explicit `run` installs a user-level login service on macOS/Linux; `run --foreground` is available for diagnostics. The service has no root privileges, copies only runtime code to BURN_HOME and never embeds credentials or arbitrary shell environment. `run --stop` removes login startup without deleting queued data. Upload times, leases, server backoff and account credentials use the shared uploader; there is no force-upload control. OpenCode support uses `sqlite3 -readonly` with an explicit metadata projection, excludes message parts and rejects unknown v2 data. Cursor and Aider logs are not inferred into token consumption. See [source contracts](docs/cli-collection.md).
+
+Retired static-card commands (`setup`, plain `sync`, `render`, `clean`) fail before side effects; old hook sync configuration no longer writes to GitHub. Maintenance account deletion and visibility controls remain explicit. Integration commands being absent from daily help is a usability distinction, not a security boundary.

@@ -4,15 +4,13 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { sanitizeHookPayload } from "../src/schema.js";
+import { detectedHarness } from "../src/capabilities.js";
+import { adapterFor } from "../src/adapters/index.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const harness = process.env.CODEX_PLUGIN_ROOT
-  ? "codex"
-  : process.env.COPILOT_PLUGIN_ROOT
-    ? "copilot"
-    : process.env.GEMINI_SESSION_ID || process.env.TOKENSBURNED_EXTENSION_PATH
-      ? "gemini-cli"
-      : "claude";
+const harness = detectedHarness();
+// Unsupported hosts must not fall back to another harness's history directory.
+if (!adapterFor(harness)) process.exit(0);
 const chunks = [];
 let size = 0;
 for await (const chunk of process.stdin) {

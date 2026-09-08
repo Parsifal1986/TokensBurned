@@ -15,8 +15,8 @@ export const codexAdapter = {
     }
   },
   async readUsage() {
-    // Burn only accepts the usage object supplied by a hook. It never parses
-    // rollout/session history because those files may also contain prompts.
+    // Continuous collection and backfill use the scoped src/history.js reader.
+    // This lightweight hook adapter does not enumerate history itself.
     return [];
   },
   detectBackend: detectCodexBackend,

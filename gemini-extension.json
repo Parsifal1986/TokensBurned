@@ -1,6 +1,6 @@
 {
   "name": "tokensburned",
   "version": "0.6.8",
-  "description": "Track aggregate Gemini CLI token usage and publish a live GitHub profile card.",
+  "description": "TokensBurned setup skills and explicit token-only CLI import. Automatic Gemini capture is not implemented.",
   "contextFileName": "GEMINI.md"
 }
