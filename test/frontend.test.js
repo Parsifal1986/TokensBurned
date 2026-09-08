@@ -11,7 +11,10 @@ const demoCard = await fs.readFile(new URL("../public/demo/card-full.svg", impor
 
 test("landing page declares privacy policy and ships a fictional demo", () => {
   assert.match(html, /Content-Security-Policy/);
-  assert.match(html, /<script type="module" src="\.\/app\.js\?v=card-2"/);
+  const moduleScripts = [...html.matchAll(/<script\b[^>]*type="module"[^>]*src="([^"]+)"/g)]
+    .map((match) => new URL(match[1], "https://preview.example/index.html"));
+  assert.ok(moduleScripts.some((url) => url.origin === "https://preview.example" && url.pathname === "/app.js"),
+    "the page must load its local application module regardless of its cache-busting version");
   assert.match(html, /name="referrer" content="no-referrer"/);
   assert.doesNotMatch(html, /v1\/cards\/u\/parsifal1986|value="parsifal1986"/);
   assert.match(demoCard, /sample-user/);

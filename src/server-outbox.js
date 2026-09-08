@@ -105,8 +105,7 @@ function addDimension(target, key, tokens) {
   incrementOwnCounter(target, key, tokens);
 }
 
-// Must not exceed MAX_DIMENSIONS_PER_KIND in the Worker's src/protocol.js (32);
-// a larger map makes the whole upload fail with 400 too_many_dimensions (B2).
+// Bound attribution metadata while preserving totals in an overflow category.
 export const MAX_DIMENSIONS_PER_KIND = 32;
 
 function boundedDimensions(values, maximum = MAX_DIMENSIONS_PER_KIND) {
@@ -238,9 +237,7 @@ function retryAt(day) {
   return Number.isFinite(at) ? at : 0;
 }
 
-// Days that may be sent now: pending by revision and not inside a server
-// deferral. Deferrals are per day because the Worker closes yesterday's write
-// window for the rest of the UTC day while today stays writable every hour.
+// Keep pending days queued until their individual retry times have passed.
 export function pendingEnvelopes(outbox, now = Date.now()) {
   return pendingByRevision(outbox)
     .filter((day) => retryAt(day) <= now)
@@ -265,7 +262,7 @@ export function rejectEnvelopes(outbox, rejections) {
   return rejected;
 }
 
-// Only `acked_days` advance acknowledgements. Days the Worker reports in
+// Only `acked_days` advance acknowledgements. Days the response lists in
 // `throttled_days` (write window not yet open) are deliberately ignored here so
 // they stay pending and are retried after `next_flush_after` seconds (C1).
 export function acknowledgeEnvelopes(outbox, acknowledgements, uploadedAt = new Date()) {
@@ -321,8 +318,8 @@ export async function rememberServerPlan(plan, outboxFile = SERVER_OUTBOX_PATH, 
   return mutateOutbox(outboxFile, async (outbox) => { outbox.plan = normalizedPlan(plan, now); });
 }
 
-// Earliest time the next upload may run. The Worker accepts one write per UTC
-// window, so the client waits for the next window boundary after its last
+// Earliest time the next upload may run. The client waits for the next UTC
+// window boundary after its last
 // successful upload rather than a fixed spacing; when every pending day is
 // deferred by the server, the earliest deferral decides instead.
 export function nextUploadAt(outbox, windowMs, now = Date.now()) {

@@ -24,20 +24,20 @@
 TokensBurned convierte el uso de tokens de tus herramientas de programación con IA en una tarjeta SVG en vivo para tu perfil de GitHub. El cliente lee los metadatos de uso de harnesses como Claude Code y Codex, los reduce localmente a contadores agregados y solo sube esos agregados. Los prompts, las respuestas y el código fuente nunca salen de tu equipo.
 
 <div align="center">
-  <img src="../../assets/demo-card-builder.gif" width="840" alt="Constructor de tarjetas de TokensBurned cambiando entre los diseños completo, compacto y meme" />
+  <img src="../../assets/demo-card-builder.gif" width="840" alt="TokensBurned card builder" />
   <p><sub><a href="https://tokensburned.com/?lang=es#card-builder">Abre el creador interactivo de tarjetas</a>. La vista previa usa datos ficticios locales.</sub></p>
 </div>
 
 ## Características
 
-- **Tarjeta de perfil en vivo.** Una única URL de imagen muestra totales de 24 horas, 7 días, 30 días e histórico, mapas de calor diarios y horarios, comparativas de harness, provider y model, y una clasificación anónima a nivel de todo el sitio. Sin tareas programadas ni commits al README.
-- **Reducción local.** Las sesiones se reducen en tu equipo a bloques de 15 minutos antes de subir nada.
-- **Límite de privacidad estricto.** Los prompts, las respuestas, el código fuente, los nombres de repositorios, las rutas de las transcripciones y las claves de API nunca se recopilan. Consulta [Privacidad y seguridad](#privacidad-y-seguridad).
-- **Privado de forma predeterminada.** Conectar una cuenta y subir agregados no crea una tarjeta pública. Publicarla es un comando aparte y explícito.
-- **Atribución precisa.** Harness, provider y model se registran como identidades independientes. Una sesión de Claude Code que se comunica con un provider distinto se etiqueta como tal.
-- **Compatibilidad honesta.** Los hooks nativos, los flujos de plugin y el CLI independiente se etiquetan por separado para que sepas cómo se mide cada harness.
+- **Tarjeta de actividad.** Muestra totales, la tendencia de siete días, un mapa de actividad y el desglose por herramienta. Las rachas, la caché y la clasificación son opcionales.
+- **Procesamiento local.** Los registros se procesan en tu equipo. Solo se envían cifras agregadas y etiquetas de herramienta, proveedor y modelo.
+- **Privado por defecto.** Conectar la cuenta no publica la tarjeta. Tú decides cuándo hacerlo.
+- **Compatibilidad definida.** Se utilizan los tokens que informa cada herramienta, sin estimarlos a partir del texto o del coste.
 
 ## Harnesses compatibles
+
+Esta tabla describe el código actual. Para una versión instalada, consulta el README de su [etiqueta de lanzamiento](https://github.com/Parsifal1986/TokensBurned/releases).
 
 | Harness | Superficie de instalación | Fuente de tokens | Nivel de soporte |
 | --- | --- | --- | --- |
@@ -52,6 +52,12 @@ TokensBurned convierte el uso de tokens de tus herramientas de programación con
 TokensBurned nunca estima tokens a partir de la longitud del prompt o el costo, y no acepta tráfico de exportadores de telemetría. Los detalles de cada fuente están en [Contratos de recolección local](../cli-collection.md).
 
 ## Inicio rápido
+
+La recopilación en segundo plano requiere Node.js 20 o posterior y la CLI.
+
+```sh
+npm install -g tokensburned
+```
 
 <div align="center">
   <img src="../../assets/demo-install.gif" width="840" alt="Instalador de TokensBurned cambiando entre Claude Code, Codex y Gemini CLI" />
@@ -113,18 +119,11 @@ gemini
 
 ### Cómo funciona la recolección
 
-- **Hooks de ciclo de vida.** En Claude Code y Codex, el plugin reduce la transcripción actual a una cola local después de cada turno y vuelve a revisar las sesiones recientes al iniciar, de modo que una sesión que nunca termina limpiamente igual se cuenta.
-- **CLI y plugins juntos.** Usa el mismo <code>BURN_HOME</code> (por defecto <code>~/.burn</code>) y las credenciales de dispositivo. Su cola compartida deduplica las solicitudes y las instantáneas de transcripción, y el servidor reemplaza la revisión diaria de cada dispositivo. Los homes o dispositivos separados que leen el mismo historial pueden duplicar el conteo; los totales anónimos en la nube no pueden deduplicar esas copias.
-- **Subidas programadas.** Los agregados en cola se suben según el horario del servicio, como máximo una vez por hora de forma predeterminada. Ningún comando puede forzar una subida anticipada.
-- **Avisos de actualización.** Los plugins instalados comprueban si hay una versión más reciente como máximo una vez cada 24 horas e imprimen el comando nativo del gestor de plugins cuando existe uno. Las actualizaciones nunca se instalan sin una solicitud explícita, y una comprobación fallida nunca bloquea el inicio.
-- **Onboarding.** Mientras esté instalado pero no conectado, el plugin menciona el comando de conexión como máximo tres veces y luego permanece en silencio.
+Usa la misma versión, el mismo `BURN_HOME` (por defecto `~/.burn`) y la misma conexión para la CLI y los plugins. La deduplicación local permite ejecutar ambos a la vez.
 
-```text
-/plugin marketplace add Parsifal1986/TokensBurned
-/plugin install tokensburned@tokensburned
-/reload-plugins
-/tokensburned:connect
-```
+No leas el mismo historial desde directorios de datos separados ni importes manualmente registros ya recogidos de forma automática: puedes contarlos dos veces.
+
+## Tarjeta de perfil
 
 Las tarjetas son privadas hasta que decides activarlas:
 
@@ -165,7 +164,7 @@ La configuración de privacidad siempre se aplica. Un historial de actividad ocu
 
 ## Línea de comandos
 
-El CLI independiente funciona con todos los harnesses y es el transporte que hay detrás de los plugins.
+La CLI recoge el uso de las herramientas compatibles y permite gestionar la conexión y la privacidad.
 
 ```sh
 npm install -g tokensburned
@@ -189,24 +188,21 @@ Los comandos de mantenimiento, como el backfill de historial con alcance limitad
 
 ## Privacidad y seguridad
 
-| Se sube | Nunca se sube |
+| Datos de uso enviados | Datos excluidos de los envíos de uso |
 | --- | --- |
-| Conteos de tokens | Prompts y respuestas |
-| Etiquetas de harness, provider y model | Código fuente y payloads de herramientas |
-| Identificador de sesión con hash | Nombres y rutas de repositorios |
-| Bloque de tiempo de 15 minutos | Archivos y rutas de transcripciones |
-| Número de solicitudes | Claves de API y credenciales de provider |
+| Recuentos agregados de tokens y solicitudes | Prompts, respuestas, código y contenido de herramientas |
+| Etiquetas de herramienta, proveedor y modelo | Nombres de repositorios, rutas y transcripciones |
+| Fechas y horas de actividad | Identificadores de sesión, claves API y credenciales de proveedores |
 
-Un gateway no reconocido se registra solo por su nombre de host. Las credenciales de dispositivo caducan a los 180 días y pueden revocarse en cualquier momento con `tokensburned disconnect`. Los agregados del lado del servidor se conservan hasta que ejecutas `tokensburned delete-server-data`. TokensBurned no instala ningún daemon con privilegios de root, proxy de tráfico ni tarea de sincronización de Git. El límite completo de datos y el modelo de autenticación están documentados en [SECURITY.md](../../SECURITY.md).
+Los registros se procesan localmente; el contenido de los mensajes no se conserva en las estadísticas. Un proveedor desconocido puede aparecer con el nombre de host de su endpoint. Revisa la atribución con `tokensburned doctor` antes de publicar.
+
+Usa `tokensburned privacy public` para publicar y `tokensburned privacy private` para ocultar la tarjeta. `tokensburned disconnect` desconecta el dispositivo actual. Consulta `tokensburned help --advanced` para eliminar los datos de la cuenta.
+
+Consulta [SECURITY.md](../../SECURITY.md) para el tratamiento de datos y la comunicación de vulnerabilidades.
 
 ## Límites de uso
 
-- Cada cuenta de GitHub tiene cinco espacios de dispositivo. Un dispositivo desconectado mantiene su espacio reservado hasta 30 días, y ese mismo dispositivo puede reconectarse a esa reserva.
-- Las conexiones exitosas están limitadas a cinco por cada 10 minutos móviles y diez por cada 24 horas móviles, por cuenta.
-- El backfill de historial cubre un rango seleccionado por el usuario de 1 a 90 días.
-- Eliminar los datos del servidor borra el uso, las credenciales, el perfil de la cuenta y la tarjeta pública. Las reservas de espacio pendientes y los límites de conexión caducan según su horario normal.
-
-La política completa está publicada en [tokensburned.com/limits](https://tokensburned.com/limits.html?lang=es).
+Consulta las condiciones actuales en la [página de límites de uso](https://tokensburned.com/limits.html?lang=es).
 
 ## Documentación
 

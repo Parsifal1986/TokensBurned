@@ -23,14 +23,14 @@ TokensBurned 将你的 AI 编程工具的 token 用量转化为一张实时更�
 
 ## 功能特性
 
-- **实时 Profile 卡片。** 一个图片链接即可展示 24 小时、7 天、30 天和总计用量，日与小时热力图，harness、provider 和 model 对比，以及匿名的站内排名。无需定时任务，也无需提交 README。
-- **本地归并。** Session 会先在你的设备上归并为 15 分钟的时间桶，再上传。
-- **严格的隐私边界。** 提示词、回复、源代码、仓库名、transcript 路径和 API key 永远不会被采集。参见[隐私与安全](#隐私与安全)。
-- **默认不公开。** 连接账号并上传聚合数据不会自动创建公开卡片，发布是另一个需要显式执行的命令。
-- **准确归因。** harness、provider 和 model 会作为三个独立身份分别记录。如果某个 Claude Code session 实际调用了另一个 provider，也会如实标注。
-- **如实标注兼容性。** 原生 hook、插件工作流和独立 CLI 会分别标注，让你清楚每个 harness 是如何被统计的。
+- **用量卡片。** 展示用量总计、七日趋势、活动热力图、工具分布，以及可选的连续活跃、缓存和排名信息。
+- **本地处理。** 在设备上处理用量记录，仅上传汇总计数与工具、提供商和模型标签。
+- **默认私有。** 连接账号不会公开卡片，由你决定是否发布。
+- **明确的兼容范围。** 依据工具报告的真实用量统计，不按提示词长度或费用估算。
 
 ## 支持的 Harness
+
+本表说明当前源码的支持范围。已安装版本请参阅对应[发布标签](https://github.com/Parsifal1986/TokensBurned/releases)下的 README。
 
 | Harness | 安装方式 | Token 来源 | 支持程度 |
 | --- | --- | --- | --- |
@@ -45,6 +45,12 @@ TokensBurned 将你的 AI 编程工具的 token 用量转化为一张实时更�
 TokensBurned 不会根据提示词长度或费用估算 token，也不接受遥测导出器流量。各数据源的详细说明见[本地采集约定](../cli-collection.md)。
 
 ## 快速开始
+
+后台采集需要 Node.js 20 或更新版本及独立 CLI：
+
+```sh
+npm install -g tokensburned
+```
 
 <div align="center">
   <img src="../../assets/demo-install.gif" width="840" alt="TokensBurned 安装器在 Claude Code、Codex 和 Gemini CLI 之间切换的演示" />
@@ -106,11 +112,9 @@ gemini
 
 ### 采集原理
 
-- **生命周期 hook。** 在 Claude Code 和 Codex 中，插件会在每一轮结束后把当前 transcript 归并进本地队列，并在启动时重新检查最近的 session，因此一个没有正常结束的 session 依然会被计入。
-- **CLI 与插件协同。** 两者共用同一个 <code>BURN_HOME</code>（默认为 <code>~/.burn</code>）和设备凭证。它们共享的队列会对请求和 transcript 快照去重，服务端会以每个设备当天的最新版本为准。如果不同的 home 目录或设备读取了同一份历史，可能会重复计数；匿名的云端总量无法对这些重复数据去重。
-- **定时上传。** 已入队的聚合数据会按服务端的计划上传，默认最多每小时一次。没有任何命令可以强制提前上传。
-- **更新提示。** 已安装的插件最多每 24 小时检查一次新版本，如果存在对应的原生插件管理器命令就会打印出来。更新永远不会在未经显式请求的情况下自动安装，检查失败也不会阻塞启动。
-- **引导流程。** 已安装但尚未连接时，插件最多提醒三次 connect 命令，之后就会保持静默。
+CLI 与插件应使用同一版本、同一个 `BURN_HOME`（默认 `~/.burn`）和同一连接。本地去重允许后台采集器与插件同时运行。
+
+不要用不同数据目录读取同一份历史，也不要手动导入自动采集器已记录的请求，否则可能重复计数。
 
 ## Profile 卡片
 
@@ -171,30 +175,27 @@ tokensburned run
 | `tokensburned update` | 检查新版本并补齐最近的历史数据 |
 | `tokensburned disconnect` | 撤销当前设备的凭证 |
 
-`run` 会安装一个用户级服务，每分钟读取受支持的本地数据源，持久化队列，并按服务端计划重试，不需要 root 权限。使用 `run --stop` 取消登录自启，在没有受支持服务管理器的平台上或需要诊断时使用 `run --foreground`。`burn` 是 `tokensburned` 的简短别名。
+`run` 会安装一个用户级服务，每分钟读取受支持的本地数据源，持久化队列，并自动重试上传，不需要 root 权限。使用 `run --stop` 取消登录自启，在没有受支持服务管理器的平台上或需要诊断时使用 `run --foreground`。`burn` 是 `tokensburned` 的简短别名。
 
 限定范围的历史回填、已认证总量查询、账号删除等维护命令可以通过 `tokensburned help --advanced` 查看。命令迁移说明和手动导入约定见[本地采集约定](../cli-collection.md)和[用量导入](../usage-import.md)。
 
 ## 隐私与安全
 
-| 会上传 | 永不上传 |
+| 上传的用量数据 | 不包含在用量上传中 |
 | --- | --- |
-| Token 数量 | 提示词和回复 |
-| Harness、provider 和 model 标签 | 源代码和工具 payload |
-| 哈希后的 session 标识 | 仓库名和路径 |
-| 15 分钟时间桶 | Transcript 文件和路径 |
-| 请求次数 | API key 和 provider 凭证 |
+| 汇总 token 数量和请求次数 | 提示词、回复、源代码和工具内容 |
+| 工具、提供商和模型标签 | 仓库名、文件路径和原始会话记录 |
+| 活动日期和小时 | 会话 ID、API 密钥和提供商凭证 |
 
-无法识别的网关只会以主机名的形式记录。设备凭证在 180 天后过期，也可以随时用 `tokensburned disconnect` 撤销。服务端聚合数据会一直保留，直到你执行 `tokensburned delete-server-data`。TokensBurned 不会安装 root daemon、流量代理或 Git 同步任务。完整的数据边界和认证模型记录在 [SECURITY.md](../../SECURITY.md) 中。
+用量记录在本地处理，消息内容不会保存在客户端统计中。未知提供商可能以端点主机名标注；发布前可用 `tokensburned doctor` 检查归属信息。
+
+卡片默认私有。用 `tokensburned privacy public` 发布，或用 `tokensburned privacy private` 隐藏。用 `tokensburned disconnect` 断开当前设备；账号数据删除命令见 `tokensburned help --advanced`。
+
+客户端的数据处理与漏洞报告说明见 [SECURITY.md](../../SECURITY.md)。
 
 ## 使用限额
 
-- 每个 GitHub 账号有 5 个设备槽位。设备断开连接后，其槽位最多保留 30 天，同一设备可以在这段时间内重新连接回原槽位。
-- 每个账号成功连接次数限制为滚动 10 分钟内最多 5 次、滚动 24 小时内最多 10 次。
-- 历史回填支持用户自选的 1 到 90 天范围。
-- 删除服务端数据会移除用量、凭证、账号资料和公开卡片。尚未到期的槽位预留和连接额度仍按原定时间过期。
-
-完整规则发布在 [tokensburned.com/limits](https://tokensburned.com/limits.html?lang=zh-CN)。
+当前账号政策和使用限制见[使用限额页面](https://tokensburned.com/limits.html?lang=zh-CN)。
 
 ## 文档
 

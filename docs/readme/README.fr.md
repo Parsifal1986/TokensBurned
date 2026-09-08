@@ -24,20 +24,20 @@
 TokensBurned transforme l'utilisation de tokens de vos outils de programmation IA en une carte SVG vivante pour votre profil GitHub. Le client lit les métadonnées d'utilisation depuis des harnesses tels que Claude Code et Codex, les réduit localement en compteurs agrégés, puis ne téléverse que ces agrégats. Les prompts, les réponses et le code source ne quittent jamais votre machine.
 
 <div align="center">
-  <img src="../../assets/demo-card-builder.gif" width="840" alt="Générateur de cartes TokensBurned basculant entre les dispositions complète, compacte et meme" />
+  <img src="../../assets/demo-card-builder.gif" width="840" alt="TokensBurned card builder" />
   <p><sub><a href="https://tokensburned.com/?lang=fr#card-builder">Ouvrir le générateur de cartes interactif</a>. L'aperçu utilise des données locales fictives.</sub></p>
 </div>
 
 ## Fonctionnalités
 
-- **Carte de profil en direct.** Une seule URL d'image affiche les totaux sur 24 heures, 7 jours, 30 jours et depuis toujours, des heatmaps quotidiennes et horaires, des comparaisons harness, provider et model, et un classement anonyme à l'échelle du site. Aucune tâche planifiée ni commit de README nécessaire.
-- **Réduction locale.** Les sessions sont réduites sur votre machine en tranches de 15 minutes avant tout téléversement.
-- **Limite stricte de confidentialité.** Les prompts, réponses, code source, noms de dépôts, chemins de transcription et clés API ne sont jamais collectés. Voir [Confidentialité et sécurité](#confidentialité-et-sécurité).
-- **Privée par défaut.** Connecter un compte et téléverser des agrégats ne crée pas de carte publique. La publication est une commande distincte et explicite.
-- **Attribution précise.** Harness, provider et model sont enregistrés comme des identités distinctes. Une session Claude Code qui communique avec un provider différent est étiquetée comme telle.
-- **Compatibilité honnête.** Les hooks natifs, les workflows de plugin et le CLI autonome sont étiquetés séparément afin que vous sachiez comment chaque harness est mesuré.
+- **Carte d’activité.** Affiche les totaux, la tendance sur sept jours, une carte d’activité et la répartition par outil. Les séries de jours actifs, le cache et le classement sont facultatifs.
+- **Traitement local.** Les journaux sont traités sur votre appareil. Seuls les compteurs agrégés et les libellés d’outil, de fournisseur et de modèle sont envoyés.
+- **Privé par défaut.** La connexion du compte ne publie pas la carte. Vous choisissez quand la rendre publique.
+- **Compatibilité explicite.** Les comptes de tokens proviennent des outils, sans estimation à partir du texte ou du coût.
 
 ## Harnesses pris en charge
+
+Ce tableau décrit le code actuel. Pour une version installée, consultez le README de son [tag de version](https://github.com/Parsifal1986/TokensBurned/releases).
 
 | Harness | Surface d'installation | Source des tokens | Niveau de support |
 | --- | --- | --- | --- |
@@ -49,9 +49,15 @@ TokensBurned transforme l'utilisation de tokens de vos outils de programmation I
 | GitHub Copilot CLI | Plugin de configuration et extension en direct | Événements officiels `assistant.usage` | Capture en direct par appel ; pas de backfill de transcription |
 | Cursor, Aider, autres | CLI autonome | Utilisation observée fournie par l'intégrateur | Pas de capture automatique |
 
-TokensBurned n'estime jamais les tokens à partir de la longueur des prompts ou du coût, et n'accepte pas le trafic d'un exportateur de télémétrie. Les détails de chaque source figurent dans [Contrats de collecte locale](../cli-collection.md).
+
 
 ## Démarrage rapide
+
+La collecte en arrière-plan nécessite Node.js 20 ou une version ultérieure et la CLI.
+
+```sh
+npm install -g tokensburned
+```
 
 <div align="center">
   <img src="../../assets/demo-install.gif" width="840" alt="Installeur TokensBurned basculant entre Claude Code, Codex et Gemini CLI" />
@@ -113,18 +119,11 @@ gemini
 
 ### Fonctionnement de la collecte
 
-- **Hooks de cycle de vie.** Dans Claude Code et Codex, le plugin réduit la transcription en cours dans une file locale après chaque tour et revérifie les sessions récentes au démarrage, de sorte qu'une session qui ne se termine jamais proprement est tout de même comptabilisée.
-- **CLI et plugins ensemble.** Utilisez le même <code>BURN_HOME</code> (par défaut <code>~/.burn</code>) et les mêmes credentials d'appareil. Leur file d'attente partagée déduplique les requêtes et les instantanés de transcription, et le serveur remplace la révision quotidienne de chaque appareil. Des homes/appareils distincts qui lisent le même historique peuvent compter en double ; les totaux cloud anonymes ne peuvent pas dédupliquer ces copies.
-- **Téléversements planifiés.** Les agrégats en file sont téléversés selon le calendrier du service, au maximum une fois par heure par défaut. Aucune commande ne peut forcer un téléversement anticipé.
-- **Avis de mise à jour.** Les plugins installés vérifient l'existence d'une nouvelle version au maximum une fois toutes les 24 heures et affichent la commande native du gestionnaire de plugins lorsqu'elle existe. Les mises à jour ne sont jamais installées sans demande explicite, et un échec de vérification ne bloque jamais le démarrage.
-- **Intégration.** Tant qu'il est installé mais non connecté, le plugin mentionne la commande de connexion au maximum trois fois puis reste silencieux.
+Utilisez la même version, le même `BURN_HOME` (par défaut `~/.burn`) et la même connexion pour la CLI et les plugins. La déduplication locale permet de les utiliser ensemble.
 
-```text
-/plugin marketplace add Parsifal1986/TokensBurned
-/plugin install tokensburned@tokensburned
-/reload-plugins
-/tokensburned:connect
-```
+Ne collectez pas le même historique depuis plusieurs répertoires de données et n’importez pas manuellement des requêtes déjà collectées automatiquement : elles pourraient être comptées deux fois.
+
+## Carte de profil
 
 Les cartes sont privées jusqu'à ce que vous les activiez :
 
@@ -189,24 +188,21 @@ Les commandes de maintenance telles que le backfill d'historique ciblé, les tot
 
 ## Confidentialité et sécurité
 
-| Téléversé | Jamais téléversé |
+| Données d’utilisation envoyées | Données exclues des envois d’utilisation |
 | --- | --- |
-| Nombres de tokens | Prompts et réponses |
-| Étiquettes harness, provider et model | Code source et payloads d'outils |
-| Identifiant de session haché | Noms et chemins de dépôts |
-| Tranche horaire de 15 minutes | Fichiers et chemins de transcription |
-| Nombre de requêtes | Clés API et credentials de provider |
+| Compteurs agrégés de tokens et de requêtes | Prompts, réponses, code et contenu des outils |
+| Libellés d’outil, de fournisseur et de modèle | Noms de dépôts, chemins et transcriptions |
+| Dates et heures d’activité | Identifiants de session, clés API et identifiants des fournisseurs |
 
-Une gateway non reconnue est enregistrée uniquement par son nom d'hôte. Les credentials d'appareil expirent après 180 jours et peuvent être révoquées à tout moment avec `tokensburned disconnect`. Les agrégats côté serveur sont conservés jusqu'à ce que vous exécutiez `tokensburned delete-server-data`. TokensBurned n'installe aucun daemon root, proxy de trafic ni tâche de synchronisation Git. La limite complète des données et le modèle d'authentification sont documentés dans [SECURITY.md](../../SECURITY.md).
+Les journaux sont traités localement ; le contenu des messages n’est pas conservé dans les statistiques. Un fournisseur inconnu peut être indiqué par le nom d’hôte de son endpoint. Vérifiez l’attribution avec `tokensburned doctor` avant publication.
+
+Utilisez `tokensburned privacy public` pour publier et `tokensburned privacy private` pour masquer la carte. `tokensburned disconnect` déconnecte l’appareil actuel. Consultez `tokensburned help --advanced` pour supprimer les données du compte.
+
+Consultez [SECURITY.md](../../SECURITY.md) pour le traitement des données et le signalement des vulnérabilités.
 
 ## Limites d'utilisation
 
-- Chaque compte GitHub dispose de cinq emplacements d'appareil. Un appareil déconnecté conserve son emplacement réservé jusqu'à 30 jours, et le même appareil peut se reconnecter à cette réservation.
-- Les connexions réussies sont limitées à cinq par tranche glissante de 10 minutes et dix par tranche glissante de 24 heures et par compte.
-- Le backfill d'historique couvre une plage sélectionnée par l'utilisateur de 1 à 90 jours.
-- La suppression des données serveur retire l'utilisation, les credentials, le profil de compte et la carte publique. Les réservations d'emplacement en cours et les quotas de connexion expirent selon leur calendrier normal.
-
-La politique complète est publiée sur [tokensburned.com/limits](https://tokensburned.com/limits.html?lang=fr).
+Consultez les conditions actuelles sur la [page des limites d’utilisation](https://tokensburned.com/limits.html?lang=fr).
 
 ## Documentation
 

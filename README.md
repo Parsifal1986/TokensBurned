@@ -24,20 +24,22 @@
 TokensBurned turns the token usage of your AI coding tools into a live SVG card for your GitHub profile. The client reads usage metadata from harnesses such as Claude Code and Codex, reduces it locally to aggregate counters, and uploads only those aggregates. Prompts, responses, and source code never leave your machine.
 
 <div align="center">
-  <img src="assets/demo-card-builder.gif" width="840" alt="TokensBurned card builder switching between full, compact, and meme layouts" />
+  <img src="assets/demo-card-builder.gif" width="840" alt="TokensBurned card builder preview" />
   <p><sub><a href="https://tokensburned.com/#card-builder">Open the interactive card builder</a>. The preview uses fictional local data.</sub></p>
 </div>
 
 ## Features
 
-- **Live profile card.** One image URL shows 24 hour, 7 day, 30 day, and all-time totals, daily and hourly heatmaps, harness, provider, and model comparisons, and an anonymous site-wide rank. No scheduled jobs or README commits.
-- **Local reduction.** Sessions are reduced on your machine into 15 minute buckets before anything is uploaded.
-- **Strict privacy boundary.** Prompts, responses, source code, repository names, transcript paths, and API keys are never collected. See [Privacy and security](#privacy-and-security).
+- **Live profile card.** Display usage totals, a seven-day trend, an activity heatmap, tool breakdowns, and optional streak, cache, and rank badges. Embed one image link in your profile.
+- **Local reduction.** Usage records are processed on your device. Only aggregate counts and attribution metadata are uploaded.
+- **Strict privacy boundary.** Prompts, responses, source code, repository names, transcript paths, and API keys are never retained in usage statistics or uploaded. See [Privacy and security](#privacy-and-security).
 - **Private by default.** Connecting an account and uploading aggregates does not create a public card. Publishing is a separate, explicit command.
 - **Accurate attribution.** Harness, provider, and model are recorded as separate identities. A Claude Code session that talks to a different provider is labeled as such.
 - **Honest compatibility.** Native hooks, plugin workflows, and the standalone CLI are labeled separately so you know how each harness is measured.
 
 ## Supported harnesses
+
+This table describes the current source. For an installed release, consult the README at its [release tag](https://github.com/Parsifal1986/TokensBurned/releases).
 
 | Harness | Install surface | Token source | Support level |
 | --- | --- | --- | --- |
@@ -49,9 +51,15 @@ TokensBurned turns the token usage of your AI coding tools into a live SVG card 
 | GitHub Copilot CLI | Setup plugin and live extension | Official `assistant.usage` events | Live per-call capture; no transcript backfill |
 | Cursor, Aider, others | Standalone CLI | Integrator-supplied observed usage | No automatic capture |
 
-TokensBurned never estimates tokens from prompt length or cost, and it does not accept telemetry-exporter traffic. Details for each source are in [Local collection contracts](docs/cli-collection.md).
+TokensBurned uses reported token counts, not estimates based on prompt length or cost. Support depends on the tool version and available usage records. Details for each source are in [Local collection contracts](docs/cli-collection.md).
 
 ## Quick start
+
+Background collection requires Node.js 20 or newer and the standalone CLI:
+
+```sh
+npm install -g tokensburned
+```
 
 <table>
   <tr>
@@ -107,13 +115,11 @@ gemini
   </tr>
 </table>
 
-### How collection works
+### Using the CLI with plugins
 
-- **Lifecycle hooks.** In Claude Code and Codex, the plugin reduces the current transcript into a local queue after each turn and re-checks recent sessions at startup, so a session that never ends cleanly is still counted.
-- **CLI and plugins together.** Use the same <code>BURN_HOME</code> (default <code>~/.burn</code>) and device credentials. Their shared queue deduplicates requests and transcript snapshots, and the server replaces each device's daily revision. Separate homes/devices reading the same history can double count; anonymous cloud totals cannot deduplicate those copies.
-- **Scheduled uploads.** Queued aggregates are uploaded on the service's schedule, at most once per hour by default. No command can force an early upload.
-- **Update notices.** Installed plugins check for a newer release at most once every 24 hours and print the native plugin-manager command when one exists. Updates are never installed without an explicit request, and a failed check never blocks startup.
-- **Onboarding.** While installed but not connected, the plugin mentions the connect command at most three times and then stays silent.
+Use the same `BURN_HOME` directory (default: `~/.burn`) and connection for the CLI and plugins. Keep them on the same version. The client deduplicates supported usage records, so the background collector and plugin hooks can run together.
+
+Do not configure separate data directories to collect the same history, or manually import records that an automatic collector already tracks. Doing so can duplicate usage.
 
 ## Profile card
 
@@ -152,11 +158,11 @@ Every card keeps the flame character, the seven-day trend, the doodles, and the 
 ?theme=auto&heatmap=1&stack=1&streak=1&cache=1&rank=0
 ```
 
-Privacy settings always apply. A hidden activity history does not appear in the trend, and query parameters cannot reveal anything your account has not published. The earlier full, compact, and meme layout presets are retired; use the card builder to generate current links.
+Privacy settings always apply. A hidden activity history does not appear in the trend, and query parameters cannot reveal anything your account has not published. Use the card builder to generate a link with your preferred options.
 
 ## Command line
 
-The standalone CLI works with every harness and is the transport behind the plugins.
+The standalone CLI collects usage from the supported tools listed above and manages your connection, uploads, and privacy settings. Requires Node.js 20 or newer.
 
 ```sh
 npm install -g tokensburned
@@ -180,24 +186,17 @@ Maintenance commands such as scoped history backfill, authenticated totals, and 
 
 ## Privacy and security
 
-| Uploaded | Never uploaded |
+| Uploaded usage data | Never included in usage uploads |
 | --- | --- |
-| Token counts | Prompts and responses |
-| Harness, provider, and model labels | Source code and tool payloads |
-| Hashed session identifier | Repository names and paths |
-| 15 minute time bucket | Transcript files and paths |
-| Request count | API keys and provider credentials |
+| Aggregate token and request counts | Prompts, responses, source code, and tool payloads |
+| Tool, provider, and model labels | Repository names, file paths, and raw transcripts |
+| Activity dates and hours | Session IDs, API keys, and provider credentials |
 
-An unrecognized gateway is recorded by hostname only. Device credentials expire after 180 days and can be revoked at any time with `tokensburned disconnect`. Server-side aggregates are retained until you run `tokensburned delete-server-data`. TokensBurned installs no root daemon, traffic proxy, or Git synchronization task. The complete data boundary and authentication model are documented in [SECURITY.md](SECURITY.md).
+Usage files are processed locally. Raw message content is not retained in the client's statistics. An unrecognized provider endpoint may be labeled by hostname; review your attribution with `tokensburned doctor` before publishing.
 
-## Usage limits
+Cards are private by default. Use `tokensburned privacy public` to publish or `tokensburned privacy private` to hide your card. Use `tokensburned disconnect` to disconnect this device. For account data removal, see `tokensburned help --advanced`.
 
-- Each GitHub account has five device slots. A disconnected device keeps its slot reserved for up to 30 days, and the same device can reconnect into that reservation.
-- Successful connections are limited to five per rolling 10 minutes and ten per rolling 24 hours per account.
-- History backfill covers a user-selected range of 1 to 90 days.
-- Deleting server data removes usage, credentials, the account profile, and the public card. Outstanding slot reservations and connection allowances expire on their normal schedule.
-
-The full policy is published at [tokensburned.com/limits](https://tokensburned.com/limits.html).
+Read [SECURITY.md](SECURITY.md) for the client's data handling and vulnerability reporting policy. Current account limits are available on the [usage limits page](https://tokensburned.com/limits.html).
 
 ## Documentation
 

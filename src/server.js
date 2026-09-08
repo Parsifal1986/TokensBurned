@@ -115,10 +115,10 @@ export async function pollDeviceAuthorization(deviceCode, options = {}) {
   });
   if (previousDeviceId && result?.status === "authorized") {
     if (typeof result.device_reused !== "boolean") {
-      throw new Error("The Worker does not support safe device reconnection yet. Update the Worker before reconnecting or backfilling; existing local credentials were kept.");
+      throw new Error("The service could not confirm a safe reconnection. Existing local credentials were kept; try again later.");
     }
     if (result.device_reused && deviceIdFromToken(result.token) !== previousDeviceId) {
-      throw new Error("The Worker returned an inconsistent device identity. Existing local credentials were kept.");
+      throw new Error("The service returned an inconsistent device identity. Existing local credentials were kept.");
     }
   }
   return result;
@@ -178,7 +178,7 @@ export async function uploadDailyEnvelopes(days, { token, ...options } = {}) {
   const totals = {
     accepted: 0, received: 0, changed: 0, ignored: 0,
     acked_days: [],
-    // Optional on older Workers: they never throttle-report, so these stay empty.
+    // Optional for compatible responses that omit throttling details.
     throttled_days: [],
     next_flush_after: null,
     // Days the server rejected as invalid at their current revision (B2).

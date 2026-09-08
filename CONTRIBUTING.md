@@ -1,6 +1,6 @@
 # Contributing to TokensBurned
 
-Thank you for helping make AI coding usage more transparent without weakening developer privacy. This guide covers local setup, testing, documentation rules, and the release process.
+This guide covers development of the TokensBurned client, plugins, and website.
 
 ## Prerequisites
 
@@ -44,11 +44,11 @@ The site is served at `http://127.0.0.1:4173`.
 3. Run `npm run check`. It performs a syntax check and runs the complete test suite.
 4. Add focused tests whenever you change parsing, normalization, privacy boundaries, card composition, or install manifests.
 
-Codex development installs additionally require a cache-buster refresh and a local reinstall of the plugin.
-
 ## Documentation policy
 
-Only user-facing documentation is published. The `docs/` directory is ignored by Git except for an explicit allowlist in `.gitignore`. Working notes, plans, audits, cost analyses, and implementation diaries stay local and are never committed. When you add a public document, add it to the allowlist, to the npm `files` list in `package.json` if it ships with the package, and to `scripts/sync-plugin-runtime.js` if the plugin bundle needs it.
+Write public documentation in the style of a maintained commercial open-source product: concise, accurate, and focused on installation, supported behavior, and user tasks. Do not include private service architecture, infrastructure, deployment procedures, internal limits, or operational details. Document only the interfaces required to use and contribute to this client.
+
+Only user-facing documentation is published. The `docs/` directory is ignored by Git except for an explicit allowlist in `.gitignore`. Working notes, plans, audits, cost analyses, and implementation diaries stay local and are never committed. When a new document is explicitly approved for publication, add it to the allowlist, to the npm `files` list in `package.json` if it ships with the package, and to `scripts/sync-plugin-runtime.js` if the plugin bundle needs it.
 
 ## Pull requests
 

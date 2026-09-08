@@ -71,7 +71,7 @@ test("connect preserves the legacy device ID and ACKs, including across disconne
 
   mode = "legacy";
   const savedCredentials = await fs.readFile(credentialsFile, "utf8");
-  await assert.rejects(connect, (error) => /does not support safe device reconnection/.test(error.stderr));
+  await assert.rejects(connect, (error) => /could not confirm a safe reconnection/.test(error.stderr));
   assert.equal(await fs.readFile(credentialsFile, "utf8"), savedCredentials);
   assert.equal(JSON.parse(await fs.readFile(outboxFile)).days.day.acked_revision, 5);
 
@@ -191,7 +191,7 @@ test("disconnect keeps credentials after a server failure and only records confi
   await assert.rejects(disconnect, (error) => /Server unavailable/.test(error.stderr));
   assert.deepEqual(JSON.parse(await fs.readFile(credentialsFile)), credentials);
   assert.deepEqual(JSON.parse(await fs.readFile(configFile)), config);
-  // Older supported Workers may return 204; do not invent a release timestamp.
+  // Compatible responses may return 204; do not invent a release timestamp.
   await fs.writeFile(mock, `globalThis.fetch = async () => new Response(null, { status: 204 });`);
   const result = await disconnect();
   assert.match(result.stdout, /Cloud history was kept/);

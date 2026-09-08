@@ -1,6 +1,6 @@
-# Local collection and the command-line interface
+# Collection guide
 
-This document describes how the standalone `tokensburned` CLI collects usage locally, which sources it supports, and how earlier commands map to the current ones.
+Set up background collection, select supported tools, and import retained usage history.
 
 ## Normal use
 
@@ -13,13 +13,9 @@ tokensburned run
 
 Use `run --stop` to stop the service and remove login startup; credentials and queued usage remain intact. Repeating `run` replaces the managed service with a fresh runtime snapshot and retains the previous source scope unless `--harness` is provided. After upgrading the CLI/plugin or replacing its Node installation, run it again to refresh the snapshot/runtime path. `run --foreground` remains available for debugging (stop the background service first).
 
-Only src/bin code is copied to a stable directory under BURN_HOME. Service definitions use an absolute Node path and allowlisted HOME/BURN_HOME/PATH/data-source settings; no credential, provider key, shell initialization or NODE_OPTIONS is embedded. Metadata and snapshots use private permissions. Install/stop operations are serialized; an unsuccessful upgrade restores the previous definition. Disconnecting or deleting the account also attempts to remove the service. A managed process exits cleanly if disconnected. Failed install/rollback errors are reported rather than claiming that startup succeeded. Runtime snapshots are retained for recovery; this release does not garbage-collect old snapshots automatically.
+The collector checks local usage once a minute and retries interrupted uploads automatically. Initial collection covers the last two days; retained history can be imported for a selected range of up to 90 days. Use `tokensburned` to check status and `tokensburned doctor` to identify sources needing attention.
 
-The collector reads supported local sources once per minute. This interval controls local scanning, **not** uploading. Pending data uses the same account-bound outbox, immutable observation IDs, revisions, upload lease, plan cadence, successful next-flush deadline, per-day deferral and network backoff as the hooks. A failed upload is retried while `run` remains active, including deferrals beyond the old two-hour worker lifetime. An empty queue causes no upload request.
-
-Initial collection covers the last two days. Successful per-source checkpoints allow catch-up after downtime, within the existing 90-day retention boundary. Checkpoints advance only after durable queueing. One failing source is reported without advancing its checkpoint or preventing healthy sources from collecting. Concurrent `run` processes for the same BURN_HOME are refused; dead locks can be recovered after a 30-second initialization grace period. Status distinguishes a running collector from a stale process record.
-
-`run --harness codex,opencode` explicitly narrows collection. No frequency or force-upload flags are accepted. A new service defaults to Codex, Claude Code, OpenCode, Gemini CLI and Cline; absent sources contribute no usage. To expand an existing service's saved scope after upgrading, run `tokensburned run --harness codex,claude-code,opencode,gemini-cli,cline`. Connection alone still does not enable collection.
+`run --harness codex,opencode` explicitly narrows collection. A new service defaults to Codex, Claude Code, OpenCode, Gemini CLI and Cline; absent sources contribute no usage. To expand an existing service's saved scope after upgrading, run `tokensburned run --harness codex,claude-code,opencode,gemini-cli,cline`. Connection alone still does not enable collection.
 
 ## Supported source contracts
 
@@ -34,7 +30,7 @@ Initial collection covers the last two days. Successful per-source checkpoints a
 | Cursor | No automatic reader | Hook context-window sizes do not establish per-request consumption. No transcript scraping or cost-to-token conversion. |
 | Aider | No automatic reader | Its analytics `message_send` counters can originate from provider usage **or estimates** without a provenance flag. These logs are not treated as exact observed usage. |
 
-OpenCode defaults to `$XDG_DATA_HOME/opencode/opencode.db` or `~/.local/share/opencode/opencode.db`; its `OPENCODE_DB` override is respected for filesystem databases. It only selects message identity, completion time, provider/model and numeric token columns via JSON extraction. It never selects full message JSON, parts, project paths, titles or tool payloads. Stored OpenCode input/output already exclude cache/reasoning, so those subsets are not subtracted again. No harness binary is invoked and no real user database was accessed during tests.
+OpenCode defaults to `$XDG_DATA_HOME/opencode/opencode.db` or `~/.local/share/opencode/opencode.db`; its `OPENCODE_DB` override is respected for filesystem databases. It only selects message identity, completion time, provider/model and numeric token columns via JSON extraction. It never selects full message JSON, parts, project paths, titles or tool payloads. Stored OpenCode input/output already exclude cache/reasoning, so those subsets are not subtracted again. No harness binary is invoked for this reader.
 
 Gemini reads `~/.gemini/tmp/*/chats` (honoring `GEMINI_CLI_HOME`). Cline SDK reads `~/.cline/data/sessions`, honoring `CLINE_DIR`, `CLINE_DATA_DIR` and `CLINE_SESSION_DATA_DIR`. Classic IDE discovery covers Code, Code Insiders, VSCodium, Cursor and Windsurf's `saoudrizwan.claude-dev/tasks` global storage on macOS/Linux/Windows. Set `CLINE_IDE_STORAGE` to that extension's global storage directory for a custom IDE installation. Custom/remote hosts must expose one of these verified formats; this is not a claim that every Cline host or historical version exposes exact usage.
 
@@ -53,18 +49,25 @@ Use `backfill --harness gemini-cli`, `opencode` or `cline` with `--days 1-90 --d
 
 ### CLI and plugin coexistence
 
-Keep the CLI and Codex/Claude plugins on the same version, `BURN_HOME` (default `~/.burn`), and device credentials. All writers share the locked outbox and upload lease. Codex/Claude snapshots replace the same session/bucket/model revision; Cline hook/history use the same request ID. Cline's persistence codec changes `createdAt` to `ts` and omits separate reasoning usage: the queue preserves the richer live output/reasoning split in either arrival order while checking that the request's total is unchanged. History alone retains that reasoning within output. The server replaces a device's daily envelope when its revision increases. Concurrent scans, repeated hooks, restarts and upload retries therefore do not multiply the same supported records.
+Use the same version, `BURN_HOME` (default: `~/.burn`), and connection for the CLI and plugins. The client deduplicates supported records locally, including records received both through a plugin and through history scanning. Keep the existing data directory when upgrading or switching installation methods.
 
-Separate `BURN_HOME` directories registered as separate devices can count copied histories twice: the server receives anonymous daily aggregates and cannot identify the duplicate requests. Manually importing already-collected usage under new IDs has the same problem. Historical totals from an older incorrect collector are not automatically repaired. Do not delete the shared outbox to switch between CLI and plugins.
+Do not create separate data directories to collect the same history. Do not manually import automatically collected requests under new IDs. Either action can count the same usage more than once.
 
-Reference sources (checked 2026-09-08): [OpenCode SQL schema](https://github.com/anomalyco/opencode/blob/dev/packages/core/src/session/sql.ts), [usage normalization](https://github.com/anomalyco/opencode/blob/dev/packages/opencode/src/session/session.ts), [message finalization](https://github.com/anomalyco/opencode/blob/dev/packages/opencode/src/session/processor.ts), [database paths](https://github.com/anomalyco/opencode/blob/dev/packages/core/src/database/database.ts), [Cursor hooks](https://cursor.com/docs/hooks), [Aider usage accounting](https://github.com/Aider-AI/aider/blob/main/aider/coders/base_coder.py), [Aider local analytics](https://aider.chat/docs/more/analytics.html). These are schema-based fixture checks, not native harness end-to-end certification.
+Cline history can omit separate reasoning counts. When both records are available, the client keeps the more detailed live breakdown without adding another request. History-only imports keep reasoning within output when no separate count is reported.
+
+## History import
+
+```sh
+tokensburned backfill --harness gemini-cli --days 30 --dry-run
+tokensburned backfill --harness gemini-cli --days 30
+```
+
+Preview before importing. Choose `codex`, `claude-code`, `gemini-cli`, `opencode`, or `cline`; use `--all-harnesses` only when you intend to import every supported source. Copilot's live usage events cannot be recovered from ordinary history.
 
 ## Commands and migration
 
-Daily help still shows seven operations: status (the default command), connect, run, privacy, doctor, update and disconnect. `update` may force a release check, never a usage upload.
+Use `tokensburned help` for everyday commands and `tokensburned help --advanced` for history import, authenticated totals, data removal, and integration setup.
 
-`help --advanced` contains history backfill, authenticated server totals, data deletion and standalone hook installation. These retain their existing scoping/confirmation rules. `sync --cloud` and `plan` remain compatibility entry points but are not promoted as daily controls. Integrator entry points (`ingest`, `hook`, `upload-worker`) remain available for existing callers and are omitted from daily help; hiding a command is not an authorization boundary.
+Earlier static-card commands (`setup`, plain `sync`, `render`, and `clean`) are no longer supported. Use `connect`, `run`, and the online card builder instead. `sync --cloud` remains available for compatible integrations. Updating the client does not delete queued usage or change your card visibility.
 
-`setup`, plain `sync`, `render` and `clean` now fail with a migration message before side effects. Old `sync.enabled` configuration no longer causes a hook to write cards to GitHub. Pending data is not discarded. Public card visibility still requires `privacy public`; use the server-rendered card link rather than a static GitHub branch.
-
-Manual `ingest --upload` still only queues approved observations. `run` will transport an already queued observation regardless of its harness name, but cannot manufacture a missing native capture adapter. Integrators must not import requests already represented by an automatic reader under different identities.
+For tools without a native reader, see [usage import](usage-import.md). Installing the CLI alone does not supply missing usage data.

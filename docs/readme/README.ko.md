@@ -24,20 +24,20 @@
 TokensBurned는 AI 코딩 도구의 token 사용량을 GitHub 프로필용 실시간 SVG 카드로 변환합니다. 클라이언트는 Claude Code, Codex와 같은 harness에서 사용량 메타데이터를 읽어 로컬에서 집계 카운터로 축소한 뒤 그 집계 값만 업로드합니다. 프롬프트, 응답, 소스 코드는 사용자의 기기를 벗어나지 않습니다.
 
 <div align="center">
-  <img src="../../assets/demo-card-builder.gif" width="840" alt="TokensBurned card builder switching between full, compact, and meme layouts" />
+  <img src="../../assets/demo-card-builder.gif" width="840" alt="TokensBurned card builder" />
   <p><sub><a href="https://tokensburned.com/?lang=ko#card-builder">인터랙티브 card builder 열기</a>. 미리보기는 가상의 로컬 데이터를 사용합니다.</sub></p>
 </div>
 
 ## 기능
 
-- **Live profile card.** 이미지 URL 하나로 24시간, 7일, 30일, 전체 기간 합계, 일별·시간대별 heatmap, harness·provider·model 비교, 익명 사이트 전체 순위를 표시합니다. 예약된 작업이나 README 커밋이 필요하지 않습니다.
-- **Local reduction.** 세션은 업로드되기 전에 사용자의 기기에서 15분 단위 버킷으로 축소됩니다.
-- **Strict privacy boundary.** 프롬프트, 응답, 소스 코드, repository 이름, transcript 경로, API key는 수집되지 않습니다. 자세한 내용은 [개인정보와 보안](#개인정보와-보안)을 참고하세요.
-- **Private by default.** 계정을 연결하고 집계 값을 업로드하는 것만으로는 공개 카드가 생성되지 않습니다. 게시는 별도의 명시적인 명령입니다.
-- **Accurate attribution.** harness, provider, model은 서로 다른 식별자로 별도 기록됩니다. 다른 provider와 통신하는 Claude Code 세션은 그에 맞게 표시됩니다.
-- **Honest compatibility.** 네이티브 hook, plugin workflow, 독립형 CLI가 각각 구분되어 표시되므로 각 harness가 어떻게 측정되는지 알 수 있습니다.
+- **사용량 카드.** 합계, 7일 추세, 활동 히트맵, 도구별 내역을 표시합니다. 연속 활동일, 캐시, 순위 표시도 선택할 수 있습니다.
+- **로컬 처리.** 기기에서 기록을 처리하고 집계 수치와 도구·제공업체·모델 라벨만 업로드합니다.
+- **기본 비공개.** 계정을 연결해도 카드는 공개되지 않습니다. 공개 여부는 사용자가 결정합니다.
+- **명확한 지원 범위.** 도구가 보고한 실제 토큰 수를 사용하며, 프롬프트 길이나 비용으로 추정하지 않습니다.
 
 ## 지원하는 Harness
+
+이 표는 현재 소스를 기준으로 합니다. 설치한 버전은 해당 [릴리스 태그](https://github.com/Parsifal1986/TokensBurned/releases)의 README를 참고하세요.
 
 | Harness | 설치 방식 | Token 소스 | 지원 수준 |
 | --- | --- | --- | --- |
@@ -49,9 +49,15 @@ TokensBurned는 AI 코딩 도구의 token 사용량을 GitHub 프로필용 실�
 | GitHub Copilot CLI | 설정용 plugin과 live extension | 공식 `assistant.usage` 이벤트 | 호출 단위 실시간 캡처; transcript backfill 없음 |
 | Cursor, Aider 등 | Standalone CLI | Integrator가 제공하는 관측 사용량 | 자동 캡처 없음 |
 
-TokensBurned는 프롬프트 길이나 비용으로 token을 추정하지 않으며, telemetry exporter 트래픽도 받지 않습니다. 각 소스에 대한 자세한 내용은 [Local collection contracts](../cli-collection.md)에 있습니다.
+
 
 ## 빠른 시작
+
+백그라운드 수집에는 Node.js 20 이상과 CLI가 필요합니다.
+
+```sh
+npm install -g tokensburned
+```
 
 <div align="center">
   <img src="../../assets/demo-install.gif" width="840" alt="TokensBurned installer switching between Claude Code, Codex, and Gemini CLI" />
@@ -113,11 +119,9 @@ gemini
 
 ### 수집 방식
 
-- **Lifecycle hooks.** Claude Code와 Codex에서 plugin은 각 turn이 끝난 뒤 현재 transcript를 로컬 큐로 축소하고, 시작 시 최근 세션을 다시 확인하므로 정상 종료되지 않은 세션도 계속 집계됩니다.
-- **CLI와 plugin을 함께 사용하기.** 동일한 `BURN_HOME`(기본값 `~/.burn`)과 device 자격 증명을 사용하세요. 공유 큐가 request와 transcript snapshot의 중복을 제거하고, 서버는 각 device의 일일 revision을 교체합니다. 서로 다른 home/device가 동일한 기록을 읽으면 중복 집계될 수 있으며, 익명 클라우드 합계는 그 중복 사본을 제거할 수 없습니다.
-- **Scheduled uploads.** 큐에 쌓인 집계 값은 서비스 일정에 따라 기본적으로 최대 시간당 한 번 업로드됩니다. 어떤 명령으로도 조기 업로드를 강제할 수 없습니다.
-- **Update notices.** 설치된 plugin은 최대 24시간에 한 번 새 릴리스를 확인하고, 존재할 경우 네이티브 plugin manager 명령을 출력합니다. 업데이트는 명시적 요청 없이는 설치되지 않으며, 확인 실패가 시작을 막지 않습니다.
-- **Onboarding.** 설치되었지만 연결되지 않은 동안 plugin은 최대 세 번 connect 명령을 안내한 뒤 조용해집니다.
+CLI와 플러그인은 같은 버전, 같은 `BURN_HOME`(기본값 `~/.burn`), 같은 연결을 사용해야 합니다. 로컬 중복 제거를 통해 백그라운드 수집기와 플러그인을 함께 실행할 수 있습니다.
+
+서로 다른 데이터 디렉터리에서 같은 기록을 읽거나 자동 수집한 요청을 수동으로 다시 가져오면 중복 집계될 수 있습니다.
 
 ## Profile 카드
 
@@ -160,7 +164,7 @@ tokensburned privacy public
 
 ## Command Line
 
-Standalone CLI는 모든 harness와 함께 동작하며 plugin 뒤에서 전송을 담당합니다.
+Standalone CLI는 지원되는 도구의 사용량을 수집하고 플러그인의 전송을 담당합니다.
 
 ```sh
 npm install -g tokensburned
@@ -184,24 +188,21 @@ tokensburned run
 
 ## 개인정보와 보안
 
-| 업로드됨 | 업로드되지 않음 |
+| 업로드하는 사용량 데이터 | 사용량 업로드에 포함하지 않는 항목 |
 | --- | --- |
-| Token 수 | 프롬프트와 응답 |
-| Harness, provider, model 라벨 | 소스 코드와 tool payload |
-| 해시된 session 식별자 | Repository 이름과 경로 |
-| 15분 시간 bucket | Transcript 파일과 경로 |
-| Request 수 | API key와 provider 자격 증명 |
+| 토큰 수와 요청 수의 집계 | 프롬프트, 응답, 소스 코드, 도구 내용 |
+| 도구, 제공업체, 모델 라벨 | 저장소 이름, 파일 경로, 원본 대화 기록 |
+| 활동 날짜와 시간대 | 세션 ID, API 키, 제공업체 자격 증명 |
 
-인식되지 않은 gateway는 hostname으로만 기록됩니다. 기기 자격 증명은 180일 후 만료되며 언제든 `tokensburned disconnect`로 폐기할 수 있습니다. 서버 측 집계 값은 `tokensburned delete-server-data`를 실행할 때까지 보존됩니다. TokensBurned는 root daemon, 트래픽 프록시, Git 동기화 작업을 설치하지 않습니다. 전체 데이터 경계와 인증 모델은 [SECURITY.md](../../SECURITY.md)에 문서화되어 있습니다.
+기록은 로컬에서 처리하며 메시지 내용은 통계에 저장하지 않습니다. 알 수 없는 제공업체는 엔드포인트 호스트명으로 표시될 수 있습니다. 공개하기 전에 `tokensburned doctor`로 확인하세요.
+
+`tokensburned privacy public`으로 공개하고 `tokensburned privacy private`으로 숨길 수 있습니다. 현재 기기의 연결을 해제하려면 `tokensburned disconnect`를 사용하세요. 데이터 삭제 명령은 `tokensburned help --advanced`에서 확인할 수 있습니다.
+
+데이터 처리와 취약점 신고는 [SECURITY.md](../../SECURITY.md)를 참고하세요.
 
 ## 사용 제한
 
-- 각 GitHub 계정은 5개의 기기 슬롯을 가집니다. 연결 해제된 기기의 슬롯은 최대 30일 동안 예약 상태로 유지되며, 동일한 기기는 그 예약을 통해 다시 연결할 수 있습니다.
-- 계정당 성공적인 연결은 롤링 10분당 5회, 롤링 24시간당 10회로 제한됩니다.
-- 기록 backfill은 사용자가 선택한 1~90일 범위를 대상으로 합니다.
-- 서버 데이터를 삭제하면 사용량, 자격 증명, 계정 프로필, 공개 카드가 제거됩니다. 남아 있는 슬롯 예약과 연결 허용량은 정상 일정에 따라 만료됩니다.
-
-전체 정책은 [tokensburned.com/limits](https://tokensburned.com/limits.html?lang=ko)에 게시되어 있습니다.
+현재 계정 정책은 [사용 제한 페이지](https://tokensburned.com/limits.html?lang=ko)를 참고하세요.
 
 ## 문서
 
