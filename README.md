@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="assets/logo.svg" width="112" alt="TokensBurned logo" />
+  <img src="public/favicon.svg" width="112" alt="TokensBurned logo" />
   <h1>TokensBurned</h1>
-  <p><strong>Put your AI coding activity on GitHub without uploading prompts or source code.</strong></p>
+  <p><strong>Track your token usage. Share it on GitHub or your own website without uploading prompts or source code.</strong></p>
   <p>
     <a href="https://tokensburned.com/"><img alt="Website" src="https://img.shields.io/badge/website-tokensburned.com-eb6733?style=flat-square"></a>
     <a href="https://github.com/Parsifal1986/TokensBurned/actions/workflows/pages.yml"><img alt="GitHub Pages" src="https://img.shields.io/github/actions/workflow/status/Parsifal1986/TokensBurned/pages.yml?style=flat-square&label=pages"></a>
@@ -11,13 +11,14 @@
     <strong>English</strong> · <a href="docs/readme/README.zh-CN.md">简体中文</a> · <a href="docs/readme/README.ja.md">日本語</a> · <a href="docs/readme/README.ko.md">한국어</a> · <a href="docs/readme/README.es.md">Español</a> · <a href="docs/readme/README.fr.md">Français</a>
   </p>
   <h3><a href="https://tokensburned.com/#card-builder">Open the interactive card builder →</a></h3>
-  <p><sub>Choose a layout, light/dark/auto theme, and profile elements. The preview uses fictional local data.</sub></p>
+  <p><sub>Choose a light/dark/auto theme and optional card elements. The preview uses fictional local data.</sub></p>
 </div>
 
-TokensBurned collects token counts and model metadata from AI coding harnesses, aggregates them into 15 minute buckets, and serves a live SVG for your GitHub profile. The card can show 24 hour, 7 day, 30 day, and all-time totals, daily and hourly heatmaps, harness/provider/model comparisons, and an anonymous site-wide rank.
+TokensBurned records token counts and model metadata from supported AI coding harnesses. It aggregates usage locally, uploads on the server schedule, and serves an automatically updating SVG for your GitHub profile, personal website, or anywhere that supports SVG images.
 
 <div align="center">
-  <img src="assets/demo-card-builder.gif" width="840" alt="TokensBurned card builder switching between full, compact, and meme cards" />
+  <img src="public/demo/card-full.svg" width="840" alt="New TokensBurned card with fictional sample data" />
+  <p><sub>Bundled fictional data. Viewing this README does not request your live card.</sub></p>
 </div>
 
 ## Why TokensBurned
@@ -27,13 +28,9 @@ TokensBurned collects token counts and model metadata from AI coding harnesses, 
 - **Local reduction.** Raw sessions are reduced on your machine before upload.
 - **Hard privacy boundary.** Prompts, responses, source code, repository names, transcript paths, and API keys are not uploaded.
 - **Private until you publish.** Connecting and uploading aggregates do not create a public card; publishing is a separate explicit command.
-- **Honest compatibility.** Native hooks, plugin workflows, and the CLI fallback are labeled separately.
+- **Clear support status.** Installing a plugin or the CLI does not add support for a harness without a usage adapter.
 
 ## Install for your harness
-
-<div align="center">
-  <img src="assets/demo-install.gif" width="840" alt="TokensBurned installer switching between Claude Code, Codex, and Gemini CLI" />
-</div>
 
 <table>
   <tr>
@@ -62,101 +59,67 @@ $tokensburned:doctor</code></pre>
       <p>SessionStart checks for a newer release at most once per day. It prompts with the native plugin-manager command but never installs silently.</p>
     </td>
   </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>Gemini CLI</h3>
-      <p><strong>Setup extension + explicit cloud import</strong></p>
-      <pre><code>gemini extensions install https://github.com/Parsifal1986/TokensBurned
-gemini
-/tokensburned:connect
-/tokensburned:privacy
-/tokensburned:update
-/tokensburned:doctor</code></pre>
-      <p>The extension provides setup skills, not automatic collection or history backfill. Use <code>ingest --upload</code> with finalized request observations to update the cloud card; plain <code>ingest</code> is local only. Do not point a telemetry exporter at the API.</p>
-    </td>
-    <td width="50%" valign="top">
-      <h3>GitHub Copilot CLI</h3>
-      <p><strong>Open Plugin Spec + CLI collection</strong></p>
-      <pre><code>copilot plugin install https://github.com/Parsifal1986/TokensBurned</code></pre>
-      <p>Ask Copilot to connect TokensBurned. Automatic capture and history backfill are not implemented. Convert observed request usage to the explicit <code>ingest --upload</code> contract; connecting alone does not collect tokens.</p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>Cline CLI</h3>
-      <p><strong>Per-model usage hook</strong></p>
-      <pre><code>cline plugin install https://github.com/Parsifal1986/TokensBurned.git</code></pre>
-      <p>Compatible Cline CLI / SDK hosts provide <code>afterModel.assistantMessage</code> metrics, model identity and stable message IDs. Requests are deduplicated on disk before upload. Hosts that expose only afterRun or do not load this plugin need the explicit import fallback.</p>
-    </td>
-    <td width="50%" valign="top">
-      <h3>OpenCode, Cursor, Aider, other</h3>
-      <p><strong>Standalone CLI</strong></p>
-      <pre><code>npm install -g tokensburned
-tokensburned connect
-tokensburned run --harness opencode</code></pre>
-      <p>The local collector supports OpenCode v1 SQLite usage with sqlite3 installed. Cursor and Aider do not yet have automatic readers. See the <a href="docs/cli-collection.md">collection contracts and limits</a>.</p>
-    </td>
-  </tr>
 </table>
 
-### Compatibility at a glance
+### Supported harnesses
 
-| Harness | Install surface | Token source | Current level |
-| --- | --- | --- | --- |
-| Claude Code | Plugin marketplace | Session hook + approved local history | Native |
-| Codex | Plugin marketplace | Plugin hook + approved local history | Native |
-| Gemini CLI | Gemini extension | Explicit CLI import | Plugin workflow |
-| Cline CLI / SDK | Cline Git plugin | `afterModel.assistantMessage.metrics` | Contract-tested per-call capture; no history backfill |
-| GitHub Copilot CLI | Open Plugin Spec | Explicit CLI import | Plugin workflow |
-| OpenCode | Standalone CLI collector | Read-only v1 SQLite message usage | Format-limited; v2 unsupported |
-| Cursor, Aider, others | Standalone CLI transport | Integrator-supplied observed usage only | No automatic capture |
+| Harness | Status | Scope |
+| --- | --- | --- |
+| Claude Code | Supported | Native plugin hooks and local history reader |
+| Codex | Supported | Native plugin hooks and local history reader |
+| OpenCode | Limited, experimental | Standalone collector for v1 SQLite only; requires `sqlite3`. v2 and legacy JSON storage are unsupported. |
+| Cline CLI / SDK | Conditional, experimental | Requires a host exposing `afterModel.assistantMessage.metrics`, model identity and stable message IDs. Contract-tested; no native end-to-end certification or history backfill. Editor extensions are unsupported. |
+| Cursor | **Not supported** | No token-usage collection adapter |
+| Aider | **Not supported** | No token-usage collection adapter |
+| Gemini CLI | **Not supported for usage collection** | Setup extension exists; automatic collection and history backfill are not implemented |
+| GitHub Copilot CLI | **Not supported for usage collection** | Setup plugin exists; automatic collection and history backfill are not implemented |
+| Other harnesses | **Not supported** | No supported collection adapter |
+
+Manual usage import is an integration interface, **not harness support**. Installing the standalone CLI does not make Cursor, Aider, Gemini or Copilot usage appear automatically. See [collection requirements](docs/cli-collection.md) for the limited OpenCode and Cline paths.
 
 ## Build your profile card
 
-First opt in with `tokensburned privacy public`. This publishes totals, harness/provider/model breakdowns, activity heatmaps, rank, and your GitHub identity. The policy belongs to the verified GitHub account, so every connected device inherits the same choice without asking again. Then open the [interactive card builder](https://tokensburned.com/#card-builder), enter your GitHub username, choose a preset, and copy the generated Markdown. Query parameters can hide published sections, but cannot enable fields disabled by the account's server-side policy.
+First opt in with `tokensburned privacy public`. This publishes totals, harness/provider/model breakdowns, activity heatmaps, rank, and your GitHub identity. The policy belongs to the verified GitHub account, so every connected device inherits the same choice without asking again. Then open the [interactive card builder](https://tokensburned.com/#card-builder), enter your GitHub username, choose the visible elements, and copy the generated Markdown. Query parameters can hide published sections, but cannot enable fields disabled by the account's server-side policy.
 
-The full card is the default:
+Embed the card once:
 
 ```markdown
 [![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg?theme=auto)](https://tokensburned.com/)
 ```
 
-The preview below is bundled fictional data. Rendering this README does not call the TokensBurned API.
+### Card elements
 
-<div align="center">
-  <img src="public/demo/card-full.svg" width="840" alt="Static TokensBurned card with fictional sample data" />
-</div>
+Every card keeps the flame character, seven-day trend, doodles and bottom phrase. Privacy settings still apply: a hidden activity history does not appear in the trend.
 
-### Card presets and options
-
-| Result | Query | Good for |
+| Optional element | Parameter | Default |
 | --- | --- | --- |
-| Full report | `?layout=full&heatmap=1&compare=1&rank=1&meme=0` | Profile overview |
-| Compact totals | `?layout=compact&compare=0&rank=1` | Small README footprint |
-| Meme receipt | `?layout=full&heatmap=0&compare=0&rank=1&meme=1` | A shorter, less serious card |
-| Private rank | Add `&rank=0` | Hide the site-wide rank |
-| Totals + comparison | `?layout=full&heatmap=0&compare=1` | Keep breakdowns, remove heatmaps |
-| Follow system theme | Add `&theme=auto` | Switch with the viewer's light/dark preference |
-| Fixed light or dark | Add `&theme=light` or `&theme=dark` | Keep one appearance everywhere |
+| Activity heatmap | `heatmap=0\|1` | On |
+| Harness breakdown | `stack=0\|1` | On |
+| Consecutive active days | `streak=0\|1` | On |
+| Cached input share (seven days) | `cache=0\|1` | Off |
+| Rank badge | `rank=0\|1` | Off |
 
-Supported query parameters:
+Use `theme=auto|light|dark` for the appearance (`dark` if omitted). For example:
 
-- `layout=full|compact`
-- `heatmap=0|1` (compact layout always disables heatmaps)
-- `compare=0|1`
-- `rank=0|1`
-- `meme=0|1`
-- `theme=auto|light|dark` (`auto` uses `prefers-color-scheme` inside the SVG)
+```text
+?theme=auto&heatmap=1&stack=1&streak=1&cache=1&rank=0
+```
+
+The old full/compact/meme layout presets are retired. Use the current builder to generate links.
+
+Cards are assembled on demand when the CDN cache misses; individual styles are not saved as SVG files in R2. Edge and browser caches last one hour. Local collection, cloud uploads and card caching have separate schedules, so updates are automatic, not instant.
 
 ## Standalone CLI
 
+Install the [stable v0.6.9 release](https://github.com/Parsifal1986/TokensBurned/releases/tag/v0.6.9) below. The npm registry may lag behind GitHub releases.
+
 ```sh
-npm install -g tokensburned
+npm install -g https://github.com/Parsifal1986/TokensBurned/releases/download/v0.6.9/tokensburned-0.6.9.tgz
 tokensburned connect
 tokensburned run
 ```
 
-`run` starts a background user service and enables startup after login on macOS/Linux. It reads local sources once a minute, persists the queue, and retries network failures on the server schedule. Use `run --stop` to disable it or `run --foreground` for diagnostics; it does not need root. Codex and Claude Code use the existing history readers. OpenCode supports only the verified v1 SQLite format and requires `sqlite3`; Cursor and Aider do not yet have reliable automatic readers.
+`run` starts a background user service and enables startup after login on macOS/Linux. It reads local sources once a minute, persists the queue, and retries network failures on the server schedule. Use `run --stop` to disable it or `run --foreground` for diagnostics; it does not need root. Codex and Claude Code use the existing history readers. OpenCode supports only the verified v1 SQLite format and requires `sqlite3`; Cursor and Aider are not supported.
 
 Daily commands are `connect`, `run`, `status` (the default), `privacy`, `doctor`, `update` and `disconnect`. No user command can force an early upload. Use `help --advanced` for maintenance operations such as scoped historical backfill and account deletion.
 
