@@ -7,8 +7,10 @@
     {
       "name": "tokensburned",
       "source": {
-        "source": "local",
-        "path": "./plugins/tokensburned"
+        "source": "url",
+        "url": "https://github.com/Parsifal1986/TokensBurned.git",
+        "ref": "v0.6.8",
+        "sha": "c8f31ac65f9b26d92810c3955147a3f6569105a8"
       },
       "policy": {
         "installation": "AVAILABLE",

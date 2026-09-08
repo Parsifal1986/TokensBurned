@@ -12,6 +12,7 @@ The forced check applies only to release metadata. The command also merges suppo
 - TokensBurned also checks automatically at SessionStart at most once per 24 hours. A failed check must never block the harness.
 - Checking is safe to run without upgrade consent. It reads the public release endpoint and stores only release metadata and the last-check time in `~/.burn/config.json`.
 - Never install an update silently. Apply it only after the user explicitly asks to update.
-- In Codex, update with `codex plugin add tokensburned@tokensburned`, then tell the user to start a new task so the refreshed skills load.
-- In Claude Code, update with `claude plugin update tokensburned@tokensburned`, then tell the user to restart the session.
+- Use only the stable release URL and command printed by the CLI. Development builds (prerelease or build metadata versions) are local-only and must not be upgraded through the plugin manager. Never substitute main, a development branch, or an unverified tag.
+- In Codex, refresh the stable catalog with `codex plugin marketplace upgrade tokensburned`, then use `codex plugin add tokensburned@tokensburned`, then tell the user to start a new task so the refreshed skills load.
+- In Claude Code, refresh the stable catalog with `claude plugin marketplace update tokensburned`, then use `claude plugin update tokensburned@tokensburned`, then tell the user to restart the session.
 - For another harness, provide the release URL printed by the CLI and use that harness's plugin or extension manager. Do not substitute `npm install`, edit marketplace files by hand, or run `git pull` in an unrelated checkout.

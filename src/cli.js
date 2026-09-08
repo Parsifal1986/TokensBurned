@@ -325,15 +325,17 @@ async function reportAvailableUpdate(config, { force = false } = {}) {
   if (process.env.TOKENSBURNED_DISABLE_UPDATE_CHECK === "1") return;
   try {
     const result = await checkForUpdate(config, { force });
+    if (result.development && force) console.log("Development build: update from your local checkout; remote plugin updates are disabled.\n");
     if (!result.checked) return;
     await writeConfig(config);
     if (result.notice) {
       console.log(`\n${color("↑", "orange")} ${result.notice}`);
       if (result.release?.update_url) console.log(`  ${result.release.update_url}`);
-      const command = pluginUpdateCommand(currentHarness());
+      const command = pluginUpdateCommand(currentHarness(), result.release);
       if (command) console.log(`  ${command}`);
       console.log(`  Update from your plugin manager, then start a new ${currentHarness() === "codex" ? "task" : "session"}.\n`);
     } else if (force) {
+      if (!result.release?.latest_version) throw new Error("No valid stable release metadata");
       console.log(`${color("✓", "green")} TokensBurned ${VERSION} is current.\n`);
     }
   } catch (error) {

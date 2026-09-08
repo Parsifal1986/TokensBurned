@@ -1,7 +1,7 @@
 import os from "node:os";
 import path from "node:path";
 
-export const VERSION = "0.6.8";
+export const VERSION = "0.6.9";
 export const STATS_VERSION = 2;
 export const SYNC_INTERVAL_MS = 3 * 60 * 60 * 1000;
 // Server write window for the current day (one write per UTC hour). The

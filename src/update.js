@@ -7,21 +7,18 @@ function safeVersion(value) {
     ? value : null;
 }
 
-function safeUpdateUrl(value) {
-  if (typeof value !== "string" || value.length > 2048 || /[\s\u0000-\u001f\u007f]/.test(value)) return null;
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" && !url.username && !url.password ? url.href : null;
-  } catch {
-    return null;
-  }
+const RELEASE_ROOT = "https://github.com/Parsifal1986/TokensBurned/releases/tag/";
+export function stableVersion(value) {
+  return typeof value === "string" && /^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value) ? value.replace(/^v/, "") : null;
 }
-
 function sanitizeRelease(release) {
+  const allowed = (!release?.channel || release.channel === "stable") && !release?.prerelease && !release?.draft;
+  const latest = allowed ? stableVersion(release?.latest_version) : null;
+  const minimum = allowed ? stableVersion(release?.minimum_supported_version) : null;
   return {
-    latest_version: safeVersion(release?.latest_version),
-    minimum_supported_version: safeVersion(release?.minimum_supported_version),
-    update_url: safeUpdateUrl(release?.update_url),
+    latest_version: latest,
+    minimum_supported_version: minimum,
+    update_url: latest ? `${RELEASE_ROOT}v${latest}` : null,
   };
 }
 
@@ -49,6 +46,7 @@ export function updateCheckDue(lastCheckedAt, now = Date.now()) {
 }
 
 export function updateNotice(release, currentVersion = VERSION) {
+  if (!stableVersion(currentVersion)) return null;
   const { latest_version: latest, minimum_supported_version: minimum } = sanitizeRelease(release);
   if (minimum && compareVersions(currentVersion, minimum) < 0) {
     return `TokensBurned ${currentVersion} is no longer supported. Update to ${latest || minimum}.`;
@@ -59,9 +57,10 @@ export function updateNotice(release, currentVersion = VERSION) {
   return null;
 }
 
-export function pluginUpdateCommand(harness) {
-  if (harness === "codex") return "codex plugin add tokensburned@tokensburned";
-  if (harness === "claude-code") return "claude plugin update tokensburned@tokensburned";
+export function pluginUpdateCommand(harness, release) {
+  if (!sanitizeRelease(release).latest_version) return null;
+  if (harness === "codex") return "codex plugin marketplace upgrade tokensburned && codex plugin add tokensburned@tokensburned";
+  if (harness === "claude-code") return "claude plugin marketplace update tokensburned && claude plugin update tokensburned@tokensburned";
   return null;
 }
 
@@ -71,7 +70,7 @@ export function updatePrompt(release, {
 } = {}) {
   const notice = updateNotice(release, currentVersion);
   if (!notice) return null;
-  const command = pluginUpdateCommand(harness);
+  const command = pluginUpdateCommand(harness, release);
   const action = command
     ? `If the user explicitly asks to update, run \`${command}\`, then tell them to start a new ${harness === "codex" ? "task" : "session"}.`
     : "If the user explicitly asks to update, open the release URL and use the current harness plugin manager.";
@@ -86,6 +85,9 @@ export async function checkForUpdate(config, {
   now = Date.now(),
   timeoutMs = 3_000,
 } = {}) {
+  if (!stableVersion(currentVersion)) {
+    return { checked: false, notice: null, release: null, development: true };
+  }
   if (!force && !updateCheckDue(config.updates?.last_checked_at, now)) {
     return { checked: false, notice: null, release: null };
   }

@@ -19,8 +19,8 @@ test("semantic version checks distinguish optional and required updates", () => 
 
 test("update guidance uses the active harness plugin manager", () => {
   const release = { latest_version: "0.5.0", minimum_supported_version: "0.4.0" };
-  assert.equal(pluginUpdateCommand("codex"), "codex plugin add tokensburned@tokensburned");
-  assert.equal(pluginUpdateCommand("claude-code"), "claude plugin update tokensburned@tokensburned");
+  assert.equal(pluginUpdateCommand("codex", release), "codex plugin marketplace upgrade tokensburned && codex plugin add tokensburned@tokensburned");
+  assert.equal(pluginUpdateCommand("claude-code", release), "claude plugin marketplace update tokensburned && claude plugin update tokensburned@tokensburned");
   assert.equal(pluginUpdateCommand("gemini"), null);
   assert.match(updatePrompt(release, { currentVersion: "0.4.1", harness: "codex" }), /Do not update silently/);
   assert.match(updatePrompt(release, { currentVersion: "0.4.1", harness: "claude-code" }), /start a new session/);
@@ -42,7 +42,7 @@ test("update checks are throttled and persist release metadata", async () => {
   assert.equal(result.checked, true);
   assert.match(result.notice, /0\.4\.1 is available/);
   assert.equal(config.updates.last_checked_at, "2026-09-01T12:00:00.000Z");
-  assert.equal(config.updates.update_url, "https://example.test/update");
+  assert.equal(config.updates.update_url, "https://github.com/Parsifal1986/TokensBurned/releases/tag/v0.4.1");
   assert.equal(updateCheckDue(config.updates.last_checked_at, now + 60_000), false);
 
   const throttled = await checkForUpdate(config, { now: now + 60_000 });
@@ -65,4 +65,23 @@ test("release data cannot inject instructions or terminal controls into update p
     assert.equal(config.updates.update_url, null);
     assert.deepEqual(Object.keys(result.release).sort(), ["latest_version", "minimum_supported_version", "update_url"]);
   }
+});
+
+test("development channels cannot offer or fetch remote plugin updates", async () => {
+  for (const currentVersion of ["1.0.0-dev.1", "1.0.0+local", "main"]) {
+    const result = await checkForUpdate({}, { currentVersion, force: true, fetchImpl:()=>assert.fail("development build must stay local") });
+    assert.equal(result.development, true);
+    assert.equal(updatePrompt({latest_version:"99.0.0"}, {currentVersion,harness:"codex"}), null);
+  }
+  for (const release of [{latest_version:"99.0.0-dev.1"}, {latest_version:"99.0.0",channel:"development"}, {latest_version:"99.0.0",prerelease:true}, {latest_version:"99.0.0",draft:true}]) {
+    assert.equal(pluginUpdateCommand("codex",release),null);
+    assert.equal(updateNotice(release,"0.6.8"),null);
+  }
+});
+
+test("release promotion rejects drafts, prereleases and mismatched tags", async()=>{
+ const {validatePublishedRelease}=await import('../scripts/promote-release.mjs');
+ const release={tag_name:'v1.0.0',draft:false,prerelease:false,published_at:'2026-09-08T12:00:00Z'};
+ assert.doesNotThrow(()=>validatePublishedRelease(release,'1.0.0'));
+ for(const override of [{draft:true},{prerelease:true},{published_at:null},{tag_name:'main'},{tag_name:'v1.0.1'}])assert.throws(()=>validatePublishedRelease({...release,...override},'1.0.0'));
 });

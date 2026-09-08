@@ -213,3 +213,9 @@ connection times, and outstanding slot release times remain until their normal
 deadlines. Connection windows last up to 24 hours; deleted device reservations
 last up to 30 days or credential expiry, whichever comes first. Expired records
 are cleaned up regularly. See [all usage limits](https://tokensburned.com/limits.html).
+
+### Stable plugin updates
+
+Plugin catalogs pin the last promoted GitHub Release by tag and commit. `tokensburned update` refreshes release metadata and prints the native plugin-manager commands; it does not install from the current development checkout. Versions with prerelease or local build suffixes skip remote update checks. Test those builds from a local checkout.
+
+After publishing a non-prerelease GitHub Release, maintainers can run `node scripts/promote-release.mjs vX.Y.Z /path/to/TokensBurned-Cloud` to prepare the pinned catalogs and API release metadata. The script verifies the published release, commit and package version, and writes local changes only. Review and publish those changes separately.

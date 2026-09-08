@@ -40,7 +40,16 @@ test("repository exposes manifests for the supported plugin ecosystems", async (
   ]);
 
   assert.equal(claude.version, pkg.version);
-  assert.equal(claudeMarketplace.plugins[0].version, pkg.version);
+  // The catalog tracks the last release, independently of the development package.
+  const stablePlugin = claudeMarketplace.plugins[0];
+  assert.match(stablePlugin.version, /^\d+\.\d+\.\d+$/);
+  assert.equal(stablePlugin.source.ref, `v${stablePlugin.version}`);
+  assert.match(stablePlugin.source.sha, /^[a-f0-9]{40}$/);
+  const codexMarketplace = JSON.parse(await fs.readFile(path.join(root,".agents/plugins/marketplace.json"),"utf8"));
+  assert.equal(codexMarketplace.plugins[0].source.ref,stablePlugin.source.ref);
+  assert.equal(codexMarketplace.plugins[0].source.sha,stablePlugin.source.sha);
+  assert.equal(codexMarketplace.plugins[0].source.source,"url");
+  assert.equal(stablePlugin.source.source,"github");
   assert.equal(codex.version, pkg.version);
   assert.equal(copilot.version, pkg.version);
   assert.equal(gemini.version, pkg.version);
