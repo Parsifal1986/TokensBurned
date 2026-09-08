@@ -141,7 +141,7 @@ test("backfill defaults to the current harness and requires explicit cross-harne
   const all = await execFileAsync(process.execPath, [cli, "backfill", "--dry-run", "--days", "1", "--all-harnesses"], {
     env: baseEnv,
   });
-  assert.match(all.stdout, /from 2 claude-code, codex history files/);
+  assert.match(all.stdout, /claude-code, codex, gemini-cli, opencode, cline: 2 usage records/);
 
   await assert.rejects(
     execFileAsync(process.execPath, [cli, "backfill", "--dry-run", "--days", "1"], { env: baseEnv }),
@@ -382,7 +382,7 @@ test("update checks releases but merges usage without bypassing the server uploa
   const { stdout } = await update();
   assert.match(stdout, /9\.9\.9 is available/);
   assert.match(stdout, /codex plugin add tokensburned@tokensburned/);
-  assert.match(stdout, /Merged 1 recent bucket from codex/);
+  assert.match(stdout, /Merged 1 recent usage record from codex/);
   assert.match(stdout, /Server is up to date/);
   assert.equal(await fs.readFile(countFile, "utf8"), "x", "the merged day was uploaded during update");
   const outbox = JSON.parse(await fs.readFile(path.join(burnHome, "server-outbox.json"), "utf8"));

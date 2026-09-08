@@ -1,146 +1,213 @@
 <div align="center">
   <img src="../../public/favicon.svg" width="112" alt="TokensBurned 图标" />
   <h1>TokensBurned</h1>
-  <p><strong>记录每一份 token 用量。展示在 GitHub 或个人主页，不上传提示词和源代码。</strong></p>
-  <p><a href="../../README.md">English</a> · <strong>简体中文</strong> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a> · <a href="README.fr.md">Français</a></p>
+  <p><strong>以隐私为先，将你的 AI 编程活动展示在 GitHub Profile 上。</strong></p>
+  <p>
+    <a href="https://tokensburned.com/"><img alt="网站" src="https://img.shields.io/badge/website-tokensburned.com-eb6733?style=flat-square"></a>
+    <a href="https://www.npmjs.com/package/tokensburned"><img alt="npm" src="https://img.shields.io/npm/v/tokensburned?style=flat-square&label=npm"></a>
+    <a href="https://github.com/Parsifal1986/TokensBurned/releases"><img alt="GitHub 版本" src="https://img.shields.io/github/v/release/Parsifal1986/TokensBurned?style=flat-square&label=release"></a>
+    <a href="https://github.com/Parsifal1986/TokensBurned/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Parsifal1986/TokensBurned/ci.yml?style=flat-square&label=ci"></a>
+    <a href="../../LICENSE"><img alt="MIT 许可证" src="https://img.shields.io/badge/license-MIT-f1eadf?style=flat-square"></a>
+  </p>
+  <p>
+    <a href="../../README.md">English</a> · <strong>简体中文</strong> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a> · <a href="README.fr.md">Français</a>
+  </p>
 </div>
+
+TokensBurned 将你的 AI 编程工具的 token 用量转化为一张实时更新的 GitHub Profile SVG 卡片。客户端从 Claude Code、Codex 等 harness 读取用量元数据，在本地归并为聚合计数器，只上传这些聚合数据。提示词、回复和源代码永远不会离开你的设备。
 
 <div align="center">
-  <h3><a href="https://tokensburned.com/?lang=zh-CN#card-builder">打开在线卡片构建器 →</a></h3>
-  <p><sub>选择浅色/深色/自动主题和可选显示元素。预览只使用本地虚构数据。</sub></p>
+  <img src="../../assets/demo-card-builder.gif" width="840" alt="TokensBurned 卡片构建器在完整、紧凑和 meme 版式之间切换的演示" />
+  <p><sub><a href="https://tokensburned.com/?lang=zh-CN#card-builder">打开在线卡片构建器</a>。预览使用的是虚构的本地数据。</sub></p>
 </div>
 
-TokensBurned 从已支持的 AI coding harness 记录 token 数量和模型元数据，在本地聚合，按服务端安排上传，再生成自动更新的 SVG。卡片可以放进 GitHub Profile、个人主页或其他支持 SVG 图片的页面。
+## 功能特性
 
-<div align="center"><img src="../../public/demo/card-full.svg" width="840" alt="新版 TokensBurned 卡片，使用虚构示例数据" /></div>
+- **实时 Profile 卡片。** 一个图片链接即可展示 24 小时、7 天、30 天和总计用量，日与小时热力图，harness、provider 和 model 对比，以及匿名的站内排名。无需定时任务，也无需提交 README。
+- **本地归并。** Session 会先在你的设备上归并为 15 分钟的时间桶，再上传。
+- **严格的隐私边界。** 提示词、回复、源代码、仓库名、transcript 路径和 API key 永远不会被采集。参见[隐私与安全](#隐私与安全)。
+- **默认不公开。** 连接账号并上传聚合数据不会自动创建公开卡片，发布是另一个需要显式执行的命令。
+- **准确归因。** harness、provider 和 model 会作为三个独立身份分别记录。如果某个 Claude Code session 实际调用了另一个 provider，也会如实标注。
+- **如实标注兼容性。** 原生 hook、插件工作流和独立 CLI 会分别标注，让你清楚每个 harness 是如何被统计的。
 
-上图使用仓库内置的虚构数据，浏览 README 不会请求你的在线卡片。
+## 支持的 Harness
 
-## 为什么用 TokensBurned
+| Harness | 安装方式 | Token 来源 | 支持程度 |
+| --- | --- | --- | --- |
+| Claude Code | 插件市场 | 生命周期 hook 与经过确认的本地历史 | 原生支持 |
+| Codex | 插件市场 | 插件 hook 与经过确认的本地历史 | 原生支持 |
+| Cline CLI / SDK / classic IDE | Cline 插件与独立 CLI | 逐条消息的 `afterModel`、SDK 消息与经典任务指标 | 按格式区分的逐次采集与历史回填 |
+| OpenCode | 独立 CLI | v1/v2 SQLite 与旧版消息 JSON | 已完成请求的用量；支持历史回填 |
+| Gemini CLI | Gemini extension 与独立 CLI | 记录下来的 JSON/JSONL 用量 | 后台采集与历史回填 |
+| GitHub Copilot CLI | 设置插件与实时 extension | 官方的 `assistant.usage` 事件 | 实时逐次采集；不支持 transcript 回填 |
+| Cursor、Aider 等 | 独立 CLI | 由接入方提供的观测用量 | 不支持自动采集 |
 
-- **只嵌入一次。** SVG 会在服务器端更新，不需要定时任务，也不会制造难看的 README commit。
-- **区分三层身份。** Claude Code 是 harness，不等于模型一定是 Claude。provider 和 model 会分别记录。
-- **先在本地缩减。** 原始 session 不会被上传，客户端只输出允许的聚合字段。
-- **清晰的隐私边界。** 不上传提示词、回复、源代码、仓库名、transcript 路径和 API key。
-- **连接不等于公开。** 默认关闭公开卡片，只有显式执行发布命令后才会把聚合活动与 GitHub 身份关联展示。
-- **不夸大兼容性。** 没有用量适配器的 harness 会明确标注不支持，安装 CLI 不等于完成适配。
+TokensBurned 不会根据提示词长度或费用估算 token，也不接受遥测导出器流量。各数据源的详细说明见[本地采集约定](../cli-collection.md)。
 
-## 按 harness 安装
+## 快速开始
+
+<div align="center">
+  <img src="../../assets/demo-install.gif" width="840" alt="TokensBurned 安装器在 Claude Code、Codex 和 Gemini CLI 之间切换的演示" />
+</div>
 
 <table>
   <tr>
     <td width="50%" valign="top">
-      <h3>Claude Code</h3><p><strong>原生插件 + SessionEnd hook</strong></p>
+      <h3>Claude Code</h3>
       <pre><code>/plugin marketplace add Parsifal1986/TokensBurned
 /plugin install tokensburned@tokensburned
 /reload-plugins
 /tokensburned:connect</code></pre>
-      <p>预览历史导入：<code>/tokensburned:backfill --dry-run --days 90</code></p>
+      <p>可选的历史导入（先预览）：</p>
+      <pre><code>/tokensburned:backfill --dry-run --days 90</code></pre>
     </td>
     <td width="50%" valign="top">
-      <h3>Codex</h3><p><strong>原生 marketplace 插件 + 专用 skill</strong></p>
+      <h3>Codex</h3>
       <pre><code>codex plugin marketplace add Parsifal1986/TokensBurned
 codex plugin add tokensburned@tokensburned</code></pre>
-      <p>新建 task 后使用：</p>
+      <p>新建一个 task，然后使用内置的 skill：</p>
       <pre><code>$tokensburned:connect
 $tokensburned:backfill
-$tokensburned:server</code></pre>
+$tokensburned:server
+$tokensburned:privacy
+$tokensburned:update
+$tokensburned:doctor</code></pre>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Cline CLI / SDK</h3>
+      <pre><code>cline plugin install https://github.com/Parsifal1986/TokensBurned.git</code></pre>
+      <p>兼容的宿主通过 <code>afterModel</code> 上报逐条消息的用量。后台采集器还会读取 SDK 消息历史和经典 IDE 的任务指标。hook 与 SDK 历史共享请求身份，因此同时采集两者不会重复计入 token。详见<a href="../cli-collection.md">支持的格式与限制</a>。</p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>OpenCode 及其他工具</h3>
+      <pre><code>npm install -g tokensburned
+tokensburned connect
+tokensburned run --harness opencode</code></pre>
+      <p>采集器会读取 OpenCode v1/v2 的 SQLite 用量以及旧版消息 JSON。SQLite 需要安装 <code>sqlite3</code>。Cursor 和 Aider 目前还没有自动读取器。</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Gemini CLI</h3>
+      <pre><code>gemini extensions install https://github.com/Parsifal1986/TokensBurned
+gemini
+/tokensburned:connect</code></pre>
+      <p>该 extension 提供设置用的 skill。执行 <code>tokensburned run --harness gemini-cli</code> 即可采集记录下来的 JSON/JSONL session 用量，包括子 session。用 <code>tokensburned backfill --harness gemini-cli --dry-run</code> 预览历史。</p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>GitHub Copilot CLI</h3>
+      <pre><code>copilot plugin install https://github.com/Parsifal1986/TokensBurned</code></pre>
+      <p>连接之后，执行 <code>tokensburned integrations install copilot</code>，再启动 <code>copilot --experimental</code>。该实时 extension 会记录官方的逐次调用用量事件，包括 subagent。这些事件无法从普通的 session 历史中恢复。仅安装设置插件并不会启用采集。</p>
     </td>
   </tr>
 </table>
 
-### 当前支持范围
+### 采集原理
 
-| Harness | 状态 | 范围 |
-| --- | --- | --- |
-| Claude Code | 支持 | 原生插件 hook、本地历史读取 |
-| Codex | 支持 | 原生插件 hook、本地历史读取 |
-| OpenCode | 有限适配，实验性 | 仅支持 v1 SQLite，需安装 `sqlite3`；不支持 v2、旧 JSON 存储 |
-| Cline CLI / SDK | 条件适配，实验性 | 宿主须提供 `afterModel.assistantMessage.metrics`、模型信息和稳定消息 ID；仅接口契约测试，未完成原生端到端验证，无历史回填，不支持编辑器扩展 |
-| Cursor | **暂不支持** | 尚无 token 用量采集适配器 |
-| Aider | **暂不支持** | 尚无 token 用量采集适配器 |
-| Gemini CLI | **暂不支持用量采集** | 已有设置扩展，但自动采集和历史回填未实现 |
-| GitHub Copilot CLI | **暂不支持用量采集** | 已有设置插件，但自动采集和历史回填未实现 |
-| 其他 harness | **暂不支持** | 尚无受支持的采集适配器 |
+- **生命周期 hook。** 在 Claude Code 和 Codex 中，插件会在每一轮结束后把当前 transcript 归并进本地队列，并在启动时重新检查最近的 session，因此一个没有正常结束的 session 依然会被计入。
+- **CLI 与插件协同。** 两者共用同一个 <code>BURN_HOME</code>（默认为 <code>~/.burn</code>）和设备凭证。它们共享的队列会对请求和 transcript 快照去重，服务端会以每个设备当天的最新版本为准。如果不同的 home 目录或设备读取了同一份历史，可能会重复计数；匿名的云端总量无法对这些重复数据去重。
+- **定时上传。** 已入队的聚合数据会按服务端的计划上传，默认最多每小时一次。没有任何命令可以强制提前上传。
+- **更新提示。** 已安装的插件最多每 24 小时检查一次新版本，如果存在对应的原生插件管理器命令就会打印出来。更新永远不会在未经显式请求的情况下自动安装，检查失败也不会阻塞启动。
+- **引导流程。** 已安装但尚未连接时，插件最多提醒三次 connect 命令，之后就会保持静默。
 
-手动导入只是集成接口，**不代表已支持对应 harness**。安装独立 CLI 不会自动获得 Cursor、Aider、Gemini 或 Copilot 的用量。有限适配的要求见[采集范围](../cli-collection.md)。
+## Profile 卡片
 
-## 生成 GitHub Profile 卡片
+卡片在你主动开启之前始终是私有的：
 
-先运行 `tokensburned privacy public` 明确选择公开。该命令会公开总量、harness/provider/model 明细、活动热力图、排名与 GitHub 身份。之后再打开[在线卡片构建器](https://tokensburned.com/?lang=zh-CN#card-builder)，输入用户名并复制 Markdown。链接参数只能隐藏服务器已允许的字段，不能扩大公开范围。
+```sh
+tokensburned privacy public
+```
+
+发布会公开总量、harness、provider 和 model 明细、活动热力图、排名以及你的 GitHub 身份。该设置属于你的 GitHub 账号，所有已连接的设备共享同一个选择。然后打开[卡片构建器](https://tokensburned.com/?lang=zh-CN#card-builder)，输入你的 GitHub 用户名，选择一个预设，再把 Markdown 粘贴进你的 Profile README：
 
 ```markdown
-[![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/你的_GITHUB_用户名.svg?theme=auto)](https://tokensburned.com/?lang=zh-CN)
+[![TokensBurned activity](https://api.tokensburned.com/v1/cards/u/YOUR_GITHUB_NAME.svg?theme=auto)](https://tokensburned.com/?lang=zh-CN)
 ```
+
+<div align="center">
+  <img src="../../public/demo/card-full.svg" width="840" alt="使用虚构示例数据渲染的 TokensBurned 卡片" />
+  <p><sub>使用仓库内置的虚构数据渲染。浏览本 README 不会调用 TokensBurned API。</sub></p>
+</div>
 
 ### 卡片元素
 
-所有卡片固定保留小火苗、7 日趋势、随手涂鸦和底部短语。隐私设置仍然优先：隐藏活动记录后，趋势图不会泄露这些记录。
+每张卡片都保留火焰形象、七日趋势、涂鸦和底部文案。可选元素通过查询参数开关：
 
-| 可选元素 | 参数 | 默认 |
+| 元素 | 参数 | 默认 |
 | --- | --- | --- |
-| 活动热力图 | `heatmap=0\|1` | 开启 |
-| Harness 组成 | `stack=0\|1` | 开启 |
-| 连续活跃天数 | `streak=0\|1` | 开启 |
-| 7 日缓存输入占比 | `cache=0\|1` | 关闭 |
-| 排名徽章 | `rank=0\|1` | 关闭 |
+| 活动热力图 | `heatmap=0\|1` | 开 |
+| harness 明细 | `stack=0\|1` | 开 |
+| 连续活跃天数 | `streak=0\|1` | 开 |
+| 最近七天的缓存输入占比 | `cache=0\|1` | 关 |
+| 排名徽章 | `rank=0\|1` | 关 |
 
-主题支持 `theme=auto|light|dark`，省略时使用深色。例如：
+`theme=auto|light|dark` 用于选择外观。省略时使用 `dark`，`auto` 跟随访客的配色方案。例如：
 
 ```text
 ?theme=auto&heatmap=1&stack=1&streak=1&cache=1&rank=0
 ```
 
-旧的完整、紧凑和 Meme 版式已退役，请用新版制作器生成链接。
+隐私设置始终生效。被隐藏的活动历史不会出现在趋势中，查询参数也无法展示你的账号尚未发布的任何内容。旧的 full、compact、meme 版式预设已经停用，请使用卡片构建器生成当前链接。
 
-CDN 未命中时现场生成 SVG，不再把每种款式的 SVG 持久保存到 R2。边缘和浏览器缓存均为一小时。本地采集、云端上传和卡片缓存分别遵守各自的周期，因此卡片是自动更新，并非即时刷新。
+## 命令行
 
-## 独立 CLI
-
-下面安装 [v0.6.9 正式发布包](https://github.com/Parsifal1986/TokensBurned/releases/tag/v0.6.9)。npm 仓库版本可能落后于 GitHub Release。
+独立 CLI 适用于所有 harness，也是各插件背后的传输层。
 
 ```sh
-npm install -g https://github.com/Parsifal1986/TokensBurned/releases/download/v0.6.9/tokensburned-0.6.9.tgz
+npm install -g tokensburned
 tokensburned connect
 tokensburned run
 ```
 
-`run` 会安装当前用户的后台服务并在登录后自启，每分钟检查本地用量，持久化去重，并在服务端允许的时间上传；断网后自动按退避时间重试。`run --stop` 停止并取消自启；`run --foreground` 可前台诊断。不需要 root。支持 Codex、Claude Code 和兼容的 OpenCode v1 SQLite 用量（需要 sqlite3）；Cursor、Aider 暂不支持。
+| 命令 | 作用 |
+| --- | --- |
+| `tokensburned` | 查看本地采集与上传状态 |
+| `tokensburned connect` | 授权你的 GitHub 账号并创建设备凭证 |
+| `tokensburned run` | 启动后台采集，并在 macOS 和 Linux 上启用登录自启 |
+| `tokensburned privacy [public\|private]` | 查看或修改卡片可见性 |
+| `tokensburned doctor` | 诊断采集、连接和隐私状态 |
+| `tokensburned update` | 检查新版本并补齐最近的历史数据 |
+| `tokensburned disconnect` | 撤销当前设备的凭证 |
 
-日常仅需 `connect`、`run`、`status`（默认命令）、`privacy`、`doctor`、`update` 和 `disconnect`。历史回填、查询云端总量和删除数据放在 `help --advanced`。更新检查可以立即执行，上传不能绕过服务端周期。
+`run` 会安装一个用户级服务，每分钟读取受支持的本地数据源，持久化队列，并按服务端计划重试，不需要 root 权限。使用 `run --stop` 取消登录自启，在没有受支持服务管理器的平台上或需要诊断时使用 `run --foreground`。`burn` 是 `tokensburned` 的简短别名。
 
-旧的 `setup`、普通 `sync`、`render`、`clean` 已废弃，执行会提示迁移，不写 GitHub 也不删除待上传数据。详见[采集范围与命令迁移](../cli-collection.md)。
+限定范围的历史回填、已认证总量查询、账号删除等维护命令可以通过 `tokensburned help --advanced` 查看。命令迁移说明和手动导入约定见[本地采集约定](../cli-collection.md)和[用量导入](../usage-import.md)。
 
-## 隐私边界
+## 隐私与安全
 
 | 会上传 | 永不上传 |
 | --- | --- |
-| token 数量 | 提示词和回复 |
-| harness、provider、model（未识别的网关只记录主机名） | 源代码和工具 payload |
-| 哈希后的 session ID | 仓库名与路径 |
-| 15 分钟时间桶 | transcript 文件与路径 |
-| 请求次数 | API key 与 provider 凭证 |
+| Token 数量 | 提示词和回复 |
+| Harness、provider 和 model 标签 | 源代码和工具 payload |
+| 哈希后的 session 标识 | 仓库名和路径 |
+| 15 分钟时间桶 | Transcript 文件和路径 |
+| 请求次数 | API key 和 provider 凭证 |
 
-公开卡片默认关闭。服务端聚合数据会保留到你执行 `tokensburned delete-server-data`；设备凭证 180 天后过期，也可以提前撤销。只有明确执行 `run` 才安装用户级后台服务，不安装 root daemon、流量代理或 Git 同步任务。完整说明见 [SECURITY.md](../../SECURITY.md)。项目采用 [MIT License](../../LICENSE)。
+无法识别的网关只会以主机名的形式记录。设备凭证在 180 天后过期，也可以随时用 `tokensburned disconnect` 撤销。服务端聚合数据会一直保留，直到你执行 `tokensburned delete-server-data`。TokensBurned 不会安装 root daemon、流量代理或 Git 同步任务。完整的数据边界和认证模型记录在 [SECURITY.md](../../SECURITY.md) 中。
 
-### 免费版设备槽位
+## 使用限额
 
-每个 GitHub 账号共有 5 个槽位，使用中和冷却中的设备都占用槽位。
-设备断开后立即失去访问权限，槽位最多冷却 30 天，凭证先到期则立即释放；其他空闲槽位仍可使用。
-原设备保留本地 `~/.burn` 中的设备 ID 即可复用原槽位重连，取消冷却；再次断开后重新计算 30 天。
-凭证过期立即释放槽位。原设备重连也需要空闲槽位，并消耗一次连接额度。断开不删除云端历史，删除本地文件也不会释放云端槽位。
-CLI 在断开后显示服务端确认的槽位可用时间。
+- 每个 GitHub 账号有 5 个设备槽位。设备断开连接后，其槽位最多保留 30 天，同一设备可以在这段时间内重新连接回原槽位。
+- 每个账号成功连接次数限制为滚动 10 分钟内最多 5 次、滚动 24 小时内最多 10 次。
+- 历史回填支持用户自选的 1 到 90 天范围。
+- 删除服务端数据会移除用量、凭证、账号资料和公开卡片。尚未到期的槽位预留和连接额度仍按原定时间过期。
 
-每个账号在滚动 10 分钟内最多成功连接 5 次，滚动 24 小时内最多 10 次；
-原设备重连和凭证轮换也计入。断开不会返还次数，授权轮询不计入。
+完整规则发布在 [tokensburned.com/limits](https://tokensburned.com/limits.html?lang=zh-CN)。
 
-删除整个账号数据再重建，不返还已使用的额度。用量、凭证、账号资料和卡片会删除；
-仅保留经密钥处理的账号标识、近期连接时间和未结束的槽位预留时间。
-连接记录最多计入 24 小时，删号后的槽位预留最多持续 30 天，凭证先到期则提前释放；到期记录定期清理。
-完整规则见[使用限额](https://tokensburned.com/limits.html?lang=zh-CN)。
+## 文档
 
-### 正式版本更新
+- [网站与卡片构建器](https://tokensburned.com/?lang=zh-CN)
+- [安全与隐私边界](../../SECURITY.md)
+- [本地采集约定与命令迁移](../cli-collection.md)
+- [面向集成方的用量导入约定](../usage-import.md)
+- [使用限额](https://tokensburned.com/limits.html?lang=zh-CN)
 
-插件目录固定到已推广的正式 GitHub Release 标签和提交。`tokensburned update` 检查正式发布版本，并给出原生插件管理器更新命令，不会从 `main` 拉取开发版。预发布及本地构建版本跳过远程更新检查，应从本地 checkout 测试。
+## 贡献
 
-更新时会合并最近两天的受支持本地历史，并检查上传队列；这不会绕过服务端允许的上传时间。
+欢迎贡献代码。请阅读 [CONTRIBUTING.md](../../CONTRIBUTING.md) 了解本地环境搭建、测试方法以及新增采集路径的规则。在提交公开 issue 之前，请按照 [SECURITY.md](../../SECURITY.md) 中的说明私下报告安全问题。
+
+## 许可证
+
+[MIT](../../LICENSE) © 2026 [Parsifal1986](https://github.com/Parsifal1986)

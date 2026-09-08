@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self' https://api.tokensburned.com; object-src 'none'; base-uri 'none'; form-action 'none'" />
+  <meta name="description" content="Preview faster TokensBurned uploads and website updates. No real payments." />
+  <title>Plans & payment preview · TokensBurned</title>
+  <link rel="icon" href="./favicon.svg?v=flame-2" /><link rel="stylesheet" href="./styles.css" /><link rel="stylesheet" href="./plans.css" />
+  <script src="./plans.js" defer></script><script src="./live-card.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main" data-copy="skip">Skip to content</a>
+  <header class="site-header">
+    <a class="wordmark" href="./index.html"><img src="./favicon.svg?v=flame-2" alt="" width="28" height="28" /><span>tokensburned</span></a>
+    <nav aria-label="Navigation"><a href="./index.html" data-copy="home">Home</a><a href="#live" data-copy="live">Live card</a><a href="./limits.html" data-copy="limits">Usage limits</a></nav>
+    <div class="header-actions"><label class="language-control"><span class="sr-only">Language / 语言</span><select id="plan-language" aria-label="Language / 语言"><option value="en">English</option><option value="zh-CN">简体中文</option></select></label><button type="button" class="theme-toggle" id="plan-theme" aria-label="Switch color theme">light / dark</button></div>
+  </header>
+  <main id="main" class="plans-main">
+    <section class="plan-intro"><p class="preview-label" data-copy="badge">Paid mode preview · No charge</p><h1 data-copy="title">Keep your receipt current.</h1><p class="lede" data-copy="lede">Pro brings recent activity to your card sooner. Your prompts and code stay on your machine.</p></section>
+    <section aria-labelledby="compare-title"><h2 id="compare-title" data-copy="compare">Choose your update pace</h2>
+      <div class="plan-table-wrap"><table class="plan-table"><caption class="sr-only" data-copy="compare">Choose your update pace</caption><thead><tr><th scope="col" data-copy="feature">Feature</th><th scope="col">Free</th><th scope="col">Pro <span data-copy="preview">preview</span></th></tr></thead><tbody>
+        <tr><th scope="row" data-copy="upload">Client uploads</th><td data-copy="hour">Every 60 minutes</td><td data-copy="five">Every 5 minutes</td></tr>
+        <tr><th scope="row" data-copy="refresh">Website data updates</th><td data-copy="hour">Every 60 minutes</td><td data-copy="five">Every 5 minutes</td></tr>
+        <tr><th scope="row" data-copy="devices">Device slots</th><td>5</td><td>5</td></tr>
+        <tr><th scope="row" data-copy="history">Historical day updates</th><td data-copy="daily">Once per UTC day</td><td data-copy="daily">Once per UTC day</td></tr>
+        <tr><th scope="row" data-copy="cost">Price</th><td data-copy="free">Free</td><td data-copy="nocharge">No charge during preview. Pricing to follow.</td></tr>
+      </tbody></table></div>
+      <p class="plan-note" data-copy="cadence">Intervals are update windows, not a delivery guarantee. Collection depends on your harness; caches and GitHub's image proxy can add delay.</p>
+      <div class="plan-actions"><button class="button primary" type="button" id="open-checkout" data-copy="checkout">Preview payment flow</button><a class="button secondary" href="#live" data-copy="view">View a public card</a></div>
+      <p class="plan-note" data-copy="grant">Preview access is granted by the operator for up to 30 days, with 20 active accounts maximum. It expires automatically. Run tokensburned plan to refresh your access.</p>
+    </section>
+    <section class="pace-demo" aria-labelledby="pace-title"><div><h2 id="pace-title" data-copy="pace">See the difference over an hour</h2><p data-copy="simulation">Local illustration only. Moving this slider sends no requests.</p><label for="pace-minute" data-copy="elapsed">Minutes since the hour began</label><input id="pace-minute" type="range" min="0" max="60" value="25" /><output id="pace-value" for="pace-minute">25 min</output></div><div class="pace-readout"><p>Free <strong id="free-minute">00:00</strong></p><p>Pro <strong id="pro-minute">00:25</strong></p><span data-copy="lastSync">Last eligible upload window</span></div></section>
+    <section id="live" class="live-section" aria-labelledby="live-title"><h2 id="live-title" data-copy="live">Live card</h2><p data-copy="liveNote">View only activity the owner has chosen to publish. Updates follow the account's server-confirmed plan and pause in background tabs.</p>
+      <form id="live-form"><label for="live-name" data-copy="github">GitHub username</label><div class="live-controls"><input id="live-name" name="username" maxlength="39" autocomplete="off" autocapitalize="none" spellcheck="false" required pattern="[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?" /><button class="button secondary" type="submit" id="live-start" data-copy="load">Load public card</button><button class="button secondary" type="button" id="live-stop" disabled data-copy="stop">Stop updates</button></div></form>
+      <p id="live-status" role="status" data-copy="idle">No card loaded.</p><img id="live-image" hidden alt="TokensBurned public activity card" />
+    </section>
+    <section class="plan-privacy"><h2 data-copy="privacy">The same privacy boundary</h2><p data-copy="privacyNote">Only aggregate usage metadata is uploaded. Previewing checkout collects no payment details, creates no subscription, and does not publish your card or enable Pro.</p><a href="./limits.html" data-copy="readLimits">Read all usage limits</a></section>
+  </main>
+  <dialog id="checkout-dialog" aria-labelledby="checkout-title"><div class="checkout-content"><p class="preview-label" data-copy="badge">Paid mode preview · No charge</p><h2 id="checkout-title" data-copy="checkoutTitle">Payment channel preview</h2><p data-copy="checkoutNote">A payment provider has not been configured. This local demo shows the order confirmation step without collecting a card, creating an order, or changing your plan.</p><dl class="checkout-receipt"><div><dt data-copy="plan">Plan</dt><dd>Pro preview</dd></div><div><dt data-copy="due">Amount due now</dt><dd data-copy="zero">0 · Demo only</dd></div></dl><p id="checkout-status" role="status"></p><div class="plan-actions"><button class="button primary" type="button" id="simulate-payment" data-copy="simulate">Simulate confirmation</button><button class="button secondary" type="button" id="close-checkout" data-copy="close">Close</button></div></div></dialog>
+</body></html>

@@ -1,6 +1,6 @@
 {
   "name": "tokensburned",
   "version": "0.6.9",
-  "description": "TokensBurned setup skills and explicit token-only CLI import. Automatic Gemini capture is not implemented.",
+  "description": "TokensBurned setup skills, background Gemini session usage collection and history backfill.",
   "contextFileName": "GEMINI.md"
 }

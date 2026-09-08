@@ -11,7 +11,7 @@ Dry run validates without credentials, file writes or networking. A real import 
 
 ## Integration fallback
 
-Daily CLI use is now `connect` followed by `run`; see [local collection and command migration](cli-collection.md). OpenCode v1 SQLite has a read-only collector. Cursor and Aider still need integrator-supplied observed requests; installing the CLI alone cannot collect their usage.
+Daily CLI use is now `connect` followed by `run`; see [local collection and command migration](cli-collection.md). Gemini, OpenCode v1/v2/legacy and Cline have format-scoped readers. Copilot requires the live extension. Cursor and Aider still need integrator-supplied observed requests; installing the CLI alone cannot collect their usage.
 
 `ingest --upload` remains a queue-only compatibility entry point for integrators. Keep `run` active to transport the resulting queue on the shared server schedule. `sync --cloud` remains a deprecated compatibility flush; plain `sync` is retired and cannot write to GitHub. `update` checks releases and queues supported recent history before a scheduled flush; its forced release check never forces a usage upload.
 
@@ -55,16 +55,8 @@ The Cline integration now uses `afterModel.assistantMessage` instead of cumulati
 
 The normalized SDK gateway input includes cache counters and output includes reasoning. TokensBurned separates those subsets before aggregation. Inconsistent custom-model counters are skipped rather than guessed. Missing model identity is reported as `unknown`. The hook performs local durable queuing; the existing worker handles networking outside the model callback.
 
-Sources checked on 2026-09-08: [Cline AgentMessage and hook types](https://github.com/cline/cline/blob/main/sdk/packages/shared/src/agent.ts), [runtime per-message usage deltas](https://github.com/cline/cline/blob/main/sdk/packages/agents/src/agent-runtime.ts), [gateway normalized usage](https://github.com/cline/cline/blob/main/sdk/packages/llms/src/providers/ai-sdk.ts). Compatibility is tested with synthetic fixtures shaped like this contract, not a newly installed harness. Legacy hosts exposing only afterRun are not automatically supported.
+Reference sources (checked 2026-09-08): [Cline AgentMessage and hook types](https://github.com/cline/cline/blob/main/sdk/packages/shared/src/agent.ts), [runtime per-message usage deltas](https://github.com/cline/cline/blob/main/sdk/packages/agents/src/agent-runtime.ts), [gateway normalized usage](https://github.com/cline/cline/blob/main/sdk/packages/llms/src/providers/ai-sdk.ts). Compatibility is tested with synthetic fixtures shaped like this contract, not a newly installed harness. Legacy hosts exposing only afterRun are not automatically supported.
 
 Old incorrect Cline aggregates are not automatically subtracted: the old format did not retain the request identities needed to reconstruct them safely. This change corrects future collection; it does not claim to repair already-uploaded historical totals.
 
-Gemini, Copilot, Cursor and Aider can use this integration fallback once observed usage is converted to the contract. They still do not have automatic capture/history adapters. OpenCode v1 SQLite collection is documented separately; do not manually import the same requests under different IDs. Do not point OTLP exporters at the TokensBurned API.
-
-## Local verification
-
-2026-09-08: 105/105 Burn tests passed. New regression coverage includes model/provider switches, cache/reasoning subsets, immutable request conflicts, concurrent replays, restart persistence, disconnected collection, network recovery, invalid batches, explicit dry runs and a two-process CLI upload with a mocked server. The six harness dimensions also passed the adjacent Cloud repository's real `normalizeDailyBatch` validator offline. `npm pack --dry-run` confirmed the Cline integration, new runtime modules, Gemini context file and this import guide are included. Plugin runtime copies were synchronized. No deployment, plugin reinstall, real credential use or historical-total rewrite was performed.
-
-### Upload scheduling follow-up
-
-Manual import was subsequently tightened to queue-only. The earlier 105-test verification above describes the original implementation. Current regression coverage checks that import makes no network request, preserves the server deadline across processes, and is sent only by normal sync after that deadline. Successful next-flush waits now survive local UTC window boundaries and plan refreshes.
+Integrators can use this fallback for unsupported hosts once observed usage is converted to the contract. Gemini, Copilot, OpenCode and Cline's supported native paths are documented in the collection guide; do not manually import the same requests under different IDs. Do not point OTLP exporters at the TokensBurned API.

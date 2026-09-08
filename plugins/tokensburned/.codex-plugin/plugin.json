@@ -1,7 +1,7 @@
 {
   "name": "tokensburned",
   "version": "0.6.9",
-  "description": "Privacy-first AI coding activity with serverless aggregation and GitHub profile cards.",
+  "description": "Privacy-first AI coding activity with aggregate-only uploads and a live GitHub profile card.",
   "author": {
     "name": "Parsifal1986",
     "url": "https://github.com/Parsifal1986"
@@ -14,7 +14,7 @@
   "interface": {
     "displayName": "TokensBurned",
     "shortDescription": "Put aggregate AI coding activity on GitHub.",
-    "longDescription": "Connect AI coding harnesses to the TokensBurned serverless collector, optionally import historical token totals, and render a live GitHub Profile SVG without uploading prompts or code.",
+    "longDescription": "Connect AI coding harnesses to TokensBurned, optionally import historical token totals, and render a live GitHub profile card without uploading prompts or code.",
     "developerName": "Parsifal1986",
     "category": "Productivity",
     "capabilities": ["Local", "Network", "Write"],

@@ -24,9 +24,9 @@ Native ingestion sends only:
 
 Prompts, responses, tool payloads, source code, repository names, transcript paths, raw session files, machine information, API keys, and GitHub credentials are not included in ingestion requests.
 
-The API's OTLP endpoints are disabled in production and are not a supported data path; only the signed protocol v2 daily envelopes described above are accepted.
+TokensBurned does not accept OpenTelemetry exporter traffic. The only supported upload path is the client's signed daily aggregate described above.
 
-Profile cards are private by default. Publishing requires the explicit `tokensburned privacy public` command (or `connect --publish-card`). A published card may expose totals, harness/provider/model labels, activity heatmaps, rank, and GitHub identity. The stored server policy belongs to the verified GitHub account and is authoritative across every connected device: connecting another device inherits the existing policy and never resets or republishes it. URL query parameters can hide fields but cannot publish a field the account has disabled. `tokensburned privacy private` makes the route unavailable and removes the stored SVG right away, and the API's edge cache drops its copy within five minutes; copies already held by GitHub's image proxy or other downstream caches can remain visible for up to one hour.
+Profile cards are private by default. Publishing requires the explicit `tokensburned privacy public` command (or `connect --publish-card`). A published card may expose totals, harness/provider/model labels, activity heatmaps, rank, and GitHub identity. The stored server policy belongs to the verified GitHub account and is authoritative across every connected device: connecting another device inherits the existing policy and never resets or republishes it. URL query parameters can hide fields but cannot publish a field the account has disabled. `tokensburned privacy private` takes effect immediately for new requests; cached copies of the card, including those held by GitHub's image proxy, can remain visible for up to one hour.
 
 ## Authentication and local behavior
 
@@ -38,9 +38,7 @@ The plugin's lifecycle hooks (`SessionStart`, `Stop`, `SessionEnd`) sanitize the
 
 At `SessionStart`, the plugin may query the public TokensBurned release endpoint at most once every 24 hours. It stores only the last-check time and public release metadata in `~/.burn/config.json`. A failed check never blocks startup, and the plugin never installs an update without an explicit user request.
 
-Unauthenticated device-flow endpoints use persistent per-client rate limits. API and authorization responses disable caching and apply restrictive browser security headers.
-
-Production service credentials are maintained outside this client repository and must never be committed.
+Upload timing is set by the service in its responses and cached locally by the client. No client option, configuration value, or manual import can shorten it.
 
 Please report security issues privately to the maintainers before opening a public issue.
 

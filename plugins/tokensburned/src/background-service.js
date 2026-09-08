@@ -45,7 +45,7 @@ export function serviceDefinition({ platform = process.platform, home = os.homed
   const args = [node, path.join(runtime, "bin", "burn.js"), "_collector", "--harness", [...new Set(harnesses)].join(",")];
   // Never persist shell environment, NODE_OPTIONS, provider keys or device tokens.
   const environment = { HOME: home, BURN_HOME: burnHome, PATH: [path.dirname(node), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"].join(":"), NO_COLOR: "1" };
-  for (const key of ["XDG_DATA_HOME", "OPENCODE_DB"]) if (env[key]) environment[key] = safe(env[key]);
+  for (const key of ["XDG_DATA_HOME", "XDG_CONFIG_HOME", "OPENCODE_DB", "GEMINI_CLI_HOME", "CLINE_DIR", "CLINE_DATA_DIR", "CLINE_SESSION_DATA_DIR", "CLINE_IDE_STORAGE"]) if (env[key]) environment[key] = safe(env[key]);
   if (platform === "darwin") {
     if (!Number.isInteger(uid) || uid < 0) throw new Error("A logged-in user is required for launchd");
     const file = path.join(home, "Library", "LaunchAgents", `${id}.plist`);

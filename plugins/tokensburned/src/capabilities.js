@@ -2,10 +2,10 @@
 export const harnessCapabilities = Object.freeze([
   { id: "codex", label: "Codex", capture: "session hooks", history: true },
   { id: "claude-code", label: "Claude Code", capture: "session hooks", history: true },
-  { id: "cline", label: "Cline", capture: "afterModel metrics (compatible CLI/SDK hosts)", history: false },
-  { id: "gemini-cli", label: "Gemini CLI", capture: null, history: false },
-  { id: "copilot", label: "GitHub Copilot CLI", capture: null, history: false },
-  { id: "opencode", label: "OpenCode", capture: "run: read-only v1 SQLite message usage (sqlite3 required; v2 unsupported)", history: false },
+  { id: "cline", label: "Cline", capture: "afterModel + SDK messages.json / classic IDE task usage via run", history: true },
+  { id: "gemini-cli", label: "Gemini CLI", capture: "run: recorded JSON/JSONL session usage", history: true },
+  { id: "copilot", label: "GitHub Copilot CLI", capture: "live assistant.usage extension (integrations install copilot; --experimental)", history: false },
+  { id: "opencode", label: "OpenCode", capture: "run: v1/v2 SQLite (sqlite3 required) + legacy message JSON", history: true },
   { id: "cursor", label: "Cursor", capture: null, history: false },
   { id: "aider", label: "Aider", capture: null, history: false },
 ]);

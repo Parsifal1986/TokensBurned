@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TokensBurned · 卡片游乐场</title><link rel="stylesheet" href="card-lab.css"></head>
+<body>
+<header><a href="/" class="brand">🔥 tokensburned</a><span class="preview-label">本地设计预览 · 示例数据</span></header>
+<main>
+  <div class="intro"><div><h1>你的 token，<br>有点戏。</h1><p>把烧掉的算力，变成一张有表情的名片。</p></div><span class="margin-note">one more prompt<br>should fix it ↙</span></div>
+  <div class="workspace">
+    <section class="display" aria-label="卡片预览">
+      <div class="stage" id="stage" data-background="none"><div class="ambience" aria-hidden="true"></div><div class="confetti" aria-hidden="true"></div><div id="card"></div></div>
+      <div class="export-row"><div><strong>为 GitHub 留一张定格。</strong><p>与服务端使用同一套 SVG 绘制逻辑，当前展示示例数据。</p></div><button class="primary" id="download" type="button">下载静态卡片 ↗</button></div>
+      <p id="status" role="status" aria-live="polite"></p>
+    </section>
+    <form id="controls" class="controls">
+      <fieldset><legend>每张卡片，都有这点小脾气</legend><p>🔥 小火苗 · 7 日趋势 · 随手涂鸦 · 底部短语</p><p class="help">固定保留。账号隐藏活跃数据时，趋势显示隐藏状态。</p></fieldset>
+      <fieldset><legend>想晒什么，自己选</legend><div class="checks"><label><input type="checkbox" name="heatmap" checked> 活跃热力图</label><label><input type="checkbox" name="stack" checked> Harness 组成</label><label><input type="checkbox" name="streak" checked> 连续活跃</label><label><input type="checkbox" name="cache"> 缓存读取占比</label><label><input type="checkbox" name="rank"> 排名徽章</label></div><p class="help">缓存占比：近 7 日缓存读取 token ÷（普通输入 + 缓存读取 token）。连续活跃按 UTC 日期计算。</p></fieldset>
+      <fieldset class="finish"><legend>最后一点手感</legend><label for="theme">配色</label><select id="theme" name="theme"><option value="dark">深色</option><option value="light">浅色</option><option value="auto">跟随系统</option></select><label for="owner">卡片署名</label><input id="owner" name="owner" maxlength="39" value="your-handle" autocomplete="off" spellcheck="false"><button type="reset" class="reset">恢复初始搭配</button></fieldset>
+    </form>
+  </div>
+  <footer>这是卡片设计实验室。所有数字均为演示，设置仅保存在当前页面，不会修改账号。</footer>
+</main><script type="module" src="card-lab.js"></script>
+</body></html>

@@ -5,13 +5,15 @@ import { setTimeout as delay } from "node:timers/promises";
 import { adapterFor } from "./adapters/index.js";
 import { collectHistoryEntries } from "./history.js";
 import { readOpenCodeUsage } from "./opencode-usage.js";
+import { readGeminiUsage } from "./gemini-usage.js";
+import { readClineUsage } from "./cline-usage.js";
 import { readConfig, readCredentials } from "./storage.js";
 import { atomicWrite } from "./atomic-write.js";
 import { API_ORIGIN, BURN_HOME, SERVER_OUTBOX_PATH, UPLOAD_INTERVAL_MS } from "./constants.js";
 import { nextUploadAt, readOutbox, pendingEnvelopes, deferredEnvelopes, syncUsageEntries } from "./server-outbox.js";
 import { isProcessAlive } from "./upload-worker.js";
 
-export const COLLECTOR_SOURCES = ["codex", "claude-code", "opencode"];
+export const COLLECTOR_SOURCES = ["codex", "claude-code", "opencode", "gemini-cli", "cline"];
 export const COLLECT_INTERVAL_MS = 60_000;
 export const COLLECTOR_LOCK = path.join(BURN_HOME, "collector.lock");
 export const COLLECTOR_STATUS = path.join(BURN_HOME, "collector-status.json");
@@ -19,13 +21,16 @@ async function json(file) {
   try { return JSON.parse(await fs.readFile(file, "utf8")); } catch (error) { if (error.code === "ENOENT") return null; throw error; }
 }
 
-export async function collectLocalUsage({ harnesses, now, previous = {}, historyImpl = collectHistoryEntries, openCodeImpl = readOpenCodeUsage } = {}) {
+export async function collectLocalUsage({ harnesses = COLLECTOR_SOURCES, now = Date.now(), previous = {}, historyImpl = collectHistoryEntries,
+  openCodeImpl = readOpenCodeUsage, geminiImpl = readGeminiUsage, clineImpl = readClineUsage } = {}) {
   const entries = [], errors = [], checkpoints = { ...previous };
   for (const harness of harnesses) {
     const last = Date.parse(previous[harness] || "");
     const days = Number.isFinite(last) ? Math.min(90, Math.max(2, Math.ceil((now - last) / 86_400_000) + 1)) : 2;
     try {
       if (harness === "opencode") entries.push(...await openCodeImpl({ now, days }));
+      else if (harness === "gemini-cli") entries.push(...await geminiImpl({ now, days }));
+      else if (harness === "cline") entries.push(...await clineImpl({ now, days }));
       else {
         const adapter = adapterFor(harness);
         const backend = await adapter.detectBackend();
@@ -66,7 +71,7 @@ export async function runCollector({
   collectImpl = collectLocalUsage, configImpl = readConfig, credentialsImpl = readCredentials,
   fetchImpl, alive = isProcessAlive, onStatus = () => {}, maxCycles = Infinity,
 } = {}) {
-  if (!harnesses.length || harnesses.some(id => !COLLECTOR_SOURCES.includes(id))) throw new Error("Automatic collection supports codex, claude-code and OpenCode v1 SQLite only. Cursor/Aider do not yet have verified automatic sources.");
+  if (!harnesses.length || harnesses.some(id => !COLLECTOR_SOURCES.includes(id))) throw new Error(`Automatic scanning supports ${COLLECTOR_SOURCES.join(", ")}. Copilot requires its live extension. Cursor/Aider do not yet have verified automatic sources.`);
   const token = await acquire(lockFile, alive);
   let status = {}, nextCollect = 0;
   try {

@@ -76,6 +76,9 @@ function snapshot(entry) {
     key: entry.observation_id ? `observation\u0000${entry.observation_id}` : [session, bucket, harness, model].join("\u0000"),
     value: {
       ...(entry.observation_id ? { observation_id: entry.observation_id, observation_hash: entry.observation_hash } : {}),
+      ...(entry.harness === "cline" && entry.cline_usage_scope && entry.cline_usage_detail ? {
+        cline_usage_scope: entry.cline_usage_scope, cline_usage_detail: entry.cline_usage_detail,
+      } : {}),
       bucket,
       day,
       hour,
@@ -172,15 +175,17 @@ export function mergeSnapshotEntries(outbox, entries) {
     }
     const { key, value } = snapshot(entry);
     const previous = observations.get(key) || outbox.sources[key];
-    if (previous && JSON.stringify(previous) !== JSON.stringify(value)) {
+    const clineCompatible = previous && compatibleClineDetail(previous, value);
+    if (previous && JSON.stringify(previous) !== JSON.stringify(value) && !clineCompatible) {
       throw new Error("Conflicting usage for an existing request id; no observations were imported.");
     }
-    observations.set(key, value);
+    observations.set(key, clineCompatible && value.cline_usage_detail === "output-total" && previous.cline_usage_detail !== "output-total" ? previous : value);
   }
   const affected = new Set();
   let changedSources = 0;
   for (const entry of entries) {
-    const { key, value } = snapshot(entry);
+    const parsed = snapshot(entry);
+    const key = parsed.key, value = entry.observation_id ? observations.get(key) : parsed.value;
     const previous = outbox.sources[key];
     if (previous && value.revision < previous.revision) continue;
     if (previous && JSON.stringify(previous) === JSON.stringify(value)) continue;
@@ -199,6 +204,24 @@ export function mergeSnapshotEntries(outbox, entries) {
     changedDays += 1;
   }
   return { changedSources, changedDays };
+}
+
+// Cline's official persistence codec drops reasoning detail, not output tokens.
+// This narrowly permits a richer partition of the same request; general imports
+// and two contradictory detailed observations remain immutable.
+function compatibleClineDetail(previous, next) {
+  if (next.harness !== "cline" || !/^[a-f0-9]{64}$/.test(next.cline_usage_scope || "")) return false;
+  if (!["reported", "output-total"].includes(next.cline_usage_detail)) return false;
+  if (previous.cline_usage_scope) {
+    if (previous.cline_usage_scope !== next.cline_usage_scope) return false;
+    if (previous.cline_usage_detail !== "output-total" && next.cline_usage_detail !== "output-total") return false;
+  } else if (previous.observation_hash === next.observation_hash) {
+    return true; // Add detail metadata to an otherwise identical pre-upgrade row.
+  } else if (next.cline_usage_detail !== "output-total") return false;
+  for (const key of ["observation_id", "session", "bucket", "harness", "provider", "model", "input_tokens", "cache_read_tokens", "cache_write_tokens", "request_count"]) {
+    if (previous[key] !== next[key]) return false;
+  }
+  return previous.output_tokens + previous.reasoning_tokens === next.output_tokens + next.reasoning_tokens;
 }
 
 function pendingByRevision(outbox) {

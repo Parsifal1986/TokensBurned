@@ -14,7 +14,8 @@ import {
   VERSION,
 } from "./constants.js";
 import { hookInstallNotice, installClaudeHook } from "./hooks.js";
-import { collectHistoryEntries } from "./history.js";
+import { collectHistoryEntries, HISTORY_SOURCES } from "./history.js";
+import { installCopilotExtension } from "./integration-install.js";
 import { eventFromHookPayload, normalizeEvent } from "./schema.js";
 import { usageObservation } from "./observations.js";
 import { runCollector, COLLECTOR_SOURCES, COLLECTOR_STATUS, COLLECTOR_LOCK } from "./collector.js";
@@ -36,6 +37,7 @@ import {
   deleteServerData,
   deviceIdFromToken,
   fetchServerSummary,
+  fetchServerPlan,
   fetchServerPrivacy,
   pollDeviceAuthorization,
   revokeDevice,
@@ -82,13 +84,12 @@ function requestedBackfillHarnesses(args) {
     throw new Error("Use either --harness or --all-harnesses, not both.");
   }
   if (requested) {
-    const adapter = adapterFor(requested);
-    if (!adapter) throw new Error(`Unsupported history harness: ${requested}`);
-    return [adapter.id];
+    if (!HISTORY_SOURCES.includes(requested)) throw new Error(`Unsupported history harness: ${requested}. Copilot requires live capture; past per-call events are not replayed.`);
+    return [requested];
   }
-  if (all) return adapters.map((adapter) => adapter.id);
+  if (all) return HISTORY_SOURCES;
   const detected = currentHarness();
-  if (detected && adapterFor(detected)) return [detected];
+  if (detected && HISTORY_SOURCES.includes(detected)) return [detected];
   if (detected) throw new Error(`History backfill is not supported for ${detected}. Use explicit request observations with ingest --upload; run doctor for capabilities.`);
   throw new Error(
     "Could not determine the current harness. Use --harness codex, " +
@@ -373,7 +374,9 @@ async function backfillHistory({
     filesByHarness,
   });
   const tokens = result.entries.reduce((sum, entry) => sum +
-    entry.input + entry.output + entry.cache_read + entry.cache_write + entry.reasoning, 0);
+    (entry.input ?? entry.input_tokens ?? 0) + (entry.output ?? entry.output_tokens ?? 0) +
+    (entry.cache_read ?? entry.cache_read_tokens ?? 0) + (entry.cache_write ?? entry.cache_write_tokens ?? 0) +
+    (entry.reasoning ?? entry.reasoning_tokens ?? 0), 0);
   if (!dryRun && result.entries.length) {
     await syncUsageEntries(result.entries, {
       token: credentials.device_token,
@@ -391,7 +394,10 @@ async function backfillHistory({
   }
   if (!quiet) {
     const files = Object.values(result.summary).reduce((sum, item) => sum + item.files, 0);
-    console.log(`${dryRun ? "Would import" : "Imported"} ${formatTokens(tokens)} tokens from ${files} ${selected.join(", ")} history files across ${result.entries.length} aggregate buckets.`);
+    const native = selected.some(id => !adapterFor(id));
+    console.log(native
+      ? `${dryRun ? "Would import" : "Imported"} ${formatTokens(tokens)} tokens from ${selected.join(", ")}: ${result.entries.length} usage records.`
+      : `${dryRun ? "Would import" : "Imported"} ${formatTokens(tokens)} tokens from ${files} ${selected.join(", ")} history files across ${result.entries.length} aggregate buckets.`);
     console.log(dryRun
       ? "Dry run complete: no history data was uploaded. A real import would send only exact token counters, UTC hour, harness, provider and model in a daily device envelope."
       : "History merged into the cloud queue. Only exact token counters and aggregate dimensions can upload when the server window permits.");
@@ -567,6 +573,23 @@ async function backfillCommand(args) {
   return result;
 }
 
+async function planStatus() {
+  const config = await readConfig();
+  const credentials = await readCredentials();
+  const plan = await fetchServerPlan({
+    token: credentials.device_token,
+    credentialApiOrigin: credentials.api_origin,
+    devicePrivateKeyJwk: credentials.device_private_key_jwk,
+    apiOrigin: config.server.api_origin || API_ORIGIN,
+  });
+  await rememberServerPlan(plan);
+  console.log(`Plan: ${plan.id === "pro_preview" ? "Pro preview (no charge)" : "Free"}`);
+  console.log(`Uploads: every ${plan.upload_interval_seconds / 60} minutes; website data refresh: every ${plan.refresh_interval_seconds / 60} minutes.`);
+  if (plan.expires_at) console.log(`Preview expires: ${plan.expires_at}`);
+  console.log("Plans and payment preview: https://tokensburned.com/plans.html");
+  await ensureWorker();
+}
+
 async function serverStatus() {
   const config = await readConfig();
   const credentials = await readCredentials();
@@ -614,7 +637,7 @@ async function doctor() {
     else if (backend.reported_model) console.log(`  reported model: ${backend.reported_model}`);
     console.log(`  confidence: ${backend.confidence}\n`);
   }
-  console.log("Files TokensBurned reads\n✓ known harness config and scoped Codex/Claude history\n✓ OpenCode v1 SQLite usage fields in read-only mode\n✓ official hook usage metadata\n");
+  console.log("Files TokensBurned reads\n✓ known harness config and scoped Codex/Claude history\n✓ OpenCode v1/v2 SQLite usage projections and legacy message JSON\n✓ Gemini session JSON/JSONL and Cline SDK/classic IDE usage records\n✓ official hook and Copilot extension usage metadata\n");
   console.log(`Files TokensBurned writes\n✓ ${paths.stats}\n✓ ${paths.config}\n✓ ${paths.serverOutbox}\n✓ ${COLLECTOR_STATUS}\n`);
   const network = config.server.enabled
     ? `✓ TokensBurned aggregate API (${config.server.api_origin || API_ORIGIN})`
@@ -748,15 +771,17 @@ async function catchUp() {
     if (await adapter.detect()) harnesses.push(adapter.id);
   }
   let buckets = 0;
-  for (const harness of harnesses) {
+  const contributing = [];
+  for (const harness of [...new Set([...harnesses, ...HISTORY_SOURCES.filter(id => !adapterFor(id))])]) {
     try {
       const result = await backfillHistory({ harnesses: [harness], days: 2, quiet: true, queueOnly: true });
       buckets += result.entries.length;
+      if (result.entries.length) contributing.push(harness);
     } catch {
       // A harness without readable history is skipped; the others still count.
     }
   }
-  console.log(`${color("✓", "green")} Merged ${buckets} recent bucket${buckets === 1 ? "" : "s"} from ${harnesses.join(", ") || "no harness"}.`);
+  console.log(`${color("✓", "green")} Merged ${buckets} recent usage record${buckets === 1 ? "" : "s"} from ${contributing.join(", ") || "no harness"}.`);
   await syncCloudQueue();
 }
 
@@ -878,7 +903,7 @@ async function collectCommand(args, { managed = false } = {}) {
   const foreground = managed || args.includes("--foreground");
   args = args.filter(arg => arg !== "--foreground");
   if (args.length && (args.length !== 2 || args[0] !== "--harness" || !args[1] || args[1].startsWith("--"))) {
-    throw new Error("run accepts --harness <codex,claude-code,opencode>, --foreground or --stop; upload timing is server-controlled.");
+    throw new Error(`run accepts --harness <${COLLECTOR_SOURCES.join(",")}>, --foreground or --stop; upload timing is server-controlled.`);
   }
   let previousSources;
   if (!foreground && !has(args, "--harness")) {
@@ -933,7 +958,8 @@ No upload-frequency or force-upload controls. See help --advanced for maintenanc
 `);
   if (has(args, "--advanced")) console.log(`
 Maintenance
-  backfill --harness <codex|claude-code> [--days 1-90] [--dry-run]
+  backfill --harness <codex|claude-code|gemini-cli|opencode|cline> [--days 1-90] [--dry-run]
+  integrations install copilot  Enable live usage extension (Copilot --experimental)
   server                        Fetch authenticated cloud totals
   delete-server-data            Delete cloud identity and data after confirmation
   hooks install                 Standalone Claude hook setup (not alongside its plugin)
@@ -958,6 +984,12 @@ export async function runCli(args) {
     case "hook": return handleHook(rest);
     case "upload-worker": { await runUploadWorker(); return; }
     case "run": return collectCommand(rest);
+    case "integrations": {
+      if (rest.length !== 2 || rest[0] !== "install" || rest[1] !== "copilot") throw new Error("Use integrations install copilot");
+      const file = await installCopilotExtension();
+      console.log(`Installed ${file}. Start a new copilot --experimental session; /extensions manage shows its status. Past usage events cannot be recovered.`);
+      return;
+    }
     case "_collector": return collectCommand(rest, { managed: true });
     case "sync":
       if (has(rest, "--cloud")) { console.error("Deprecated manual sync: use tokensburned run for automatic scheduled uploads."); return syncCloudQueue(); }
@@ -975,6 +1007,7 @@ export async function runCli(args) {
     case "connect": return connect(rest);
     case "backfill": return backfillCommand(rest);
     case "server": return serverStatus();
+    case "plan": return planStatus();
     case "update": return updateStatus();
     case "help":
     case "--help":
