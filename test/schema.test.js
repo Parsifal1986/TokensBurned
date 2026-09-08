@@ -62,8 +62,10 @@ test("rejects zero-token events", () => {
   assert.throws(() => normalizeEvent({ harness: { id: "codex" }, usage: {} }), /no token/i);
 });
 
-test("hook launcher sanitizes raw payloads before crossing the process boundary", () => {
+test("hook sanitizer preserves lifecycle metadata and drops private payloads", () => {
   const sanitized = sanitizeHookPayload({
+    hook_event_name: "Stop",
+    notification_type: "idle_prompt",
     prompt: "private prompt",
     response: { text: "private response", usage: { input_tokens: 12 } },
     source_code: "private source",
@@ -77,14 +79,9 @@ test("hook launcher sanitizes raw payloads before crossing the process boundary"
     cache_write_tokens: 0,
   });
   assert.equal(sanitized.model, "gpt-test");
-  assert.equal(sanitized.transcript_path, "/allowed/by-child-boundary/session.jsonl");
-  assert.doesNotMatch(JSON.stringify(sanitized), /private prompt|private response|private source/);
-});
-
-test("hook payloads keep the event name and nothing else from the harness", async () => {
-  const { sanitizeHookPayload } = await import("../src/schema.js");
-  const sanitized = sanitizeHookPayload({ hook_event_name: "Stop", transcript_path: "/t.jsonl", prompt: "x", notification_type: "idle_prompt" });
   assert.equal(sanitized.hook_event_name, "Stop");
   assert.equal("prompt" in sanitized, false);
   assert.equal("notification_type" in sanitized, false);
+  assert.equal(sanitized.transcript_path, "/allowed/by-child-boundary/session.jsonl");
+  assert.doesNotMatch(JSON.stringify(sanitized), /private prompt|private response|private source/);
 });

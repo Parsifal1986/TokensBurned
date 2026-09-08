@@ -14,10 +14,17 @@ TokensBurned recoge conteos de tokens y metadatos del modelo, los agrega localme
 | Codex | `codex plugin marketplace add Parsifal1986/TokensBurned`<br>`codex plugin add tokensburned@tokensburned`<br>`$tokensburned:connect` | Plugin nativo + historial aprobado |
 | Gemini CLI | `gemini extensions install https://github.com/Parsifal1986/TokensBurned`<br>`/tokensburned:connect` | Extensión + importación CLI explícita |
 | Copilot CLI | `copilot plugin install https://github.com/Parsifal1986/TokensBurned` | Plugin + CLI |
-| Cline CLI | `cline plugin install https://github.com/Parsifal1986/TokensBurned.git` | `afterRun().result.usage` nativo |
+| Cline CLI | `cline plugin install https://github.com/Parsifal1986/TokensBurned.git` | `afterModel.assistantMessage.metrics` nativo |
 | Otros | `npm install -g tokensburned` | Importación batch explícita |
 
 Los hooks de Copilot todavía no exponen conteos de tokens, por lo que la recopilación sigue asistida por CLI. El plugin de Cline funciona en CLI, SDK y Kanban, no todavía en las extensiones de editor.
+
+
+## Recolección local
+
+Conecta con `tokensburned connect` y ejecuta `tokensburned run` para iniciar el servicio en segundo plano con arranque al iniciar sesión (macOS/Linux). Recoge Codex, Claude Code y OpenCode v1 SQLite compatible (requiere sqlite3); respeta el horario del servidor y reintenta tras fallos de red. `run --stop` lo detiene y desactiva el arranque automático; `run --foreground` permite diagnosticarlo. Cursor y Aider no tienen recogida automática. `help --advanced` muestra mantenimiento; `setup`, `sync` sin opciones, `render` y `clean` están retirados.
+
+[Collection contracts](../cli-collection.md)
 
 ## Tarjeta de perfil
 

@@ -78,7 +78,9 @@ async function request(pathname, {
     const error = new Error(problem?.message || `TokensBurned server returned HTTP ${response.status}.`);
     error.status = response.status;
     error.code = problem?.code;
-    error.retry_at = problem?.retry_at || null;
+    const retrySeconds = Number(response.headers.get("retry-after"));
+    error.retry_at = problem?.retry_at || (Number.isFinite(retrySeconds) && retrySeconds > 0
+      ? new Date(Date.now() + Math.min(retrySeconds, 86_400) * 1000).toISOString() : null);
     error.next_slot_at = problem?.next_slot_at || null;
     error.failure_code = typeof problem?.failure_code === "string" ? problem.failure_code : null;
     throw error;
@@ -157,6 +159,7 @@ function isRejectedDayError(error) {
 }
 
 function mergeUploadResult(totals, result) {
+  if (result?.plan) totals.plan = result.plan;
   for (const key of ["accepted", "received", "changed", "ignored"]) {
     totals[key] += Number(result?.[key] || 0);
   }
@@ -210,6 +213,11 @@ export async function uploadDailyEnvelopes(days, { token, ...options } = {}) {
     }
   }
   return totals;
+}
+
+export function fetchServerPlan({ token, ...options } = {}) {
+  if (!token) throw new Error("TokensBurned is not connected. Run `burn connect` first.");
+  return request("/v1/me/plan", { ...options, token });
 }
 
 export function fetchServerSummary({ token, ...options } = {}) {

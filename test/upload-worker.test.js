@@ -100,7 +100,8 @@ test("runUploadWorker sleeps until the window opens, uploads once and removes it
   };
   const result = await runUploadWorker({ outboxFile, lockFile, clock: () => now, sleep, fetchImpl });
   assert.equal(result.reason, "nothing-pending");
-  assert.deepEqual(sleeps, [15 * 60 * 1000, 15 * 60 * 1000, 15 * 60 * 1000, 15 * 60 * 1000], "slept in bounded steps up to the next hour boundary");
+  assert.equal(sleeps.reduce((sum, ms) => sum + ms, 0), 60 * 60_000);
+  assert.ok(sleeps.every(ms => ms <= 60_000), "rechecks local plan changes within one minute");
   assert.deepEqual(uploads, ["/v1/ingest/batch"]);
   await assert.rejects(fs.access(lockFile), "lock removed on exit");
 

@@ -15,7 +15,7 @@ import { readConfig, readCredentials } from "./storage.js";
 export const WORKER_LOCK_PATH = path.join(BURN_HOME, "upload-worker.json");
 export const WORKER_MAX_LIFETIME_MS = 2 * 60 * 60 * 1000;
 const WORKER_STALE_GRACE_MS = 10 * 60 * 1000;
-const MAX_SLEEP_MS = 15 * 60 * 1000;
+const MAX_SLEEP_MS = 60 * 1000; // Re-read local plan changes promptly; this does not poll the server.
 const BIN = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "bin", "burn.js");
 
 export function isProcessAlive(pid) {

@@ -86,6 +86,8 @@ test("credential rotation skips unchanged history and uploads only an updated ab
   await syncUsageEntries([entry(), entry()], { ...options, token: "renewed-token" });
   assert.equal(uploads.length, 1);
   await syncUsageEntries([entry({ revision: 2, input: 140 })], { ...options, token: "renewed-token" });
+  assert.equal(uploads.length, 1, "credential renewal and force cannot bypass the upload window");
+  await syncUsageEntries([], { ...options, token: "renewed-token", now: options.now + 3_600_000 });
   assert.equal(uploads.length, 2);
   assert.equal(uploads[1][0].input_tokens, 140);
 

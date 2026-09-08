@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { SERVER_OUTBOX_PATH } from "./constants.js";
 import { uploadDailyEnvelopes } from "./server.js";
@@ -72,8 +73,9 @@ function snapshot(entry) {
     request_count: count(entry.requests ?? entry.request_count),
   };
   return {
-    key: [session, bucket, harness, model].join("\u0000"),
+    key: entry.observation_id ? `observation\u0000${entry.observation_id}` : [session, bucket, harness, model].join("\u0000"),
     value: {
+      ...(entry.observation_id ? { observation_id: entry.observation_id, observation_hash: entry.observation_hash } : {}),
       bucket,
       day,
       hour,
@@ -160,6 +162,21 @@ function comparableDay(day) {
 }
 
 export function mergeSnapshotEntries(outbox, entries) {
+  // Validate the whole observation batch before changing any source. Immutable
+  // request identities survive restarts, provider/model changes and bucket moves.
+  const observations = new Map();
+  for (const entry of entries) {
+    if (!entry.observation_id) continue;
+    if (!/^[a-f0-9]{64}$/.test(entry.observation_id) || !/^[a-f0-9]{64}$/.test(entry.observation_hash || "")) {
+      throw new Error("Invalid usage observation identity.");
+    }
+    const { key, value } = snapshot(entry);
+    const previous = observations.get(key) || outbox.sources[key];
+    if (previous && JSON.stringify(previous) !== JSON.stringify(value)) {
+      throw new Error("Conflicting usage for an existing request id; no observations were imported.");
+    }
+    observations.set(key, value);
+  }
   const affected = new Set();
   let changedSources = 0;
   for (const entry of entries) {
@@ -264,17 +281,39 @@ export function deferOutbox(outbox, throttledDays, nextFlushAfter, now = Date.no
   return earliest === null ? null : new Date(earliest).toISOString();
 }
 
+export function uploadWindowMs(outbox, fallback = 3_600_000, now = Date.now()) {
+  const plan = outbox.plan;
+  return plan?.id === "pro_preview" && plan.upload_interval_seconds === 300
+    && Date.parse(plan.expires_at || "") > now ? 300_000 : fallback;
+}
+
+function normalizedPlan(plan, now) {
+  return plan?.id === "pro_preview" && plan.upload_interval_seconds === 300
+    && Date.parse(plan.expires_at || "") > now
+    ? { id: "pro_preview", upload_interval_seconds: 300, expires_at: new Date(plan.expires_at).toISOString() }
+    : { id: "free", upload_interval_seconds: 3600, expires_at: null };
+}
+
+export async function rememberServerPlan(plan, outboxFile = SERVER_OUTBOX_PATH, now = Date.now()) {
+  return mutateOutbox(outboxFile, async (outbox) => { outbox.plan = normalizedPlan(plan, now); });
+}
+
 // Earliest time the next upload may run. The Worker accepts one write per UTC
 // window, so the client waits for the next window boundary after its last
 // successful upload rather than a fixed spacing; when every pending day is
 // deferred by the server, the earliest deferral decides instead.
 export function nextUploadAt(outbox, windowMs, now = Date.now()) {
+  windowMs = uploadWindowMs(outbox, windowMs, now);
+  const retry = Date.parse(outbox.upload_retry_at || "") || 0;
+  const inflight = Date.parse(outbox.upload_lease_until || "") || 0;
+  const serverNext = Date.parse(outbox.server_next_upload_at || "") || 0;
+  const blockedUntil = Math.max(retry, inflight, serverNext);
   const lastUpload = Date.parse(outbox.last_successful_upload_at || "");
   const boundary = Number.isFinite(lastUpload) ? (Math.floor(lastUpload / windowMs) + 1) * windowMs : 0;
-  if (pendingEnvelopes(outbox, now).length > 0) return boundary;
+  if (pendingEnvelopes(outbox, now).length > 0) return Math.max(boundary, blockedUntil);
   const deferred = deferredEnvelopes(outbox, now);
-  if (deferred.length === 0) return boundary;
-  return Math.max(boundary, Math.min(...deferred.map(retryAt)));
+  if (deferred.length === 0) return Math.max(boundary, blockedUntil);
+  return Math.max(boundary, blockedUntil, Math.min(...deferred.map(retryAt)));
 }
 
 export function pruneOutbox(outbox, now = Date.now()) {
@@ -351,6 +390,12 @@ export async function resetOutboxAcknowledgements(outboxFile = SERVER_OUTBOX_PAT
   return mutateOutbox(outboxFile, async (outbox) => {
     for (const day of Object.values(outbox.days)) day.acked_revision = 0;
     outbox.last_successful_upload_at = null;
+    delete outbox.plan;
+    delete outbox.server_next_upload_at;
+    delete outbox.upload_retry_at;
+    delete outbox.upload_lease_until;
+    delete outbox.upload_lease_id;
+    delete outbox.upload_failures;
     // An upload started under the old connection must not acknowledge the new one.
     outbox.generation = Number(outbox.generation || 0) + 1;
   });
@@ -363,7 +408,7 @@ export async function syncUsageEntries(entries, {
   apiOrigin,
   fetchImpl,
   timeoutMs,
-  force = false,
+  upload = true,
   minIntervalMs = 60 * 60 * 1000,
   outboxFile = SERVER_OUTBOX_PATH,
   now = Date.now(),
@@ -372,25 +417,65 @@ export async function syncUsageEntries(entries, {
     pruneOutbox(outbox, now);
     const merged = mergeSnapshotEntries(outbox, entries);
     pruneOutbox(outbox, now);
-    const due = force || now >= nextUploadAt(outbox, minIntervalMs, now);
+    // All callers, including legacy callers passing force, share this gate.
+    const due = upload && now >= nextUploadAt(outbox, minIntervalMs, now);
     const pending = pendingEnvelopes(outbox, now);
     const waiting = pendingByRevision(outbox).length;
-    return { merged, due, waiting, days: due ? pending : [], generation: Number(outbox.generation || 0) };
+    const leaseId = due && pending.length ? randomUUID() : null;
+    if (leaseId) {
+      outbox.upload_lease_until = new Date(now + 10 * 60_000).toISOString();
+      outbox.upload_lease_id = leaseId;
+    }
+    return { merged, due, waiting, leaseId, days: due ? pending : [], generation: Number(outbox.generation || 0) };
   });
   if (!snapshot.due || snapshot.days.length === 0) {
     return { accepted: 0, deferred: snapshot.waiting, ...snapshot.merged };
   }
-  const result = await uploadDailyEnvelopes(snapshot.days, {
-    token,
-    credentialApiOrigin,
-    devicePrivateKeyJwk,
-    apiOrigin,
-    fetchImpl,
-    timeoutMs,
-  });
+  let result;
+  try {
+    result = await uploadDailyEnvelopes(snapshot.days, {
+      token,
+      credentialApiOrigin,
+      devicePrivateKeyJwk,
+      apiOrigin,
+      fetchImpl,
+      timeoutMs,
+    });
+  } catch (error) {
+    await mutateOutbox(outboxFile, async (outbox) => {
+      if (Number(outbox.generation || 0) !== snapshot.generation || outbox.upload_lease_id !== snapshot.leaseId) return;
+      delete outbox.upload_lease_until;
+      delete outbox.upload_lease_id;
+      outbox.upload_failures = Math.min(7, Number(outbox.upload_failures || 0) + 1);
+      const backoff = Math.min(3_600_000, 60_000 * 2 ** (outbox.upload_failures - 1));
+      const requested = Date.parse(error.retry_at || "") || 0;
+      // Persist across hooks/processes; force uploads must also obey failures.
+      outbox.upload_retry_at = new Date(Math.max(now + backoff, Math.min(requested, now + 86_400_000))).toISOString();
+    });
+    throw error;
+  }
   await mutateOutbox(outboxFile, async (outbox) => {
-    if (Number(outbox.generation || 0) === snapshot.generation) {
+    if (Number(outbox.generation || 0) === snapshot.generation && outbox.upload_lease_id === snapshot.leaseId) {
+      delete outbox.upload_lease_until;
+      delete outbox.upload_lease_id;
+      delete outbox.upload_retry_at;
+      outbox.upload_failures = 0;
+      outbox.plan = normalizedPlan(result.plan, now);
       acknowledgeEnvelopes(outbox, result.acked_days, new Date(now));
+      // A successful batch can specify a longer wait than the local UTC
+      // boundary. Mixed/throttled responses carry per-day waits instead.
+      const seconds = Number(result.next_flush_after);
+      const serverNext = now + seconds * 1000;
+      if (!result.throttled_days.length && result.acked_days.length
+        && Number.isFinite(seconds) && seconds > 0 && Number.isFinite(new Date(serverNext).getTime())) {
+        outbox.server_next_upload_at = new Date(Math.max(
+          Date.parse(outbox.server_next_upload_at || "") || 0, serverNext,
+        )).toISOString();
+      }
+      // Even a malformed/empty acknowledgement must not create a tight loop.
+      if (!result.acked_days.length && !result.throttled_days.length) {
+        outbox.upload_retry_at = new Date(now + 60_000).toISOString();
+      }
       rejectEnvelopes(outbox, result.rejected_days);
       deferOutbox(outbox, result.throttled_days, result.next_flush_after, now);
     }

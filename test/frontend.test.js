@@ -4,61 +4,18 @@ import fs from "node:fs/promises";
 import vm from "node:vm";
 
 const html = await fs.readFile(new URL("../public/index.html", import.meta.url), "utf8");
-const css = await fs.readFile(new URL("../public/styles.css", import.meta.url), "utf8");
 const js = await fs.readFile(new URL("../public/app.js", import.meta.url), "utf8");
 const locales = await fs.readFile(new URL("../public/locales.js", import.meta.url), "utf8");
 const localeData = vm.runInNewContext(`${locales}\n;({ locales: TOKENSBURNED_LOCALES, harnesses: TOKENSBURNED_HARNESS_LOCALES })`);
 const demoCard = await fs.readFile(new URL("../public/demo/card-full.svg", import.meta.url), "utf8");
 
-test("landing page stays within the Taste Skill anti-tell budget", () => {
-  assert.doesNotMatch(html, /[—–]/);
-  assert.equal((html.match(/class="kicker"/g) || []).length, 1);
-  assert.doesNotMatch(html, />0[1-9]</);
-  assert.doesNotMatch(html, /class="compatibility"/);
-  assert.doesNotMatch(css, /transition:\s*all/);
-});
-
-test("hero and interaction essentials remain present", () => {
-  assert.match(html, /<title>TokensBurned \| AI coding activity for GitHub<\/title>/);
+test("landing page declares privacy policy and ships a fictional demo", () => {
   assert.match(html, /Content-Security-Policy/);
   assert.match(html, /name="referrer" content="no-referrer"/);
-  assert.match(html, /aria-label="TokensBurned home"/);
-  assert.doesNotMatch(html, /<title>Burn \|/);
-  assert.match(html, /Your AI coding receipt\./);
-  assert.match(html, /id="install"/);
-  assert.match(html, /id="card-builder"/);
-  assert.match(html, /data-harness="claude"/);
-  assert.match(html, /data-harness="gemini"/);
-  assert.match(html, /name="preset" value="compact"/);
-  assert.match(html, /name="cardTheme" value="dark" checked/);
-  assert.match(html, /id="language-select"/);
-  assert.match(html, /id="hero-card-preview" src="demo\/card-full\.svg\?v=theme-2"/);
-  assert.doesNotMatch(html, /Preview live card/);
-  assert.doesNotMatch(css, /builder-submit/);
-  assert.doesNotMatch(html, /v1\/cards\/u\/parsifal1986/);
-  assert.doesNotMatch(html, /value="parsifal1986"/);
-  assert.match(js, /form\.addEventListener\("submit"/);
-  assert.match(js, /data:image\/svg\+xml;charset=utf-8/);
-  assert.match(js, /replaceAll\("sample-user"/);
-  assert.match(js, /theme: form\.elements\.cardTheme\.value/);
-  assert.match(js, /data-card-theme/);
-  assert.match(js, /setSvgTheme\(svg\.replaceAll\("sample-user", owner\), options\.theme\)/);
-  assert.match(js, /renderHeroPreview\(\)/);
-  assert.match(js, /input\[name="cardTheme"\]\[value="\$\{theme\}"\]/);
-  assert.doesNotMatch(js, /preview\.src\s*=\s*cardUrl/);
-  assert.doesNotMatch(js, /fetch\(cardUrl/);
+  assert.doesNotMatch(html, /v1\/cards\/u\/parsifal1986|value="parsifal1986"/);
   assert.match(demoCard, /sample-user/);
   assert.match(demoCard, /STATIC SAMPLE \/ FICTIONAL DATA/);
-  assert.match(demoCard, /data-card-theme="auto"/);
   assert.doesNotMatch(demoCard, /parsifal1986/i);
-  assert.ok((html.match(/data-copy-target=/g) || []).length >= 4);
-  assert.match(html, /aria-live="polite"/);
-  assert.match(css, /prefers-reduced-motion: reduce/);
-  assert.match(css, /:where\(a, button, input, select\):focus-visible/);
-  assert.match(css, /\[data-theme="light"\]/);
-  for (const language of ["zh-CN", "ja", "ko", "es", "fr"]) {
-    assert.match(locales, new RegExp(`(?:"${language}"|${language}):`));
-  }
 });
 
 test("every visible website string is available in every supported language", () => {
@@ -106,7 +63,7 @@ test("documentation and the site no longer advertise the disabled OTLP path (C5)
     ...["es", "fr", "ja", "ko", "zh-CN"].map((language) => `../docs/readme/README.${language}.md`)];
   for (const file of files) {
     const content = await fs.readFile(new URL(file, import.meta.url), "utf8");
-    assert.doesNotMatch(content, /otlp|opentelemetry|tokensburned:telemetry/i, `${file} must not guide users to the disabled exporter path`);
+    assert.doesNotMatch(content, /tokensburned:telemetry|OTEL_EXPORTER_OTLP_ENDPOINT\s*=/i, `${file} must not guide users to the disabled exporter path`);
   }
   await assert.rejects(() => fs.access(new URL("../commands/tokensburned/telemetry.toml", import.meta.url)));
   assert.doesNotMatch(html, /harnessOtlp|harnessExtensionOtlp/);

@@ -15,8 +15,8 @@ export const claudeAdapter = {
     }
   },
   async readUsage() {
-    // Usage arrives through the official lifecycle hook. Burn intentionally does
-    // not open Claude transcript files because those contain prompt content.
+    // Continuous collection and backfill use the scoped src/history.js reader.
+    // This lightweight hook adapter does not enumerate history itself.
     return [];
   },
   detectBackend: detectClaudeBackend,

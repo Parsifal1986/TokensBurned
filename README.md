@@ -65,36 +65,36 @@ $tokensburned:doctor</code></pre>
   <tr>
     <td width="50%" valign="top">
       <h3>Gemini CLI</h3>
-      <p><strong>Official extension + CLI collection</strong></p>
+      <p><strong>Setup extension + explicit cloud import</strong></p>
       <pre><code>gemini extensions install https://github.com/Parsifal1986/TokensBurned
 gemini
 /tokensburned:connect
 /tokensburned:privacy
 /tokensburned:update
 /tokensburned:doctor</code></pre>
-      <p>The extension provides the setup skills. Gemini CLI's built-in telemetry exporter cannot authenticate against the TokensBurned API, so token totals come from the explicit CLI import path. Do not point an exporter at the API.</p>
+      <p>The extension provides setup skills, not automatic collection or history backfill. Use <code>ingest --upload</code> with finalized request observations to update the cloud card; plain <code>ingest</code> is local only. Do not point a telemetry exporter at the API.</p>
     </td>
     <td width="50%" valign="top">
       <h3>GitHub Copilot CLI</h3>
       <p><strong>Open Plugin Spec + CLI collection</strong></p>
       <pre><code>copilot plugin install https://github.com/Parsifal1986/TokensBurned</code></pre>
-      <p>Ask Copilot to connect TokensBurned. Copilot hooks currently expose lifecycle events but not token totals, so the data path remains CLI assisted.</p>
+      <p>Ask Copilot to connect TokensBurned. Automatic capture and history backfill are not implemented. Convert observed request usage to the explicit <code>ingest --upload</code> contract; connecting alone does not collect tokens.</p>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
       <h3>Cline CLI</h3>
-      <p><strong>Native afterRun usage hook</strong></p>
+      <p><strong>Per-model usage hook</strong></p>
       <pre><code>cline plugin install https://github.com/Parsifal1986/TokensBurned.git</code></pre>
-      <p>The plugin uploads only the usage object returned by Cline. Cline plugins currently apply to CLI, SDK, and Kanban, not the VS Code or JetBrains extensions.</p>
+      <p>Compatible Cline CLI / SDK hosts provide <code>afterModel.assistantMessage</code> metrics, model identity and stable message IDs. Requests are deduplicated on disk before upload. Hosts that expose only afterRun or do not load this plugin need the explicit import fallback.</p>
     </td>
     <td width="50%" valign="top">
       <h3>OpenCode, Cursor, Aider, other</h3>
       <p><strong>Standalone CLI</strong></p>
       <pre><code>npm install -g tokensburned
 tokensburned connect
-tokensburned doctor</code></pre>
-      <p>Use an explicit batch import when the harness exposes observed token fields. TokensBurned does not estimate usage from prompt text and does not accept telemetry-exporter traffic.</p>
+tokensburned run --harness opencode</code></pre>
+      <p>The local collector supports OpenCode v1 SQLite usage with sqlite3 installed. Cursor and Aider do not yet have automatic readers. See the <a href="docs/cli-collection.md">collection contracts and limits</a>.</p>
     </td>
   </tr>
 </table>
@@ -106,10 +106,10 @@ tokensburned doctor</code></pre>
 | Claude Code | Plugin marketplace | Session hook + approved local history | Native |
 | Codex | Plugin marketplace | Plugin hook + approved local history | Native |
 | Gemini CLI | Gemini extension | Explicit CLI import | Plugin workflow |
-| Cline CLI / SDK | Cline Git plugin | `afterRun().result.usage` | Native telemetry |
+| Cline CLI / SDK | Cline Git plugin | `afterModel.assistantMessage.metrics` | Contract-tested per-call capture; no history backfill |
 | GitHub Copilot CLI | Open Plugin Spec | Explicit CLI import | Plugin workflow |
-| OpenCode | Standalone CLI | Explicit batch import | Fallback |
-| Cursor, Aider, others | Standalone CLI | Explicit batch import | Fallback |
+| OpenCode | Standalone CLI collector | Read-only v1 SQLite message usage | Format-limited; v2 unsupported |
+| Cursor, Aider, others | Standalone CLI transport | Integrator-supplied observed usage only | No automatic capture |
 
 ## Build your profile card
 
@@ -148,43 +148,19 @@ Supported query parameters:
 - `meme=0|1`
 - `theme=auto|light|dark` (`auto` uses `prefers-color-scheme` inside the SVG)
 
-## CLI fallback
+## Standalone CLI
 
-The standalone CLI is the stable escape hatch for any harness:
-
-```bash
+```sh
 npm install -g tokensburned
 tokensburned connect
+tokensburned run
 ```
 
-| Command | Purpose |
-| --- | --- |
-| `tokensburned connect` | Authorize GitHub and create a 180-day device credential; the public card stays off. |
-| `tokensburned backfill --harness codex --dry-run` | Preview Codex history without uploading. |
-| `tokensburned backfill --harness claude-code --days 30` | Import an approved Claude Code range. |
-| `tokensburned backfill --all-harnesses --days 30` | Explicitly import every recognized local harness. |
-| `tokensburned server` | Show server totals and the public SVG URL. |
-| `tokensburned update` | Force a release check and print the current harness's plugin-manager command when an update is available. |
-| `tokensburned privacy` | Show the GitHub account's current public-card policy without changing it. |
-| `tokensburned privacy public` | Explicitly publish aggregate activity tied to your GitHub identity. |
-| `tokensburned privacy private` | Disable the public route and remove the stored SVG (GitHub's image cache may show the old card for up to 1 hour). |
-| `tokensburned disconnect` | Revoke this device credential; keep history and reserve its slot for up to 30 days. |
-| `tokensburned delete-server-data` | Delete server aggregates, devices, identity, and public card. |
-| `tokensburned doctor` | Show detected harnesses and data boundaries. |
+`run` starts a background user service and enables startup after login on macOS/Linux. It reads local sources once a minute, persists the queue, and retries network failures on the server schedule. Use `run --stop` to disable it or `run --foreground` for diagnostics; it does not need root. Codex and Claude Code use the existing history readers. OpenCode supports only the verified v1 SQLite format and requires `sqlite3`; Cursor and Aider do not yet have reliable automatic readers.
 
-`burn` remains a shorter alias for `tokensburned`.
+Daily commands are `connect`, `run`, `status` (the default), `privacy`, `doctor`, `update` and `disconnect`. No user command can force an early upload. Use `help --advanced` for maintenance operations such as scoped historical backfill and account deletion.
 
-The `Stop` and `SessionEnd` hooks reduce the current transcript into the local
-outbox after every turn (parsing even a large transcript takes well under
-100 ms in a detached process), and `SessionStart` re-merges transcripts touched
-in the last two days so nothing is lost when a session never ends cleanly.
-Uploads to the server happen at most once per UTC hour, aligned to the hour
-boundary the server enforces; a day the server has deferred waits on its own
-without holding back the others. When days are pending but the window is closed, the hook leaves behind a single waiting worker per
-machine that uploads once the window opens and then exits, so the last data of
-a session reaches the server even if no hook fires again; the server acknowledges
-only days it actually stored and the client keeps everything else pending until
-the next window. `tokensburned backfill` uploads immediately.
+The old `setup`, plain `sync`, `render` and `clean` commands are retired. Existing hook callers and integration entry points remain compatible. See [collection contracts and command migration](docs/cli-collection.md). [Manual usage import](docs/usage-import.md) is an integrator fallback, not a substitute for native collection.
 
 While TokensBurned is installed but not connected, the SessionStart hook asks the
 assistant to mention the connect command at most three times (tracked in
@@ -195,8 +171,9 @@ throttled to once every 24 hours; while the installed version is older than the
 published one, every SessionStart reminds the assistant to mention it. Update
 failures never block startup, and applying an available update always requires
 an explicit user request. `tokensburned update` also merges the last two days of
-every installed harness and uploads whatever is due, so it doubles as a manual
-"make sure everything reached the server".
+every installed, supported history adapter, then checks the shared cloud queue once.
+Only the release check is forced; usage remains queued until the server permits
+upload. For ongoing standalone collection and queue transport, use `tokensburned run`.
 
 ## Privacy boundary
 
@@ -208,7 +185,7 @@ every installed harness and uploads whatever is due, so it doubles as a manual
 | 15 minute time bucket | Transcript files and paths |
 | Request count | API keys and provider credentials |
 
-The lifecycle upload is short and best effort. Server aggregates are retained until you run `tokensburned delete-server-data`; credentials expire after 180 days and can be revoked sooner. TokensBurned installs no cron job, daemon, proxy, or Git synchronization task. See [SECURITY.md](SECURITY.md) for the complete boundary.
+The lifecycle upload is short and best effort. Server aggregates are retained until you run `tokensburned delete-server-data`; credentials expire after 180 days and can be revoked sooner. Background collection is installed only by an explicit `run` command and uses the user service manager; no root daemon, traffic proxy or Git synchronization task is installed. See [SECURITY.md](SECURITY.md) for the complete boundary.
 
 ## License
 
