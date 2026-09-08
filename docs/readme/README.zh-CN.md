@@ -17,7 +17,7 @@
 TokensBurned 将你的 AI 编程工具的 token 用量转化为一张实时更新的 GitHub Profile SVG 卡片。客户端从 Claude Code、Codex 等 harness 读取用量元数据，在本地归并为聚合计数器，只上传这些聚合数据。提示词、回复和源代码永远不会离开你的设备。
 
 <div align="center">
-  <img src="../../assets/demo-card-builder.gif" width="840" alt="TokensBurned 卡片构建器在完整、紧凑和 meme 版式之间切换的演示" />
+  <img src="../../assets/demo-card-builder.gif" width="840" alt="TokensBurned 新版卡片的深浅主题与可选内容演示" />
   <p><sub><a href="https://tokensburned.com/?lang=zh-CN#card-builder">打开在线卡片构建器</a>。预览使用的是虚构的本地数据。</sub></p>
 </div>
 
