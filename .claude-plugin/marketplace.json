@@ -7,11 +7,21 @@
   "plugins": [
     {
       "name": "tokensburned",
-      "source": "./plugins/tokensburned",
+      "source": {
+        "source": "github",
+        "repo": "Parsifal1986/TokensBurned",
+        "ref": "v0.6.8",
+        "sha": "c8f31ac65f9b26d92810c3955147a3f6569105a8"
+      },
       "description": "Privacy-first AI coding token activity with optional history backfill and a live GitHub profile card.",
       "version": "0.6.8",
       "category": "developer-tools",
-      "tags": ["tokens", "analytics", "github-profile", "privacy"]
+      "tags": [
+        "tokens",
+        "analytics",
+        "github-profile",
+        "privacy"
+      ]
     }
   ]
 }
