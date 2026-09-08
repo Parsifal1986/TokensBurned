@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "public");
 const port = Number(process.env.PORT || 4173);
-const types = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml", ".ico": "image/vnd.microsoft.icon", ".png": "image/png" };
+const types = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml", ".ico": "image/vnd.microsoft.icon", ".png": "image/png", ".woff2": "font/woff2" };
 
 export function createStaticServer(directory = root) {
   return http.createServer(async (request, response) => {

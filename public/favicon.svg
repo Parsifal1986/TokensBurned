@@ -1,7 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
-  <title id="title">TokensBurned</title>
-  <rect width="64" height="64" rx="12" fill="#171513"/>
-  <path d="M17 13h30v38H17z" fill="none" stroke="#f0e9df" stroke-width="3"/>
-  <path d="M32 45c-7 0-11-4.7-11-10.5 0-6.6 4.8-10.2 8.4-15.5.2 4.1 2.2 6 4.2 7.9 1.8-2.5 2.4-5.2 2-8.2 5 4.2 7.4 9.4 7.4 14.8C43 40.1 38.6 45 32 45Z" fill="#ef6b37"/>
-  <path d="M32.3 40.9c-3.1 0-5.1-2-5.1-4.7 0-2.4 1.7-4.4 3.8-6.7.2 2 1.2 3.1 2.5 4.2.9-1.2 1.3-2.5 1.2-4 2.1 2.1 3 4.3 3 6.4 0 2.8-2.1 4.8-5.4 4.8Z" fill="#ffc15b"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 175"><path d="M79 8c18 28 9 40 29 51 7-13 5-20 3-26 49 40 58 118-24 122C8 159 10 94 34 70c-2 27 12 31 13 23C46 63 73 53 79 8Z" fill="#ff986a" stroke="#25242c" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M70 143q-16-21 12-39 22 22 18 39" fill="#ffe2a0"/><path d="M61 94v9m39-9v9" stroke="#25242c" stroke-width="6" stroke-linecap="round"/><path d="M70 116q11 11 23-1" fill="none" stroke="#25242c" stroke-width="4" stroke-linecap="round"/><ellipse cx="49" cy="113" rx="9" ry="5" fill="#fa8f99"/><ellipse cx="112" cy="113" rx="9" ry="5" fill="#fa8f99"/></svg>
