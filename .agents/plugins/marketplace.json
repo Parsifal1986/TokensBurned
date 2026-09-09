@@ -9,8 +9,8 @@
       "source": {
         "source": "url",
         "url": "https://github.com/Parsifal1986/TokensBurned.git",
-        "ref": "v0.6.9",
-        "sha": "724f3563eafdaee6a3a593a711b53b7c83913d1e"
+        "ref": "v0.6.10",
+        "sha": "725b23c30d8a63bdbe42da17bf89b4dd2c6381ff"
       },
       "policy": {
         "installation": "AVAILABLE",
