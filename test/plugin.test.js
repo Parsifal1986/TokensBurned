@@ -40,6 +40,9 @@ test("repository exposes manifests for the supported plugin ecosystems", async (
   ]);
 
   assert.equal(claude.version, pkg.version);
+  // The runtime constant drives update checks; a stale value makes every install look outdated.
+  const { VERSION } = await import("../src/constants.js");
+  assert.equal(VERSION, pkg.version);
   // The catalog tracks the last release, independently of the development package.
   const stablePlugin = claudeMarketplace.plugins[0];
   assert.match(stablePlugin.version, /^\d+\.\d+\.\d+$/);
