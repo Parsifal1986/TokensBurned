@@ -10,11 +10,11 @@
       "source": {
         "source": "github",
         "repo": "Parsifal1986/TokensBurned",
-        "ref": "v0.6.10",
-        "sha": "725b23c30d8a63bdbe42da17bf89b4dd2c6381ff"
+        "ref": "v0.6.11",
+        "sha": "cd5d700a7c044b520f9a05851ed3116282037368"
       },
       "description": "Privacy-first AI coding token activity with optional history backfill and a live GitHub profile card.",
-      "version": "0.6.10",
+      "version": "0.6.11",
       "category": "developer-tools",
       "tags": [
         "tokens",
