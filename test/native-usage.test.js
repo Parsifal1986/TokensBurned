@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 import { readGeminiUsage, geminiObservation } from "../src/gemini-usage.js";
 import { readClineUsage, clineObservation, clineIdeObservation } from "../src/cline-usage.js";
 import { readOpenCodeUsage } from "../src/opencode-usage.js";
+import { readGrokUsage, grokObservations, GROK_SETTLE_MS } from "../src/grok-usage.js";
 import { copilotObservation } from "../src/copilot-usage.js";
 import { attachCopilotUsage } from "../integrations/copilot/plugin.js";
 import { createClinePlugin } from "../integrations/cline/plugin.js";
@@ -183,4 +184,105 @@ test("native history backfill, source isolation and scoped CLI dry-run use exact
   });
   assert.match(stdout, /127 tokens.*gemini-cli/);
   await assert.rejects(fs.access(path.join(f.root, ".burn/server-outbox.json")));
+});
+
+const grokModel = (overrides = {}) => ({ inputTokens: 1000, outputTokens: 200, cachedReadTokens: 600, cacheCreationTokens: 100,
+  reasoningTokens: 50, totalTokens: 1200, modelCalls: 3, ...overrides });
+const grokTurn = (turnNumber, endedAt, modelUsage = { "grok-code-fast-1": grokModel() }, overrides = {}) => ({
+  turnNumber, endedAt, ...grokModel(), turnCount: 1, modelUsage, ...overrides });
+const grokEnded = offset => new Date(now - offset).toISOString().replace("Z", "123456+00:00");
+
+test("Grok usage.json counts settled per-turn model rows once across forks, rescans and late folds", async t => {
+  const f = await fixture(t), outboxFile = path.join(f.root, "outbox.json");
+  const settled = async (name, data) => {
+    const file = await f.write(name, data);
+    await fs.utimes(file, new Date(now - 3_600_000), new Date(now - 3_600_000));
+  };
+  const first = grokTurn(1, grokEnded(7_200_000), { "grok-code-fast-1": grokModel(), "claude-sonnet-x": grokModel({ reasoningTokens: 0, modelCalls: 1 }) });
+  const incomplete = grokTurn(2, grokEnded(6_000_000), { "grok-code-fast-1": grokModel({ usageIsIncomplete: true }) }, { usageIsIncomplete: true });
+  const last = grokTurn(3, grokEnded(5_000_000));
+  await f.write("%2Frepo/main/summary.json", { session_summary: "PRIVATE-TITLE", session_kind: "interactive" });
+  await settled("%2Frepo/main/usage.json", { sessionId: "main", session: {}, turns: [first, incomplete, last] });
+  // A fork copies the parent's rows verbatim under a new session id.
+  await f.write("%2Frepo/fork/summary.json", { session_kind: "fork", parent_session_id: "main" });
+  await settled("%2Frepo/fork/usage.json", { sessionId: "fork", turns: [first, grokTurn(2, grokEnded(4_000_000))] });
+  // Subagent spend is folded into the parent; its own file and meta copies are skipped.
+  await f.write("%2Frepo/child/summary.json", { session_kind: "subagent" });
+  await settled("%2Frepo/child/usage.json", { sessionId: "child", turns: [grokTurn(1, grokEnded(3_000_000)), grokTurn(2, grokEnded(2_000_000))] });
+  await settled("%2Frepo/main/subagents/sa/usage.json", { turns: [grokTurn(1, grokEnded(1_000_000)), grokTurn(2, grokEnded(900_000))] });
+  await settled("%2Frepo/nosummary/usage.json", { turns: [grokTurn(1, grokEnded(800_000)), grokTurn(2, grokEnded(700_000))] });
+
+  const rows = await readGrokUsage({ root: f.root, now });
+  // main: turn 1 (two models) + settled last turn 3; fork adds only its own turn 2.
+  assert.equal(rows.length, 4);
+  const fast = rows.find(row => row.model === "grok-code-fast-1");
+  assert.deepEqual([fast.provider, fast.input_tokens, fast.cache_read_tokens, fast.cache_write_tokens, fast.output_tokens, fast.reasoning_tokens, fast.requests],
+    ["xai", 300, 600, 100, 150, 50, 3]);
+  assert.equal(rows.find(row => row.model === "claude-sonnet-x").provider, "unknown");
+  assert.ok(rows.every(row => total(row) === 1200));
+  assert.doesNotMatch(JSON.stringify(rows), /PRIVATE|repo|main|fork/);
+
+  await syncUsageEntries(rows, { outboxFile, now, upload: false });
+  await syncUsageEntries(await readGrokUsage({ root: f.root, now }), { outboxFile, now, upload: false });
+  const box = await readOutbox(outboxFile);
+  assert.equal(Object.keys(box.sources).length, 4);
+  assert.equal(Object.values(box.days).reduce((sum, day) => sum + day.request_count, 0), 3 + 1 + 3 + 3);
+
+  // The newest row can still grow in a running process: hold it while the file is fresh.
+  const folded = grokTurn(3, grokEnded(60_000), { "grok-code-fast-1": grokModel({ inputTokens: 2000, outputTokens: 400 }) });
+  await f.write("%2Frepo/live/summary.json", {});
+  await f.write("%2Frepo/live/usage.json", { turns: [folded] });
+  await fs.utimes(path.join(f.root, "%2Frepo/live/usage.json"), new Date(now - 60_000), new Date(now - 60_000));
+  assert.equal((await readGrokUsage({ root: f.root, now })).length, 4);
+  assert.equal((await readGrokUsage({ root: f.root, now: now + GROK_SETTLE_MS })).length, 5);
+
+  assert.throws(() => grokObservations(grokTurn(1, grokEnded(1000), { m: grokModel({ cachedReadTokens: 2000 }) }), { now }), /Unsupported Grok/);
+  assert.throws(() => grokObservations(grokTurn(1, grokEnded(1000), { m: grokModel({ reasoningTokens: 500 }) }), { now }), /Unsupported Grok/);
+  assert.throws(() => grokObservations(grokTurn(1, grokEnded(1000), { m: grokModel({ outputTokens: "2" }) }), { now }), /Unsupported Grok/);
+  assert.deepEqual(grokObservations(grokTurn(1, grokEnded(100 * 86_400_000)), { now, days: 90 }), []);
+});
+
+test("Grok backfill dry-run reads GROK_HOME and Grok hooks reference only GROK_PLUGIN_ROOT", async t => {
+  const f = await fixture(t);
+  const ended = new Date(Date.now() - 7_200_000).toISOString();
+  await f.write(".grok-custom/sessions/%2Frepo/s1/summary.json", { session_kind: "headless" });
+  const file = await f.write(".grok-custom/sessions/%2Frepo/s1/usage.json", { turns: [grokTurn(1, ended), grokTurn(2, ended.replace("Z", "1Z"))] });
+  await fs.utimes(file, new Date(Date.now() - 3_600_000), new Date(Date.now() - 3_600_000));
+  const env = { ...process.env, HOME: f.root, GROK_HOME: path.join(f.root, ".grok-custom"), BURN_HOME: path.join(f.root, ".burn") };
+  const { stdout } = await exec(process.execPath, ["bin/burn.js", "backfill", "--harness", "grok-build", "--dry-run"], { env });
+  assert.match(stdout, /2\.40K tokens from grok-build: 2 usage records/);
+  await assert.rejects(fs.access(path.join(f.root, ".burn/server-outbox.json")));
+  const hook = JSON.parse(await fs.readFile("hooks/grok-hooks.json", "utf8"));
+  const commands = Object.values(hook.hooks).flat().flatMap(group => group.hooks.map(entry => entry.command));
+  assert.equal(commands.length, 3);
+  // Grok refuses to run a hook that references an unset plain ${VAR}.
+  for (const command of commands) assert.deepEqual(command.match(/\$\{?\w+/g), ["${GROK_PLUGIN_ROOT"]);
+});
+
+test("Grok plugin hook merges settled usage.json even when Grok also sets CLAUDE_PLUGIN_ROOT", async t => {
+  const f = await fixture(t), burnHome = path.join(f.root, ".burn");
+  const ended = new Date(Date.now() - 7_200_000).toISOString();
+  await f.write(".grok/sessions/%2Frepo/s1/summary.json", { session_kind: "interactive" });
+  const file = await f.write(".grok/sessions/%2Frepo/s1/usage.json", { turns: [grokTurn(1, ended), grokTurn(2, ended.replace("Z", "1Z"))] });
+  await fs.utimes(file, new Date(Date.now() - 3_600_000), new Date(Date.now() - 3_600_000));
+  // A Claude transcript must never be read for a Grok session.
+  const transcript = await f.write(".claude/projects/p/claude.jsonl", JSON.stringify({ type: "assistant", timestamp: ended,
+    message: { id: "m", model: "claude-x", usage: { input_tokens: 5, output_tokens: 5 } } }) + "\n");
+  await f.write(".burn/config.json", { server: { enabled: true, api_origin: "https://api.example.test" }, updates: { last_checked_at: new Date().toISOString() } });
+  await f.write(".burn/credentials.json", { device_token: `tb_live_grokdevice.${"g".repeat(43)}` });
+  const mockFetch = await f.write("mock-fetch.mjs", `globalThis.fetch = async (url, init) => {
+    if (new URL(url).pathname !== "/v1/ingest/batch") return new Response("{}");
+    const { days } = JSON.parse(init.body);
+    return new Response(JSON.stringify({ accepted: days.length, acked_days: days }));
+  };`);
+  const env = { ...process.env, HOME: f.root, BURN_HOME: burnHome, NODE_OPTIONS: `--import ${mockFetch}`,
+    GROK_PLUGIN_ROOT: path.resolve("."), CLAUDE_PLUGIN_ROOT: path.resolve(".") };
+  delete env.GROK_HOME;
+  const child = execFile(process.execPath, ["bin/burn.js", "hook", "auto"], { env });
+  child.stdin.end(JSON.stringify({ hook_event_name: "Stop", transcript_path: transcript }));
+  await new Promise((resolve, reject) => child.on("close", code => (code === 0 ? resolve() : reject(new Error(`exit ${code}`)))));
+  const box = await readOutbox(path.join(burnHome, "server-outbox.json"));
+  const sources = Object.values(box.sources);
+  assert.equal(sources.length, 2);
+  assert.ok(sources.every(source => source.harness === "grok-build" && source.model === "grok-code-fast-1"));
 });

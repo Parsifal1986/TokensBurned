@@ -39,6 +39,7 @@ TokensBurned は、AI コーディングツールの token 使用量を GitHub P
 | Cline CLI / SDK / classic IDE | Cline plugin と standalone CLI | `afterModel`、SDK メッセージ、classic task metrics | フォーマット制限付きの呼び出しごとの収集と backfill |
 | OpenCode | Standalone CLI | v1/v2 SQLite と legacy メッセージ JSON | 確定した request usage、履歴 backfill |
 | Gemini CLI | Gemini extension と standalone CLI | 記録された JSON/JSONL usage | バックグラウンドでの収集と backfill |
+| Grok Build（beta） | Grok plugin と standalone CLI | session の `usage.json` | リクエスト単位ではなく prompt ターンとモデル単位; backfill |
 | GitHub Copilot CLI | Setup plugin と live extension | 公式の `assistant.usage` イベント | ライブでの呼び出しごとの収集、transcript backfill なし |
 | Cursor, Aider, その他 | Standalone CLI | Integrator が提供する observed usage | 自動収集なし |
 
@@ -107,6 +108,14 @@ gemini
       <pre><code>copilot plugin install https://github.com/Parsifal1986/TokensBurned</code></pre>
       <p>接続後、<code>tokensburned integrations install copilot</code> を実行し、<code>copilot --experimental</code> を起動してください。live extension は subagent を含む公式の呼び出しごとの usage イベントを記録します。これらのイベントは通常の session 履歴から復元することはできません。setup plugin だけでは収集は有効になりません。</p>
     </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Grok Build</h3>
+      <pre><code>grok plugin install Parsifal1986/TokensBurned --trust</code></pre>
+      <p>新しい session を開始し、同梱の connect skill を使用してください。Grok は usage をリクエストごとではなく prompt ターンとモデルごとに記録するため、各レコードは 1 ターン全体を表します。plugin の hook は完了したターンをマージします。plugin なしで収集するには <code>tokensburned run --harness grok-build</code> を使用してください。履歴は <code>tokensburned backfill --harness grok-build --dry-run</code> でプレビューできます。</p>
+    </td>
+    <td width="50%" valign="top"></td>
   </tr>
 </table>
 

@@ -46,6 +46,7 @@ TokensBurned는 AI 코딩 도구의 token 사용량을 GitHub 프로필용 실�
 | Cline CLI / SDK / classic IDE | Cline plugin과 standalone CLI | `afterModel`, SDK 메시지, classic task metrics | 형식별 호출 단위 캡처와 backfill |
 | OpenCode | Standalone CLI | v1/v2 SQLite 및 legacy message JSON | 완료된 요청 사용량; 기록 backfill |
 | Gemini CLI | Gemini extension과 standalone CLI | 기록된 JSON/JSONL 사용량 | 백그라운드 수집과 backfill |
+| Grok Build (beta) | Grok plugin과 standalone CLI | session `usage.json` | 요청 단위가 아닌 prompt 턴·모델 단위; backfill |
 | GitHub Copilot CLI | 설정용 plugin과 live extension | 공식 `assistant.usage` 이벤트 | 호출 단위 실시간 캡처; transcript backfill 없음 |
 | Cursor, Aider 등 | Standalone CLI | Integrator가 제공하는 관측 사용량 | 자동 캡처 없음 |
 
@@ -114,6 +115,14 @@ gemini
       <pre><code>copilot plugin install https://github.com/Parsifal1986/TokensBurned</code></pre>
       <p>연결한 뒤 <code>tokensburned integrations install copilot</code>을 실행하고 <code>copilot --experimental</code>을 시작하세요. Live extension은 subagent를 포함한 공식 호출 단위 사용량 이벤트를 기록합니다. 이 이벤트는 일반 session 기록에서 복구할 수 없습니다. 설정용 plugin만으로는 캡처가 활성화되지 않습니다.</p>
     </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Grok Build</h3>
+      <pre><code>grok plugin install Parsifal1986/TokensBurned --trust</code></pre>
+      <p>새 session을 시작한 뒤 번들된 connect skill을 사용하세요. Grok은 사용량을 요청 단위가 아니라 prompt 턴과 모델 단위로 기록하므로 각 레코드는 한 턴 전체를 나타냅니다. Plugin hook은 완료된 턴을 병합합니다. Plugin 없이 수집하려면 <code>tokensburned run --harness grok-build</code>를 사용하세요. 기록은 <code>tokensburned backfill --harness grok-build --dry-run</code>으로 미리 볼 수 있습니다.</p>
+    </td>
+    <td width="50%" valign="top"></td>
   </tr>
 </table>
 

@@ -8,7 +8,7 @@ description: Preview or import 1–90 days of current-harness token history into
 Resolve the plugin root from this skill's location and use `node <plugin-root>/bin/burn.js backfill --harness <current-harness>`.
 
 - Never inspect, quote, or summarize raw session transcripts yourself. Always use the bundled parser.
-- In Codex, pass `--harness codex`. In Claude Code, pass `--harness claude-code`. A plain backfill must never silently scan another installed harness.
+- In Codex, pass `--harness codex`. In Claude Code, pass `--harness claude-code`. In Grok Build, pass `--harness grok-build`. A plain backfill must never silently scan another installed harness.
 - Pass `--all-harnesses` only when the user explicitly asks to import every recognized harness. Tell the user that this expands local file access before running it.
 - For previews, pass `--dry-run`; dry runs make no ingestion request. Preserve a requested `--days` value between 1 and 90.
 - Before a non-dry-run import, require an explicit request to upload and state the boundary: the parser reads only the selected tool’s local history and uploads aggregate token and request counts, tool/provider/model labels, and activity dates and hours; session identifiers stay local.

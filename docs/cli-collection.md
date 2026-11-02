@@ -15,7 +15,7 @@ Use `run --stop` to stop the service and remove login startup; credentials and q
 
 The collector checks local usage once a minute and retries interrupted uploads automatically. Initial collection covers the last two days; retained history can be imported for a selected range of up to 90 days. Use `tokensburned` to check status and `tokensburned doctor` to identify sources needing attention.
 
-`run --harness codex,opencode` explicitly narrows collection. A new service defaults to Codex, Claude Code, OpenCode, Gemini CLI and Cline; absent sources contribute no usage. To expand an existing service's saved scope after upgrading, run `tokensburned run --harness codex,claude-code,opencode,gemini-cli,cline`. Connection alone still does not enable collection.
+`run --harness codex,opencode` explicitly narrows collection. A new service defaults to Codex, Claude Code, OpenCode, Gemini CLI, Cline and Grok Build; absent sources contribute no usage. To expand an existing service's saved scope after upgrading, run `tokensburned run --harness codex,claude-code,opencode,gemini-cli,cline,grok-build`. Connection alone still does not enable collection.
 
 ## Supported source contracts
 
@@ -26,6 +26,7 @@ The collector checks local usage once a minute and retries interrupted uploads a
 | OpenCode | Read-only SQLite projections from v1 `message` and v2 `session_message`, plus legacy `storage/message` JSON | SQLite requires `sqlite3` with JSON support. Only finalized assistants with five numeric counters. The same message ID across formats counts once. Use `OPENCODE_DB` for a non-default database. |
 | Gemini CLI | Recorded `chats` JSON and JSONL, including child sessions | Prompt cache is part of input; thoughts are separate from output. Repeated message updates and rewinds do not add tokens twice. Only retained recorded usage can be recovered. |
 | Cline | SDK `*.messages.json`, `afterModel` plugin, and classic IDE task metrics | SDK hook/history share IDs. Classic IDE output retains reasoning within output when no separate counter exists. Legacy tasks require `ui_messages.json` plus the classic companion history file; companion contents are not read. SDK UI projections with the same task ID are skipped. |
+| Grok Build | Per-session `usage.json`, plugin lifecycle hooks | One record per prompt turn and model, not per request. Turns Grok marks `usageIsIncomplete` are skipped. Subagent sessions are skipped because Grok folds their usage into the parent. |
 | Copilot CLI | Official live `assistant.usage` extension | Requires extension-capable `copilot --experimental`. No ordinary transcript backfill: these events are ephemeral. Copilot IDE/chat surfaces are not covered. |
 | Cursor | No automatic reader | Hook context-window sizes do not establish per-request consumption. No transcript scraping or cost-to-token conversion. |
 | Aider | No automatic reader | Its analytics `message_send` counters can originate from provider usage **or estimates** without a provenance flag. These logs are not treated as exact observed usage. |
@@ -33,6 +34,10 @@ The collector checks local usage once a minute and retries interrupted uploads a
 OpenCode defaults to `$XDG_DATA_HOME/opencode/opencode.db` or `~/.local/share/opencode/opencode.db`; its `OPENCODE_DB` override is respected for filesystem databases. It only selects message identity, completion time, provider/model and numeric token columns via JSON extraction. It never selects full message JSON, parts, project paths, titles or tool payloads. Stored OpenCode input/output already exclude cache/reasoning, so those subsets are not subtracted again. No harness binary is invoked for this reader.
 
 Gemini reads `~/.gemini/tmp/*/chats` (honoring `GEMINI_CLI_HOME`). Cline SDK reads `~/.cline/data/sessions`, honoring `CLINE_DIR`, `CLINE_DATA_DIR` and `CLINE_SESSION_DATA_DIR`. Classic IDE discovery covers Code, Code Insiders, VSCodium, Cursor and Windsurf's `saoudrizwan.claude-dev/tasks` global storage on macOS/Linux/Windows. Set `CLINE_IDE_STORAGE` to that extension's global storage directory for a custom IDE installation. Custom/remote hosts must expose one of these verified formats; this is not a claim that every Cline host or historical version exposes exact usage.
+
+Grok Build (beta) reads `~/.grok/sessions/<workspace>/<session>/usage.json`, honoring `GROK_HOME`. Grok writes usage once per prompt turn, split by model. Each record therefore covers a whole turn: its request count is Grok's `modelCalls`, and all of its tokens are placed at the turn's end time. Per-request timing within a turn is not available. Grok's input count includes cache reads and cache writes, and its reasoning count is part of output; both are separated before queueing so no counter is added twice. Usage that Grok does not record in this file, such as context compaction, is not counted. Forked sessions copy their parent's turns, and those copies count once. The newest turn of a session can still receive late usage while Grok is running, so it is queued after the file has been unchanged for 30 minutes. Only the session kind is read from the neighboring `summary.json`, to skip subagent sessions; titles are not read.
+
+Install the Grok plugin with `grok plugin install Parsifal1986/TokensBurned --trust`. Its session start, turn end and session end hooks merge settled Grok usage and use the same upload schedule as the other plugins. Grok hook payloads carry no token counts, so the hooks never read Grok or Claude Code transcripts. Use `tokensburned run --harness grok-build` (or the default scope) to collect without the plugin.
 
 JSON history files are parsed locally; only allowlisted identity, time, model/provider and token fields enter the queue. No prompts, responses or source paths are uploaded. Requests missing authoritative counters are skipped or reported as unsupported, never estimated.
 
@@ -45,7 +50,7 @@ copilot --experimental
 
 Use `/extensions manage` to check that TokensBurned is running. The installer creates `~/.copilot/extensions/tokensburned/extension.mjs`, preserving an existing unmanaged extension. It references this installation's runtime: rerun the installer after moving/replacing it. SDK applications can call `attachCopilotUsage(session)` from `integrations/copilot/plugin.js`. Requests are queued before the upload worker starts. Missed live events cannot be reconstructed into exact per-call/hourly history using account quotas or context-window totals.
 
-Use `backfill --harness gemini-cli`, `opencode` or `cline` with `--days 1-90 --dry-run` to preview retained history. Omit `--dry-run` to queue it after connecting.
+Use `backfill --harness gemini-cli`, `opencode`, `cline` or `grok-build` with `--days 1-90 --dry-run` to preview retained history. Omit `--dry-run` to queue it after connecting.
 
 ### CLI and plugin coexistence
 
@@ -62,7 +67,7 @@ tokensburned backfill --harness gemini-cli --days 30 --dry-run
 tokensburned backfill --harness gemini-cli --days 30
 ```
 
-Preview before importing. Choose `codex`, `claude-code`, `gemini-cli`, `opencode`, or `cline`; use `--all-harnesses` only when you intend to import every supported source. Copilot's live usage events cannot be recovered from ordinary history.
+Preview before importing. Choose `codex`, `claude-code`, `gemini-cli`, `opencode`, `cline`, or `grok-build`; use `--all-harnesses` only when you intend to import every supported source. Copilot's live usage events cannot be recovered from ordinary history.
 
 ## Commands and migration
 

@@ -141,7 +141,7 @@ test("backfill defaults to the current harness and requires explicit cross-harne
   const all = await execFileAsync(process.execPath, [cli, "backfill", "--dry-run", "--days", "1", "--all-harnesses"], {
     env: baseEnv,
   });
-  assert.match(all.stdout, /claude-code, codex, gemini-cli, opencode, cline: 2 usage records/);
+  assert.match(all.stdout, /claude-code, codex, gemini-cli, opencode, cline, grok-build: 2 usage records/);
 
   await assert.rejects(
     execFileAsync(process.execPath, [cli, "backfill", "--dry-run", "--days", "1"], { env: baseEnv }),

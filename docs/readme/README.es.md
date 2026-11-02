@@ -46,6 +46,7 @@ Esta tabla describe el código actual. Para una versión instalada, consulta el 
 | Cline CLI / SDK / IDE clásico | Plugin de Cline y CLI independiente | `afterModel`, mensajes del SDK y métricas de tareas clásicas | Captura por llamada según formato y backfill |
 | OpenCode | CLI independiente | SQLite v1/v2 y JSON de mensajes heredado | Uso de solicitudes finalizadas; backfill de historial |
 | Gemini CLI | Extensión de Gemini y CLI independiente | Uso JSON/JSONL registrado | Recolección en segundo plano y backfill |
+| Grok Build (beta) | Plugin de Grok y CLI independiente | `usage.json` de la sesión | Uso por turno de prompt y modelo, no por solicitud; backfill |
 | GitHub Copilot CLI | Plugin de configuración y extensión en vivo | Eventos oficiales `assistant.usage` | Captura en vivo por llamada; sin backfill de transcripciones |
 | Cursor, Aider y otros | CLI independiente | Uso observado proporcionado por el integrador | Sin captura automática |
 
@@ -114,6 +115,14 @@ gemini
       <pre><code>copilot plugin install https://github.com/Parsifal1986/TokensBurned</code></pre>
       <p>Después de conectar, ejecuta <code>tokensburned integrations install copilot</code> e inicia <code>copilot --experimental</code>. La extensión en vivo registra los eventos oficiales de uso por llamada, incluidos los subagentes. Estos eventos no se pueden recuperar del historial de sesión ordinario. El plugin de configuración por sí solo no habilita la captura.</p>
     </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Grok Build</h3>
+      <pre><code>grok plugin install Parsifal1986/TokensBurned --trust</code></pre>
+      <p>Inicia una sesión nueva y usa el skill de conexión incluido. Grok registra el uso una vez por turno de prompt y modelo, no por solicitud, así que cada registro cubre un turno completo. Los hooks del plugin fusionan los turnos completados; <code>tokensburned run --harness grok-build</code> recolecta sin el plugin. Previsualiza el historial con <code>tokensburned backfill --harness grok-build --dry-run</code>.</p>
+    </td>
+    <td width="50%" valign="top"></td>
   </tr>
 </table>
 
