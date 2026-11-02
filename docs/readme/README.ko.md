@@ -46,6 +46,7 @@ TokensBurned는 AI 코딩 도구의 token 사용량을 GitHub 프로필용 실�
 | Cline CLI / SDK / classic IDE | Cline plugin과 standalone CLI | `afterModel`, SDK 메시지, classic task metrics | 형식별 호출 단위 캡처와 backfill |
 | OpenCode | Standalone CLI | v1/v2 SQLite 및 legacy message JSON | 완료된 요청 사용량; 기록 backfill |
 | Gemini CLI | Gemini extension과 standalone CLI | 기록된 JSON/JSONL 사용량 | 백그라운드 수집과 backfill |
+| Pi / Oh My Pi | standalone CLI | 세션 JSONL 사용량 | 백그라운드 수집과 backfill |
 | GitHub Copilot CLI | 설정용 plugin과 live extension | 공식 `assistant.usage` 이벤트 | 호출 단위 실시간 캡처; transcript backfill 없음 |
 | Cursor, Aider 등 | Standalone CLI | Integrator가 제공하는 관측 사용량 | 자동 캡처 없음 |
 
@@ -94,11 +95,11 @@ $tokensburned:doctor</code></pre>
       <p>호환되는 host는 <code>afterModel</code>을 통해 메시지별 사용량을 보고합니다. 백그라운드 collector는 SDK message 기록과 classic IDE task metrics도 읽습니다. Hook과 SDK 기록은 request 식별자를 공유하므로 둘 다 수집해도 token이 두 번 집계되지는 않습니다. <a href="../cli-collection.md">지원되는 형식과 제한 사항</a>을 참고하세요.</p>
     </td>
     <td width="50%" valign="top">
-      <h3>OpenCode and other tools</h3>
+      <h3>OpenCode, Pi 및 기타 도구</h3>
       <pre><code>npm install -g tokensburned
 tokensburned connect
-tokensburned run --harness opencode</code></pre>
-      <p>Collector는 OpenCode v1/v2 SQLite 사용량과 legacy message JSON을 읽습니다. SQLite에는 <code>sqlite3</code>이 필요합니다. Cursor와 Aider는 아직 자동 reader가 없습니다.</p>
+tokensburned run --harness opencode,pi</code></pre>
+      <p>Collector는 OpenCode v1/v2 SQLite 사용량과 legacy message JSON(SQLite에는 <code>sqlite3</code>이 필요합니다), 그리고 포크된 세션과 하위 에이전트 세션을 포함한 Pi 및 Oh My Pi 세션 JSONL 사용량을 읽습니다. Cursor와 Aider는 아직 자동 reader가 없습니다.</p>
     </td>
   </tr>
   <tr>

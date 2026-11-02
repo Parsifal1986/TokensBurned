@@ -48,6 +48,7 @@ This table describes the current source. For an installed release, consult the R
 | Cline CLI / SDK / classic IDE | Cline plugin and standalone CLI | `afterModel`, SDK messages and classic task metrics | Format-scoped per-call capture and backfill |
 | OpenCode | Standalone CLI | v1/v2 SQLite and legacy message JSON | Finalized request usage; history backfill |
 | Gemini CLI | Gemini extension and standalone CLI | Recorded JSON/JSONL usage | Background collection and backfill |
+| Pi / Oh My Pi | Standalone CLI | Session JSONL usage | Background collection and backfill |
 | GitHub Copilot CLI | Setup plugin and live extension | Official `assistant.usage` events | Live per-call capture; no transcript backfill |
 | Cursor, Aider, others | Standalone CLI | Integrator-supplied observed usage | No automatic capture |
 
@@ -92,11 +93,11 @@ $tokensburned:doctor</code></pre>
       <p>Compatible hosts report per-message usage through <code>afterModel</code>. The background collector also reads SDK message histories and classic IDE task metrics. Hooks and SDK history share request identities, so collecting both does not add tokens twice. See the <a href="docs/cli-collection.md">supported formats and limits</a>.</p>
     </td>
     <td width="50%" valign="top">
-      <h3>OpenCode and other tools</h3>
+      <h3>OpenCode, Pi and other tools</h3>
       <pre><code>npm install -g tokensburned
 tokensburned connect
-tokensburned run --harness opencode</code></pre>
-      <p>The collector reads OpenCode v1/v2 SQLite usage and legacy message JSON. SQLite requires <code>sqlite3</code>. Cursor and Aider do not yet have automatic readers.</p>
+tokensburned run --harness opencode,pi</code></pre>
+      <p>The collector reads OpenCode v1/v2 SQLite usage and legacy message JSON (SQLite requires <code>sqlite3</code>), and Pi and Oh My Pi session JSONL usage, including forked and subagent sessions. Cursor and Aider do not yet have automatic readers.</p>
     </td>
   </tr>
   <tr>
