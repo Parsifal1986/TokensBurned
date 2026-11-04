@@ -15,7 +15,7 @@ Use `run --stop` to stop the service and remove login startup; credentials and q
 
 The collector checks local usage once a minute and retries interrupted uploads automatically. Initial collection covers the last two days; retained history can be imported for a selected range of up to 90 days. Use `tokensburned` to check status and `tokensburned doctor` to identify sources needing attention.
 
-`run --harness codex,opencode` explicitly narrows collection. A new service defaults to Codex, Claude Code, OpenCode, Gemini CLI and Cline; absent sources contribute no usage. To expand an existing service's saved scope after upgrading, run `tokensburned run --harness codex,claude-code,opencode,gemini-cli,cline`. Connection alone still does not enable collection.
+`run --harness codex,opencode` explicitly narrows collection. A new service defaults to Codex, Claude Code, OpenCode, Gemini CLI, Cline and Pi; absent sources contribute no usage. To expand an existing service's saved scope after upgrading, run `tokensburned run --harness codex,claude-code,opencode,gemini-cli,cline,pi`. Connection alone still does not enable collection.
 
 ## Supported source contracts
 
@@ -26,6 +26,7 @@ The collector checks local usage once a minute and retries interrupted uploads a
 | OpenCode | Read-only SQLite projections from v1 `message` and v2 `session_message`, plus legacy `storage/message` JSON | SQLite requires `sqlite3` with JSON support. Only finalized assistants with five numeric counters. The same message ID across formats counts once. Use `OPENCODE_DB` for a non-default database. |
 | Gemini CLI | Recorded `chats` JSON and JSONL, including child sessions | Prompt cache is part of input; thoughts are separate from output. Repeated message updates and rewinds do not add tokens twice. Only retained recorded usage can be recovered. |
 | Cline | SDK `*.messages.json`, `afterModel` plugin, and classic IDE task metrics | SDK hook/history share IDs. Since Cline SDK 0.0.87, `messages.json` excludes reasoning from output and does not record it, so only the `afterModel` plugin captures reasoning tokens. Classic IDE output retains reasoning within output when no separate counter exists. Legacy tasks require `ui_messages.json` plus the classic companion history file; companion contents are not read. SDK UI projections with the same task ID are skipped. |
+| Pi / Oh My Pi | Session JSONL: assistant messages, usage entries (cache warming, Oh My Pi `model_usage`), compaction and branch summaries, and tool-result usage | Input excludes cache read/write; reasoning is reported within output and separated. Forked and branched sessions copy entries, so each entry counts once across session files. Summary and tool usage has no model and is recorded as `unknown`. Pending/deferred responses and entries without an ID are skipped. Compressed `.jsonl.gz` archives are not read. |
 | Copilot CLI | Official live `assistant.usage` extension | Requires extension-capable `copilot --experimental`. No ordinary transcript backfill: these events are ephemeral. Copilot IDE/chat surfaces are not covered. |
 | Cursor | No automatic reader | Hook context-window sizes do not establish per-request consumption. No transcript scraping or cost-to-token conversion. |
 | Aider | No automatic reader | Its analytics `message_send` counters can originate from provider usage **or estimates** without a provenance flag. These logs are not treated as exact observed usage. |
@@ -33,6 +34,8 @@ The collector checks local usage once a minute and retries interrupted uploads a
 OpenCode defaults to `$XDG_DATA_HOME/opencode/opencode.db` or `~/.local/share/opencode/opencode.db`; its `OPENCODE_DB` override is respected for filesystem databases. It only selects message identity, completion time, provider/model and numeric token columns via JSON extraction. It never selects full message JSON, parts, project paths, titles or tool payloads. Stored OpenCode input/output already exclude cache/reasoning, so those subsets are not subtracted again. No harness binary is invoked for this reader.
 
 Gemini reads `~/.gemini/tmp/*/chats` (honoring `GEMINI_CLI_HOME`). Cline SDK reads `~/.cline/data/sessions`, honoring `CLINE_DIR`, `CLINE_DATA_DIR` and `CLINE_SESSION_DATA_DIR`. Classic IDE discovery covers Code, Code Insiders, VSCodium, Cursor and Windsurf's `saoudrizwan.claude-dev/tasks` global storage on macOS/Linux/Windows. Set `CLINE_IDE_STORAGE` to that extension's global storage directory for a custom IDE installation. Custom/remote hosts must expose one of these verified formats; this is not a claim that every Cline host or historical version exposes exact usage.
+
+Pi reads `~/.pi/agent/sessions`, honoring `PI_CODING_AGENT_DIR` and `PI_CODING_AGENT_SESSION_DIR`. A `sessionDir` set in Pi settings or with `--session-dir` is not discovered; set `PI_CODING_AGENT_SESSION_DIR` for the collector instead. Oh My Pi reads `~/.omp/agent/sessions`, the `sessions` directories of named profiles under `~/.omp/profiles`, and `$XDG_DATA_HOME/omp` after an XDG migration, including nested subagent transcripts. Only files that begin with a Pi session header are read. The reader selects entry type, ID, timestamp, provider, model and numeric usage counters; it never reads message content, tool details, session titles or working directories.
 
 JSON history files are parsed locally; only allowlisted identity, time, model/provider and token fields enter the queue. No prompts, responses or source paths are uploaded. Requests missing authoritative counters are skipped or reported as unsupported, never estimated.
 
@@ -45,7 +48,7 @@ copilot --experimental
 
 Use `/extensions manage` to check that TokensBurned is running. The installer creates `~/.copilot/extensions/tokensburned/extension.mjs`, preserving an existing unmanaged extension. It references this installation's runtime: rerun the installer after moving/replacing it. SDK applications can call `attachCopilotUsage(session)` from `integrations/copilot/plugin.js`. Requests are queued before the upload worker starts. Missed live events cannot be reconstructed into exact per-call/hourly history using account quotas or context-window totals.
 
-Use `backfill --harness gemini-cli`, `opencode` or `cline` with `--days 1-90 --dry-run` to preview retained history. Omit `--dry-run` to queue it after connecting.
+Use `backfill --harness gemini-cli`, `opencode`, `cline` or `pi` with `--days 1-90 --dry-run` to preview retained history. Omit `--dry-run` to queue it after connecting.
 
 ### CLI and plugin coexistence
 
@@ -62,7 +65,7 @@ tokensburned backfill --harness gemini-cli --days 30 --dry-run
 tokensburned backfill --harness gemini-cli --days 30
 ```
 
-Preview before importing. Choose `codex`, `claude-code`, `gemini-cli`, `opencode`, or `cline`; use `--all-harnesses` only when you intend to import every supported source. Copilot's live usage events cannot be recovered from ordinary history.
+Preview before importing. Choose `codex`, `claude-code`, `gemini-cli`, `opencode`, `cline`, or `pi`; use `--all-harnesses` only when you intend to import every supported source. Copilot's live usage events cannot be recovered from ordinary history.
 
 ## Commands and migration
 

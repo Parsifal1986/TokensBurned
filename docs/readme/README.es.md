@@ -46,6 +46,7 @@ Esta tabla describe el código actual. Para una versión instalada, consulta el 
 | Cline CLI / SDK / IDE clásico | Plugin de Cline y CLI independiente | `afterModel`, mensajes del SDK y métricas de tareas clásicas | Captura por llamada según formato y backfill |
 | OpenCode | CLI independiente | SQLite v1/v2 y JSON de mensajes heredado | Uso de solicitudes finalizadas; backfill de historial |
 | Gemini CLI | Extensión de Gemini y CLI independiente | Uso JSON/JSONL registrado | Recolección en segundo plano y backfill |
+| Pi / Oh My Pi | CLI independiente | Uso JSONL de sesiones | Recolección en segundo plano y backfill |
 | GitHub Copilot CLI | Plugin de configuración y extensión en vivo | Eventos oficiales `assistant.usage` | Captura en vivo por llamada; sin backfill de transcripciones |
 | Cursor, Aider y otros | CLI independiente | Uso observado proporcionado por el integrador | Sin captura automática |
 
@@ -94,11 +95,11 @@ $tokensburned:doctor</code></pre>
       <p>Los hosts compatibles reportan el uso por mensaje a través de <code>afterModel</code>. El colector en segundo plano también lee los historiales de mensajes del SDK y las métricas de tareas del IDE clásico. Los hooks y el historial del SDK comparten identidades de solicitud, por lo que recolectar ambos no duplica los tokens. Consulta los <a href="../cli-collection.md">formatos compatibles y límites</a>.</p>
     </td>
     <td width="50%" valign="top">
-      <h3>OpenCode y otras herramientas</h3>
+      <h3>OpenCode, Pi y otras herramientas</h3>
       <pre><code>npm install -g tokensburned
 tokensburned connect
-tokensburned run --harness opencode</code></pre>
-      <p>El colector lee el uso de OpenCode v1/v2 SQLite y el JSON de mensajes heredado. SQLite requiere <code>sqlite3</code>. Cursor y Aider todavía no tienen lectores automáticos.</p>
+tokensburned run --harness opencode,pi</code></pre>
+      <p>El colector lee el uso de OpenCode v1/v2 SQLite y el JSON de mensajes heredado (SQLite requiere <code>sqlite3</code>), así como el uso JSONL de sesiones de Pi y Oh My Pi, incluidas las sesiones bifurcadas y de subagentes. Cursor y Aider todavía no tienen lectores automáticos.</p>
     </td>
   </tr>
   <tr>

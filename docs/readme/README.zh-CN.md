@@ -39,6 +39,7 @@ TokensBurned 将你的 AI 编程工具的 token 用量转化为一张实时更�
 | Cline CLI / SDK / classic IDE | Cline 插件与独立 CLI | 逐条消息的 `afterModel`、SDK 消息与经典任务指标 | 按格式区分的逐次采集与历史回填 |
 | OpenCode | 独立 CLI | v1/v2 SQLite 与旧版消息 JSON | 已完成请求的用量；支持历史回填 |
 | Gemini CLI | Gemini extension 与独立 CLI | 记录下来的 JSON/JSONL 用量 | 后台采集与历史回填 |
+| Pi / Oh My Pi | 独立 CLI | 会话 JSONL 用量 | 后台采集与历史回填 |
 | GitHub Copilot CLI | 设置插件与实时 extension | 官方的 `assistant.usage` 事件 | 实时逐次采集；不支持 transcript 回填 |
 | Cursor、Aider 等 | 独立 CLI | 由接入方提供的观测用量 | 不支持自动采集 |
 
@@ -87,11 +88,11 @@ $tokensburned:doctor</code></pre>
       <p>兼容的宿主通过 <code>afterModel</code> 上报逐条消息的用量。后台采集器还会读取 SDK 消息历史和经典 IDE 的任务指标。hook 与 SDK 历史共享请求身份，因此同时采集两者不会重复计入 token。详见<a href="../cli-collection.md">支持的格式与限制</a>。</p>
     </td>
     <td width="50%" valign="top">
-      <h3>OpenCode 及其他工具</h3>
+      <h3>OpenCode、Pi 及其他工具</h3>
       <pre><code>npm install -g tokensburned
 tokensburned connect
-tokensburned run --harness opencode</code></pre>
-      <p>采集器会读取 OpenCode v1/v2 的 SQLite 用量以及旧版消息 JSON。SQLite 需要安装 <code>sqlite3</code>。Cursor 和 Aider 目前还没有自动读取器。</p>
+tokensburned run --harness opencode,pi</code></pre>
+      <p>采集器会读取 OpenCode v1/v2 的 SQLite 用量以及旧版消息 JSON（SQLite 需要安装 <code>sqlite3</code>），以及 Pi 和 Oh My Pi 的会话 JSONL 用量，包括分叉会话与子代理会话。Cursor 和 Aider 目前还没有自动读取器。</p>
     </td>
   </tr>
   <tr>

@@ -39,6 +39,7 @@ TokensBurned は、AI コーディングツールの token 使用量を GitHub P
 | Cline CLI / SDK / classic IDE | Cline plugin と standalone CLI | `afterModel`、SDK メッセージ、classic task metrics | フォーマット制限付きの呼び出しごとの収集と backfill |
 | OpenCode | Standalone CLI | v1/v2 SQLite と legacy メッセージ JSON | 確定した request usage、履歴 backfill |
 | Gemini CLI | Gemini extension と standalone CLI | 記録された JSON/JSONL usage | バックグラウンドでの収集と backfill |
+| Pi / Oh My Pi | standalone CLI | セッション JSONL usage | バックグラウンドでの収集と backfill |
 | GitHub Copilot CLI | Setup plugin と live extension | 公式の `assistant.usage` イベント | ライブでの呼び出しごとの収集、transcript backfill なし |
 | Cursor, Aider, その他 | Standalone CLI | Integrator が提供する observed usage | 自動収集なし |
 
@@ -87,11 +88,11 @@ $tokensburned:doctor</code></pre>
       <p>対応する host は <code>afterModel</code> を通じてメッセージ単位の usage を報告します。バックグラウンドの collector は SDK のメッセージ履歴や classic IDE の task metrics も読み取ります。hook と SDK 履歴は request の識別情報を共有するため、両方を収集しても token が二重にカウントされることはありません。<a href="../cli-collection.md">対応フォーマットと制限</a>を参照してください。</p>
     </td>
     <td width="50%" valign="top">
-      <h3>OpenCode and other tools</h3>
+      <h3>OpenCode、Pi とその他のツール</h3>
       <pre><code>npm install -g tokensburned
 tokensburned connect
-tokensburned run --harness opencode</code></pre>
-      <p>collector は OpenCode の v1/v2 SQLite usage と legacy メッセージ JSON を読み取ります。SQLite を使うには <code>sqlite3</code> が必要です。Cursor と Aider にはまだ自動読み取りがありません。</p>
+tokensburned run --harness opencode,pi</code></pre>
+      <p>collector は OpenCode の v1/v2 SQLite usage と legacy メッセージ JSON（SQLite を使うには <code>sqlite3</code> が必要です）、および Pi と Oh My Pi のセッション JSONL usage（フォークしたセッションとサブエージェントのセッションを含む）を読み取ります。Cursor と Aider にはまだ自動読み取りがありません。</p>
     </td>
   </tr>
   <tr>
