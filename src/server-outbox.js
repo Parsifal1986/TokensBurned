@@ -188,6 +188,15 @@ export function mergeSnapshotEntries(outbox, entries) {
     const previous = outbox.sources[key];
     if (previous && value.revision < previous.revision) continue;
     if (previous && JSON.stringify(previous) === JSON.stringify(value)) continue;
+    // An empty snapshot retracts a session's earlier counts (for example,
+    // messages later recognised as copies from another session).
+    if (!entry.observation_id && value.request_count === 0 && tokenTotal(value) === 0) {
+      if (!previous) continue;
+      delete outbox.sources[key];
+      affected.add(previous.day);
+      changedSources += 1;
+      continue;
+    }
     outbox.sources[key] = value;
     affected.add(value.day);
     if (previous && previous.day !== value.day) affected.add(previous.day);
@@ -220,7 +229,11 @@ function compatibleClineDetail(previous, next) {
   for (const key of ["observation_id", "session", "bucket", "harness", "provider", "model", "input_tokens", "cache_read_tokens", "cache_write_tokens", "request_count"]) {
     if (previous[key] !== next[key]) return false;
   }
-  return previous.output_tokens + previous.reasoning_tokens === next.output_tokens + next.reasoning_tokens;
+  if (previous.output_tokens + previous.reasoning_tokens === next.output_tokens + next.reasoning_tokens) return true;
+  // Since Cline SDK 0.0.87 output excludes reasoning and the codec drops the
+  // reasoning count, so the stored record matches only the live output.
+  const [stored, live] = next.cline_usage_detail === "output-total" ? [next, previous] : [previous, next];
+  return stored.cline_usage_detail === "output-total" && stored.output_tokens === live.output_tokens;
 }
 
 function pendingByRevision(outbox) {
