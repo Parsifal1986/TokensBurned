@@ -21,11 +21,11 @@ The collector checks local usage once a minute and retries interrupted uploads a
 
 | Source | Local reader | Limit |
 | --- | --- | --- |
-| Codex | Scoped session JSONL, existing cumulative-delta parser | Same identities as the hooks, so rescanning does not add tokens twice. |
-| Claude Code | Scoped project JSONL, existing final-message parser | Same identities as the hooks; no guessed usage. |
+| Codex | Scoped session JSONL, including compressed `.jsonl.zst` rollouts, existing cumulative-delta parser | Same identities as the hooks, so rescanning does not add tokens twice. Compressed rollouts require Node.js 22.15 or newer; older runtimes skip them. |
+| Claude Code | Scoped project JSONL, existing final-message parser | Same identities as the hooks; no guessed usage. Messages copied into forked or resumed sessions count once, in their original session. |
 | OpenCode | Read-only SQLite projections from v1 `message` and v2 `session_message`, plus legacy `storage/message` JSON | SQLite requires `sqlite3` with JSON support. Only finalized assistants with five numeric counters. The same message ID across formats counts once. Use `OPENCODE_DB` for a non-default database. |
 | Gemini CLI | Recorded `chats` JSON and JSONL, including child sessions | Prompt cache is part of input; thoughts are separate from output. Repeated message updates and rewinds do not add tokens twice. Only retained recorded usage can be recovered. |
-| Cline | SDK `*.messages.json`, `afterModel` plugin, and classic IDE task metrics | SDK hook/history share IDs. Classic IDE output retains reasoning within output when no separate counter exists. Legacy tasks require `ui_messages.json` plus the classic companion history file; companion contents are not read. SDK UI projections with the same task ID are skipped. |
+| Cline | SDK `*.messages.json`, `afterModel` plugin, and classic IDE task metrics | SDK hook/history share IDs. Since Cline SDK 0.0.87, `messages.json` excludes reasoning from output and does not record it, so only the `afterModel` plugin captures reasoning tokens. Classic IDE output retains reasoning within output when no separate counter exists. Legacy tasks require `ui_messages.json` plus the classic companion history file; companion contents are not read. SDK UI projections with the same task ID are skipped. |
 | Grok Build | Per-session `usage.json`, plugin lifecycle hooks | One record per prompt turn and model, not per request. Turns Grok marks `usageIsIncomplete` are skipped. Subagent sessions are skipped because Grok folds their usage into the parent. |
 | Copilot CLI | Official live `assistant.usage` extension | Requires extension-capable `copilot --experimental`. No ordinary transcript backfill: these events are ephemeral. Copilot IDE/chat surfaces are not covered. |
 | Cursor | No automatic reader | Hook context-window sizes do not establish per-request consumption. No transcript scraping or cost-to-token conversion. |

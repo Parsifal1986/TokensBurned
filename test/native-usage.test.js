@@ -106,6 +106,27 @@ test("Cline's lossy persistence codec refines one request in either arrival orde
   assert.equal(Object.values(legacy.days)[0].reasoning_tokens, 5);
 });
 
+test("Cline SDK 0.0.87+ output excludes reasoning, which its persisted history omits", () => {
+  const later = Date.parse("2026-10-20T12:00:00Z");
+  const at = { createdAt: later - 1000 };
+  const live = clineObservation(cline(at), { now: later }), stored = clineObservation(storedCline(at), { now: later });
+  assert.equal(live.output_tokens, 20);
+  assert.equal(live.reasoning_tokens, 5);
+  assert.equal(stored.output_tokens, 20);
+  for (const order of [[live, stored], [stored, live]]) {
+    const box = outboxInternals.emptyOutbox();
+    for (const row of order) mergeSnapshotEntries(box, [row]);
+    const day = Object.values(box.days)[0];
+    assert.equal(day.request_count, 1);
+    assert.equal(total(day), 125, "the live record keeps the reasoning the history cannot carry");
+    assert.throws(() => mergeSnapshotEntries(box, [clineObservation(storedCline({ ...at, metrics: { inputTokens: 100, outputTokens: 21 } }), { now: later })]), /Conflicting/);
+  }
+  // Reasoning above output proves the exclusive form even before the release.
+  const before = clineObservation(cline({ metrics: { ...cline().metrics, outputTokens: 3, reasoningTokenCount: 40 } }), { now });
+  assert.deepEqual([before.output_tokens, before.reasoning_tokens], [3, 40]);
+  assert.equal(clineObservation(cline({ metrics: { inputTokens: 100, outputTokens: 0, reasoningTokenCount: 7 } }), { now }).reasoning_tokens, 7);
+});
+
 test("classic Cline IDE reads only completed request metrics and skips SDK projections", async t => {
   const f = await fixture(t);
   const msg = { ts: now - 1000, type: "say", say: "api_req_started", modelInfo: { modelId: "classic", providerId: "anthropic" },

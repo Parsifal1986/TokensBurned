@@ -309,3 +309,19 @@ test("a server-rejected day is parked at its revision and released by a new revi
   assert.deepEqual(pendingEnvelopes(outbox).map((day) => day.day).sort(), [bad.day, good.day].sort());
   assert.ok(!("rejected_revision" in pendingEnvelopes(outbox)[0]));
 });
+
+test("an empty snapshot retracts a session's earlier counts without adding a source", () => {
+  const outbox = outboxInternals.emptyOutbox();
+  const empty = { input: 0, output: 0, cache_read: 0, cache_write: 0, reasoning: 0, requests: 0 };
+  mergeSnapshotEntries(outbox, [entry({ session: "fork", revision: 5 })]);
+  mergeSnapshotEntries(outbox, [entry({ revision: 2 })]);
+  const day = Object.keys(outbox.days)[0];
+  assert.equal(outbox.days[day].input_tokens, 200);
+  assert.equal(mergeSnapshotEntries(outbox, [entry({ session: "fork", revision: 4, ...empty })]).changedSources, 0, "an older retraction is ignored");
+  mergeSnapshotEntries(outbox, [entry({ session: "fork", revision: 5, ...empty })]);
+  assert.equal(Object.keys(outbox.sources).length, 1);
+  assert.equal(outbox.days[day].input_tokens, 100);
+  assert.equal(outbox.days[day].request_count, 1);
+  assert.equal(mergeSnapshotEntries(outbox, [entry({ session: "never-counted", ...empty })]).changedSources, 0);
+  assert.equal(Object.keys(outbox.sources).length, 1);
+});
