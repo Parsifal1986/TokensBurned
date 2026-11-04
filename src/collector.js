@@ -7,6 +7,7 @@ import { collectHistoryEntries } from "./history.js";
 import { readOpenCodeUsage } from "./opencode-usage.js";
 import { readGeminiUsage } from "./gemini-usage.js";
 import { readClineUsage } from "./cline-usage.js";
+import { readPiUsage } from "./pi-usage.js";
 import { readGrokUsage } from "./grok-usage.js";
 import { readConfig, readCredentials } from "./storage.js";
 import { atomicWrite } from "./atomic-write.js";
@@ -14,7 +15,7 @@ import { API_ORIGIN, BURN_HOME, SERVER_OUTBOX_PATH, UPLOAD_INTERVAL_MS } from ".
 import { nextUploadAt, readOutbox, pendingEnvelopes, deferredEnvelopes, syncUsageEntries } from "./server-outbox.js";
 import { isProcessAlive } from "./upload-worker.js";
 
-export const COLLECTOR_SOURCES = ["codex", "claude-code", "opencode", "gemini-cli", "cline", "grok-build"];
+export const COLLECTOR_SOURCES = ["codex", "claude-code", "opencode", "gemini-cli", "cline", "pi", "grok-build"];
 export const COLLECT_INTERVAL_MS = 60_000;
 export const COLLECTOR_LOCK = path.join(BURN_HOME, "collector.lock");
 export const COLLECTOR_STATUS = path.join(BURN_HOME, "collector-status.json");
@@ -23,7 +24,7 @@ async function json(file) {
 }
 
 export async function collectLocalUsage({ harnesses = COLLECTOR_SOURCES, now = Date.now(), previous = {}, historyImpl = collectHistoryEntries,
-  openCodeImpl = readOpenCodeUsage, geminiImpl = readGeminiUsage, clineImpl = readClineUsage, grokImpl = readGrokUsage } = {}) {
+  openCodeImpl = readOpenCodeUsage, geminiImpl = readGeminiUsage, clineImpl = readClineUsage, piImpl = readPiUsage, grokImpl = readGrokUsage } = {}) {
   const entries = [], errors = [], checkpoints = { ...previous };
   for (const harness of harnesses) {
     const last = Date.parse(previous[harness] || "");
@@ -32,6 +33,7 @@ export async function collectLocalUsage({ harnesses = COLLECTOR_SOURCES, now = D
       if (harness === "opencode") entries.push(...await openCodeImpl({ now, days }));
       else if (harness === "gemini-cli") entries.push(...await geminiImpl({ now, days }));
       else if (harness === "cline") entries.push(...await clineImpl({ now, days }));
+      else if (harness === "pi") entries.push(...await piImpl({ now, days }));
       else if (harness === "grok-build") entries.push(...await grokImpl({ now, days }));
       else {
         const adapter = adapterFor(harness);

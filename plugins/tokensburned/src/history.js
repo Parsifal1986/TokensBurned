@@ -8,9 +8,10 @@ import { stableHash, toFiniteInteger } from "./utils.js";
 import { readOpenCodeUsage, openCodeDatabase } from "./opencode-usage.js";
 import { readGeminiUsage, geminiHistoryRoot } from "./gemini-usage.js";
 import { readClineUsage, clineHistoryRoot } from "./cline-usage.js";
+import { readPiUsage, piSessionRoots } from "./pi-usage.js";
 import { readGrokUsage, grokSessionsRoot } from "./grok-usage.js";
 
-export const HISTORY_SOURCES = ["claude-code", "codex", "gemini-cli", "opencode", "cline", "grok-build"];
+export const HISTORY_SOURCES = ["claude-code", "codex", "gemini-cli", "opencode", "cline", "pi", "grok-build"];
 
 const BUCKET_SECONDS = 15 * 60;
 const MAX_DAYS = 90;
@@ -22,6 +23,7 @@ export function historyRoots(home = os.homedir()) {
     "gemini-cli": geminiHistoryRoot(process.env, home),
     opencode: openCodeDatabase(process.env, home),
     cline: clineHistoryRoot(process.env, home),
+    pi: piSessionRoots(process.env, home),
     "grok-build": grokSessionsRoot(process.env, home),
   };
 }
@@ -306,7 +308,7 @@ export async function collectHistoryEntries({
   const summary = {};
   for (const harness of harnesses) {
     if (!HISTORY_SOURCES.includes(harness)) throw new Error(`Unsupported history harness: ${harness}`);
-    const native = { "gemini-cli": readGeminiUsage, opencode: readOpenCodeUsage, cline: readClineUsage, "grok-build": readGrokUsage }[harness];
+    const native = { "gemini-cli": readGeminiUsage, opencode: readOpenCodeUsage, cline: readClineUsage, pi: readPiUsage, "grok-build": readGrokUsage }[harness];
     if (native) {
       if (filesByHarness?.[harness]) throw new Error("Native usage backfill requires a history root, not individual transcript files");
       const rows = await native({ ...(harness === "opencode" ? { file: roots[harness] } : { root: roots[harness] }), now, days: range });

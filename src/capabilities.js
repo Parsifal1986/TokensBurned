@@ -6,6 +6,7 @@ export const harnessCapabilities = Object.freeze([
   { id: "gemini-cli", label: "Gemini CLI", capture: "run: recorded JSON/JSONL session usage", history: true },
   { id: "copilot", label: "GitHub Copilot CLI", capture: "live assistant.usage extension (integrations install copilot; --experimental)", history: false },
   { id: "opencode", label: "OpenCode", capture: "run: v1/v2 SQLite (sqlite3 required) + legacy message JSON", history: true },
+  { id: "pi", label: "Pi", capture: "run: session JSONL usage (Pi and Oh My Pi)", history: true },
   { id: "grok-build", label: "Grok Build", capture: "plugin hooks + run: per-turn session usage.json", history: true },
   { id: "cursor", label: "Cursor", capture: null, history: false },
   { id: "aider", label: "Aider", capture: null, history: false },

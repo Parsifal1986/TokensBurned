@@ -46,6 +46,7 @@ Ce tableau décrit le code actuel. Pour une version installée, consultez le REA
 | Cline CLI / SDK / classic IDE | Plugin Cline et CLI autonome | `afterModel`, messages SDK et métriques de tâche classiques | Capture par appel limitée au format et backfill |
 | OpenCode | CLI autonome | SQLite v1/v2 et JSON de messages hérité | Utilisation de requête finalisée ; backfill d'historique |
 | Gemini CLI | Extension Gemini et CLI autonome | Utilisation JSON/JSONL enregistrée | Collecte en arrière-plan et backfill |
+| Pi / Oh My Pi | CLI autonome | Utilisation JSONL des sessions | Collecte en arrière-plan et backfill |
 | Grok Build (beta) | Plugin Grok et CLI autonome | `usage.json` de la session | Utilisation par tour de prompt et par modèle, pas par requête ; backfill |
 | GitHub Copilot CLI | Plugin de configuration et extension en direct | Événements officiels `assistant.usage` | Capture en direct par appel ; pas de backfill de transcription |
 | Cursor, Aider, autres | CLI autonome | Utilisation observée fournie par l'intégrateur | Pas de capture automatique |
@@ -95,11 +96,11 @@ $tokensburned:doctor</code></pre>
       <p>Les hôtes compatibles signalent l'utilisation par message via <code>afterModel</code>. Le collecteur en arrière-plan lit aussi les historiques de messages SDK et les métriques de tâche des IDE classiques. Les hooks et l'historique SDK partagent les mêmes identités de requête, de sorte que collecter les deux ne compte pas les tokens deux fois. Voir les <a href="../cli-collection.md">formats pris en charge et limites</a>.</p>
     </td>
     <td width="50%" valign="top">
-      <h3>OpenCode et autres outils</h3>
+      <h3>OpenCode, Pi et autres outils</h3>
       <pre><code>npm install -g tokensburned
 tokensburned connect
-tokensburned run --harness opencode</code></pre>
-      <p>Le collecteur lit l'utilisation OpenCode v1/v2 SQLite et le JSON de messages hérité. SQLite nécessite <code>sqlite3</code>. Cursor et Aider n'ont pas encore de lecteurs automatiques.</p>
+tokensburned run --harness opencode,pi</code></pre>
+      <p>Le collecteur lit l'utilisation OpenCode v1/v2 SQLite et le JSON de messages hérité (SQLite nécessite <code>sqlite3</code>), ainsi que l'utilisation JSONL des sessions Pi et Oh My Pi, y compris les sessions bifurquées et de sous-agents. Cursor et Aider n'ont pas encore de lecteurs automatiques.</p>
     </td>
   </tr>
   <tr>

@@ -648,7 +648,7 @@ async function doctor() {
     else if (backend.reported_model) console.log(`  reported model: ${backend.reported_model}`);
     console.log(`  confidence: ${backend.confidence}\n`);
   }
-  console.log("Files TokensBurned reads\n✓ known harness config and scoped Codex/Claude history\n✓ OpenCode v1/v2 SQLite usage projections and legacy message JSON\n✓ Gemini session JSON/JSONL and Cline SDK/classic IDE usage records\n✓ official hook and Copilot extension usage metadata\n");
+  console.log("Files TokensBurned reads\n✓ known harness config and scoped Codex/Claude history\n✓ OpenCode v1/v2 SQLite usage projections and legacy message JSON\n✓ Gemini session JSON/JSONL and Cline SDK/classic IDE usage records\n✓ Pi and Oh My Pi session JSONL usage fields\n✓ official hook and Copilot extension usage metadata\n");
   console.log(`Files TokensBurned writes\n✓ ${paths.stats}\n✓ ${paths.config}\n✓ ${paths.serverOutbox}\n✓ ${COLLECTOR_STATUS}\n`);
   const network = config.server.enabled
     ? `✓ TokensBurned aggregate API (${config.server.api_origin || API_ORIGIN})`
@@ -961,7 +961,7 @@ Daily commands
   tokensburned update           Check releases and catch up without forcing uploads
   tokensburned disconnect       Disconnect this device
 
-run reads Codex, Claude Code, OpenCode, Gemini CLI, Cline and Grok Build usage locally.
+run reads Codex, Claude Code, OpenCode, Gemini CLI, Cline, Pi and Grok Build usage locally.
 Optional: run --harness codex,opencode. run --stop disables background startup.
 macOS/Linux user services; run --foreground is available for other platforms or debugging.
 Cursor/Aider automatic collection is not yet supported. No usage is estimated.
@@ -969,7 +969,7 @@ No upload-frequency or force-upload controls. See help --advanced for maintenanc
 `);
   if (has(args, "--advanced")) console.log(`
 Maintenance
-  backfill --harness <codex|claude-code|gemini-cli|opencode|cline|grok-build> [--days 1-90] [--dry-run]
+  backfill --harness <codex|claude-code|gemini-cli|opencode|cline|pi|grok-build> [--days 1-90] [--dry-run]
   integrations install copilot  Enable live usage extension (Copilot --experimental)
   server                        Fetch authenticated cloud totals
   delete-server-data            Delete cloud identity and data after confirmation
