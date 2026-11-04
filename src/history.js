@@ -3,6 +3,7 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
+import zlib from "node:zlib";
 import { stableHash, toFiniteInteger } from "./utils.js";
 import { readOpenCodeUsage, openCodeDatabase } from "./opencode-usage.js";
 import { readGeminiUsage, geminiHistoryRoot } from "./gemini-usage.js";
@@ -66,8 +67,8 @@ function bucketFor(date) {
   return Math.floor(date.getTime() / 1000 / BUCKET_SECONDS);
 }
 
-function addBucket(buckets, { bucket, model, counts, revision }) {
-  if (total(counts) === 0) return;
+function addBucket(buckets, { bucket, model, counts, revision, retract = false }) {
+  if (!retract && total(counts) === 0) return;
   const key = `${bucket}\u0000${model}`;
   const row = buckets.get(key) || {
     bucket,
@@ -86,7 +87,7 @@ function addBucket(buckets, { bucket, model, counts, revision }) {
   row.cache_read += counts.cache_read;
   row.cache_write += counts.cache_write;
   row.reasoning += counts.reasoning;
-  row.requests += 1;
+  if (!retract) row.requests += 1;
   buckets.set(key, row);
 }
 
@@ -99,16 +100,28 @@ async function assertAllowedFile(file, root) {
   return { realFile, relative };
 }
 
+// Codex compresses rollouts older than about a week to `.jsonl.zst`. Node
+// gained zstd in 22.15/23.8; older runtimes skip those files instead of failing.
+export const ZSTD_SUPPORTED = typeof zlib.createZstdDecompress === "function";
+
+function isHistoryFile(name) {
+  return name.endsWith(".jsonl") || (ZSTD_SUPPORTED && name.endsWith(".jsonl.zst"));
+}
+
+function historyLines(realFile) {
+  const raw = fs.createReadStream(realFile);
+  const input = realFile.endsWith(".zst") ? raw.pipe(zlib.createZstdDecompress()) : raw;
+  input.setEncoding("utf8");
+  return readline.createInterface({ input, crlfDelay: Infinity });
+}
+
 async function parseCodex(realFile, minimumBucket) {
   const buckets = new Map();
   let currentModel = "unknown";
   let previous = usage({}, { codex: true });
   let sessionId;
   let lineNumber = 0;
-  const lines = readline.createInterface({
-    input: fs.createReadStream(realFile, { encoding: "utf8" }),
-    crlfDelay: Infinity,
-  });
+  const lines = historyLines(realFile);
   for await (const line of lines) {
     lineNumber += 1;
     let record;
@@ -141,15 +154,15 @@ async function parseCodex(realFile, minimumBucket) {
   return { buckets, sessionId };
 }
 
-async function parseClaude(realFile, minimumBucket) {
-  const messages = new Map();
+// A Claude Code transcript starts at its session's creation. Forked and
+// resumed desktop sessions copy earlier messages, with their original ids and
+// timestamps, into the new file, so a message older than the file's first
+// record is a copy.
+async function readClaude(realFile, onMessage) {
   let sessionId;
+  let startedAt;
   let lineNumber = 0;
-  const lines = readline.createInterface({
-    input: fs.createReadStream(realFile, { encoding: "utf8" }),
-    crlfDelay: Infinity,
-  });
-  for await (const line of lines) {
+  for await (const line of historyLines(realFile)) {
     lineNumber += 1;
     let record;
     try {
@@ -158,21 +171,70 @@ async function parseClaude(realFile, minimumBucket) {
       continue;
     }
     if (!sessionId && typeof record?.sessionId === "string") sessionId = record.sessionId;
-    const message = record?.type === "assistant" ? record.message : null;
     const observed = timestamp(record?.timestamp);
+    if (observed && startedAt === undefined) startedAt = observed.getTime();
+    const message = record?.type === "assistant" ? record.message : null;
     if (!message?.usage || !observed) continue;
+    onMessage({ record, message, observed, lineNumber, copied: observed.getTime() < startedAt });
+  }
+  return sessionId;
+}
+
+// Count a copied message only where it originated: skip it when a sibling
+// transcript holds it as its own, or when another copy belongs to a session
+// that sorts first (the original was deleted).
+async function claudeCopiesCountedElsewhere(realFile, sessionId, copied) {
+  const skipped = new Set();
+  const earliest = Math.min(...copied.values());
+  const directory = path.dirname(realFile);
+  for (const entry of await fsp.readdir(directory, { withFileTypes: true })) {
+    const sibling = path.join(directory, entry.name);
+    if (!entry.isFile() || !entry.name.endsWith(".jsonl") || sibling === realFile) continue;
+    // A sibling written before the copied messages cannot hold them.
+    if ((await fsp.stat(sibling)).mtimeMs < earliest) continue;
+    // One linear scan of the raw text before parsing any JSON.
+    const text = await fsp.readFile(sibling, "utf8");
+    let holds = false;
+    for (const [, id] of text.matchAll(/"id":"([^"\\]+)"/g)) {
+      if (copied.has(id)) { holds = true; break; }
+    }
+    if (!holds) continue;
+    const originals = new Set();
+    const present = new Set();
+    const otherSession = await readClaude(sibling, ({ message, copied: isCopy }) => {
+      if (!copied.has(message.id)) return;
+      present.add(message.id);
+      if (!isCopy) originals.add(message.id);
+    }) || path.basename(sibling, ".jsonl");
+    for (const id of otherSession < sessionId ? present : originals) skipped.add(id);
+  }
+  return skipped;
+}
+
+async function parseClaude(realFile, minimumBucket) {
+  const messages = new Map();
+  const copied = new Map();
+  const sessionId = await readClaude(realFile, ({ record, message, observed, lineNumber, copied: isCopy }) => {
     const bucket = bucketFor(observed);
-    if (bucket < minimumBucket) continue;
+    if (bucket < minimumBucket) return;
     const messageId = String(message.id || record.uuid || `${lineNumber}`);
+    if (isCopy && message.id) copied.set(messageId, observed.getTime());
     messages.set(messageId, {
       bucket,
       model: cleanModel(message.model),
       counts: usage(message.usage),
       revision: lineNumber,
     });
-  }
+  });
+  const skipped = copied.size
+    ? await claudeCopiesCountedElsewhere(realFile, sessionId || path.basename(realFile, ".jsonl"), copied)
+    : new Set();
   const buckets = new Map();
-  for (const message of messages.values()) addBucket(buckets, message);
+  for (const [id, message] of messages) {
+    // An empty row replaces this session's earlier, double-counted snapshot.
+    if (skipped.has(id)) addBucket(buckets, { ...message, counts: usage(), retract: true });
+    else addBucket(buckets, message);
+  }
   return { buckets, sessionId };
 }
 
@@ -216,13 +278,15 @@ async function walkJsonl(root, minimumMtime) {
     for (const entry of entries) {
       const file = path.join(directory, entry.name);
       if (entry.isDirectory()) pending.push(file);
-      else if (entry.isFile() && entry.name.endsWith(".jsonl")) {
+      else if (entry.isFile() && isHistoryFile(entry.name)) {
         const stat = await fsp.stat(file);
         if (stat.mtimeMs >= minimumMtime) files.push(file);
       }
     }
   }
-  return files.sort();
+  // While Codex replaces a rollout with its compressed copy, read the plain one.
+  const plain = new Set(files.filter((file) => file.endsWith(".jsonl")));
+  return files.filter((file) => !file.endsWith(".zst") || !plain.has(file.slice(0, -4))).sort();
 }
 
 export async function collectHistoryEntries({
