@@ -34,8 +34,14 @@ export function clineIdeObservation(message, taskId, { now = Date.now(), days = 
   }, { now });
 }
 
+// Cline SDK 0.0.87 (published 2026-09-29T05:30:55Z) stopped counting reasoning
+// inside outputTokens. Messages carry no SDK version, so a request uses the
+// exclusive form when it was created after that release, or when its
+// reasoning exceeds its output (impossible while output included reasoning).
+export const CLINE_EXCLUSIVE_REASONING_AT = Date.parse("2026-09-29T05:30:55Z");
+
 // The SDK hook and persisted message use exactly the same identity and fields.
-// Gateway input includes cache; output includes reasoning. No content traversal.
+// Gateway input includes cache. No content traversal.
 export function clineObservation(message, { now = Date.now(), days = 90 } = {}) {
   const usage = message?.metrics;
   const createdAt = message?.createdAt ?? message?.ts;
@@ -44,16 +50,17 @@ export function clineObservation(message, { now = Date.now(), days = 90 } = {}) 
     usage.cacheWriteTokens ?? 0, usage.reasoningTokenCount ?? 0];
   if (!values.every(v => Number.isSafeInteger(v) && v >= 0)) throw new Error("Unsupported Cline usage counters");
   const [input, output, read, write, reasoning] = values;
-  if (read + write > input || reasoning > output) throw new Error("Unsupported Cline usage subsets");
-  if (input + output === 0) return null;
+  if (read + write > input) throw new Error("Unsupported Cline usage subsets");
+  if (input + output + reasoning === 0) return null;
+  const exclusive = reasoning > output || new Date(createdAt).getTime() >= CLINE_EXCLUSIVE_REASONING_AT;
   const raw = { id: message.id, timestamp: new Date(createdAt).toISOString(),
     harness: { id: "cline" }, backend: { provider: message.modelInfo?.provider || "unknown", model: message.modelInfo?.id || "unknown" },
-    usage_semantics: "exclusive-delta", usage: { input_tokens: input - read - write, output_tokens: output - reasoning,
+    usage_semantics: "exclusive-delta", usage: { input_tokens: input - read - write, output_tokens: exclusive ? output : output - reasoning,
       cache_read_tokens: read, cache_write_tokens: write, reasoning_tokens: reasoning },
   };
   // agent-message-codec persists createdAt as ts and drops reasoning detail.
-  // Both are the same request. Keep a hash with combined output so the outbox
-  // can retain the richer live breakdown without accepting changed totals.
+  // Both are the same request. The scope hashes the persisted fields, so the
+  // outbox can retain the richer live breakdown without accepting other changes.
   const scope = usageObservation({ ...raw, usage: { ...raw.usage, output_tokens: output, reasoning_tokens: 0 } }, { now });
   return { ...usageObservation(raw, { now }), cline_usage_scope: scope.observation_hash,
     cline_usage_detail: usage.reasoningTokenCount == null ? "output-total" : "reported" };

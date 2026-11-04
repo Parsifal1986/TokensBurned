@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { parseHistoryFile } from "../src/history.js";
+import zlib from "node:zlib";
+import { collectHistoryEntries, parseHistoryFile, ZSTD_SUPPORTED } from "../src/history.js";
 
 async function fixture(lines) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "tokensburned-history-"));
@@ -93,4 +94,71 @@ test("history parser refuses files outside the selected harness directory", asyn
   }), /outside/);
   await fs.rm(inside.root, { recursive: true, force: true });
   await fs.rm(outside.root, { recursive: true, force: true });
+});
+
+const jsonl = (lines) => `${lines.map((line) => JSON.stringify(line)).join("\n")}\n`;
+const tokens = (rows) => rows.reduce((sum, row) => sum + row.input + row.output + row.cache_read + row.cache_write + row.reasoning, 0);
+
+test("Codex history reads compressed rollouts and prefers the plain copy during compression", { skip: !ZSTD_SUPPORTED }, async () => {
+  const now = Date.UTC(2026, 10, 2, 12);
+  const at = (minutes) => new Date(now - minutes * 60_000).toISOString();
+  const rollout = (id, input) => jsonl([
+    { timestamp: at(30), type: "session_meta", payload: { session_id: id } },
+    { timestamp: at(30), type: "turn_context", payload: { model: "gpt-test" } },
+    { timestamp: at(20), type: "event_msg", payload: { type: "token_count", info: { total_token_usage: { input_tokens: input, cached_input_tokens: 0, cache_write_input_tokens: 0, output_tokens: 10, reasoning_output_tokens: 0, total_tokens: input + 10 } } } },
+  ]);
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "tokensburned-zst-"));
+  const day = path.join(root, "2026", "11", "02");
+  await fs.mkdir(day, { recursive: true });
+  await fs.writeFile(path.join(day, "cold.jsonl.zst"), zlib.zstdCompressSync(rollout("cold", 100)));
+  // Mid-compression both forms exist; only one may count.
+  await fs.writeFile(path.join(day, "warm.jsonl"), rollout("warm", 200));
+  await fs.writeFile(path.join(day, "warm.jsonl.zst"), zlib.zstdCompressSync(rollout("warm", 200)));
+  const { entries, summary } = await collectHistoryEntries({ harnesses: ["codex"], roots: { codex: root }, now, days: 2 });
+  assert.equal(summary.codex.files, 2);
+  assert.equal(tokens(entries), 320);
+  await fs.rm(root, { recursive: true, force: true });
+});
+
+test("Claude history counts messages copied into forked sessions once", async () => {
+  const now = Date.UTC(2026, 10, 2, 12);
+  const at = (minutes) => new Date(now - minutes * 60_000).toISOString();
+  const assistant = (id, minutes, sessionId) => ({
+    timestamp: at(minutes), type: "assistant", sessionId,
+    message: { id, model: "claude-test", usage: { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } },
+  });
+  const session = (sessionId, startMinutes, messages) => jsonl([
+    { type: "custom-title", sessionId },
+    { timestamp: at(startMinutes), type: "queue-operation", sessionId },
+    ...messages.map(([id, minutes]) => assistant(id, minutes, sessionId)),
+  ]);
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "tokensburned-fork-"));
+  const project = path.join(root, "-project");
+  await fs.mkdir(project);
+  const write = async (name, text) => {
+    const file = path.join(project, `${name}.jsonl`);
+    await fs.writeFile(file, text);
+    await fs.utimes(file, now / 1000, now / 1000);
+  };
+  const collect = () => collectHistoryEntries({ harnesses: ["claude-code"], roots: { "claude-code": root }, now, days: 2 });
+  await write("c-original", session("c-original", 100, [["m1", 90], ["m2", 80]]));
+  // The fork copies m1 and m2 with their timestamps, then continues with m3.
+  await write("a-fork", session("a-fork", 60, [["m1", 90], ["m2", 80], ["m3", 50]]));
+  let { entries } = await collect();
+  assert.equal(tokens(entries), 45);
+  const retracted = entries.filter((row) => row.requests === 0);
+  assert.equal(retracted.length, 1, "the fork retracts the bucket it previously double-counted");
+  assert.equal(tokens(retracted), 0);
+
+  // Once the original is deleted, exactly one remaining copy counts.
+  await fs.rm(path.join(project, "c-original.jsonl"));
+  await write("b-fork", session("b-fork", 40, [["m1", 90], ["m2", 80], ["m4", 30]]));
+  ({ entries } = await collect());
+  assert.equal(tokens(entries), 60);
+
+  // A live hook parses one transcript and still finds the original.
+  await write("c-original", session("c-original", 100, [["m1", 90], ["m2", 80]]));
+  const forked = await parseHistoryFile(path.join(project, "b-fork.jsonl"), { harness: "claude-code", root, now });
+  assert.equal(tokens(forked), 15);
+  await fs.rm(root, { recursive: true, force: true });
 });

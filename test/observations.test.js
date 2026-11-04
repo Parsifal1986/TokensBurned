@@ -73,7 +73,8 @@ test("Cline per-model messages preserve cache/reasoning totals and never read co
   Object.defineProperty(context.assistantMessage, "content", { get() { throw new Error("must not inspect content"); } });
   Object.defineProperty(context, "snapshot", { get() { throw new Error("must not inspect snapshot"); } });
   const a = clineInternals.observationFromModel(context, now);
-  assert.deepEqual([a.input_tokens, a.output_tokens, a.cache_read_tokens, a.cache_write_tokens, a.reasoning_tokens], [60, 15, 30, 10, 5]);
+  // Current SDKs report output without reasoning (see CLINE_EXCLUSIVE_REASONING_AT).
+  assert.deepEqual([a.input_tokens, a.output_tokens, a.cache_read_tokens, a.cache_write_tokens, a.reasoning_tokens], [60, 20, 30, 10, 5]);
   assert.equal(a.requests, 1);
   const box = outboxInternals.emptyOutbox();
   const captured = [];
@@ -86,9 +87,9 @@ test("Cline per-model messages preserve cache/reasoning totals and never read co
   await plugin.hooks.afterModel(message({ id: "msg-b", metrics: { inputTokens: 200, outputTokens: 0 }, modelInfo: { id: "model-b", provider: "provider-b" } }));
   await plugin.hooks.afterModel(context);
   const day = Object.values(box.days)[0];
-  assert.equal(day.input_tokens + day.output_tokens + day.cache_read_tokens + day.cache_write_tokens + day.reasoning_tokens, 320);
+  assert.equal(day.input_tokens + day.output_tokens + day.cache_read_tokens + day.cache_write_tokens + day.reasoning_tokens, 325);
   assert.equal(day.request_count, 2);
-  assert.equal(day.dimensions.model["model-a"].total_tokens, 120);
+  assert.equal(day.dimensions.model["model-a"].total_tokens, 125);
   assert.equal(day.dimensions.model["model-b"].total_tokens, 200);
   assert.equal(plugin.hooks.afterRun, undefined, "no second run-total path can double count model calls");
 });
