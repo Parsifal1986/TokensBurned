@@ -10,7 +10,8 @@ import { adapterFor } from "../src/adapters/index.js";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const harness = detectedHarness();
 // Unsupported hosts must not fall back to another harness's history directory.
-if (!adapterFor(harness)) process.exit(0);
+// Grok Build merges its own usage files; its hook payload carries no usage.
+if (!adapterFor(harness) && harness !== "grok-build") process.exit(0);
 const chunks = [];
 let size = 0;
 for await (const chunk of process.stdin) {
@@ -29,7 +30,7 @@ const allowedEnvironment = [
   "HOME", "USER", "LOGNAME", "PATH", "SHELL", "TMPDIR", "TEMP", "TMP",
   "SYSTEMROOT", "WINDIR", "PATHEXT", "COMSPEC",
   "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME", "BURN_HOME", "NO_COLOR",
-  "CODEX_PLUGIN_ROOT", "COPILOT_PLUGIN_ROOT", "CLAUDE_PLUGIN_ROOT",
+  "CODEX_PLUGIN_ROOT", "COPILOT_PLUGIN_ROOT", "CLAUDE_PLUGIN_ROOT", "GROK_PLUGIN_ROOT", "GROK_HOME",
   "TOKENSBURNED_EXTENSION_PATH", "TOKENSBURNED_API_ORIGIN", "TOKENSBURNED_HARNESS",
   "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL",
   "ANTHROPIC_DEFAULT_SONNET_MODEL", "OPENAI_BASE_URL", "OPENAI_MODEL", "GH_HOST",

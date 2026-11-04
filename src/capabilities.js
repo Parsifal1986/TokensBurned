@@ -7,6 +7,7 @@ export const harnessCapabilities = Object.freeze([
   { id: "copilot", label: "GitHub Copilot CLI", capture: "live assistant.usage extension (integrations install copilot; --experimental)", history: false },
   { id: "opencode", label: "OpenCode", capture: "run: v1/v2 SQLite (sqlite3 required) + legacy message JSON", history: true },
   { id: "pi", label: "Pi", capture: "run: session JSONL usage (Pi and Oh My Pi)", history: true },
+  { id: "grok-build", label: "Grok Build", capture: "plugin hooks + run: per-turn session usage.json", history: true },
   { id: "cursor", label: "Cursor", capture: null, history: false },
   { id: "aider", label: "Aider", capture: null, history: false },
 ]);
@@ -14,6 +15,8 @@ export const harnessCapabilities = Object.freeze([
 export function detectedHarness(env = process.env) {
   if (env.TOKENSBURNED_HARNESS) return env.TOKENSBURNED_HARNESS === "claude" ? "claude-code" : env.TOKENSBURNED_HARNESS;
   if (env.CODEX_PLUGIN_ROOT) return "codex";
+  // Grok also sets CLAUDE_PLUGIN_ROOT for plugin hooks; its own variable wins.
+  if (env.GROK_PLUGIN_ROOT) return "grok-build";
   if (env.CLAUDE_PLUGIN_ROOT) return "claude-code";
   if (env.COPILOT_PLUGIN_ROOT) return "copilot";
   if (env.GEMINI_SESSION_ID || env.TOKENSBURNED_EXTENSION_PATH) return "gemini-cli";

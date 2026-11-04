@@ -64,6 +64,7 @@
     "hooks",
     ".codex-plugin",
     ".claude-plugin",
+    ".grok-plugin",
     "commands",
     "examples",
     "integrations",

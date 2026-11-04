@@ -49,6 +49,7 @@ This table describes the current source. For an installed release, consult the R
 | OpenCode | Standalone CLI | v1/v2 SQLite and legacy message JSON | Finalized request usage; history backfill |
 | Gemini CLI | Gemini extension and standalone CLI | Recorded JSON/JSONL usage | Background collection and backfill |
 | Pi / Oh My Pi | Standalone CLI | Session JSONL usage | Background collection and backfill |
+| Grok Build (beta) | Grok plugin and standalone CLI | Session `usage.json` | Per-turn usage by model, not per request; backfill |
 | GitHub Copilot CLI | Setup plugin and live extension | Official `assistant.usage` events | Live per-call capture; no transcript backfill |
 | Cursor, Aider, others | Standalone CLI | Integrator-supplied observed usage | No automatic capture |
 
@@ -113,6 +114,14 @@ gemini
       <pre><code>copilot plugin install https://github.com/Parsifal1986/TokensBurned</code></pre>
       <p>After connecting, run <code>tokensburned integrations install copilot</code> and start <code>copilot --experimental</code>. The live extension records official per-call usage events, including subagents. These events cannot be recovered from ordinary session history. The setup plugin alone does not enable capture.</p>
     </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Grok Build</h3>
+      <pre><code>grok plugin install Parsifal1986/TokensBurned --trust</code></pre>
+      <p>Start a new session and use the bundled connect skill. Grok records usage once per prompt turn and model, not per request, so each record covers a whole turn. The plugin hooks merge completed turns; <code>tokensburned run --harness grok-build</code> collects without the plugin. Preview history with <code>tokensburned backfill --harness grok-build --dry-run</code>.</p>
+    </td>
+    <td width="50%" valign="top"></td>
   </tr>
 </table>
 

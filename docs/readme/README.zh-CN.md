@@ -40,6 +40,7 @@ TokensBurned 将你的 AI 编程工具的 token 用量转化为一张实时更�
 | OpenCode | 独立 CLI | v1/v2 SQLite 与旧版消息 JSON | 已完成请求的用量；支持历史回填 |
 | Gemini CLI | Gemini extension 与独立 CLI | 记录下来的 JSON/JSONL 用量 | 后台采集与历史回填 |
 | Pi / Oh My Pi | 独立 CLI | 会话 JSONL 用量 | 后台采集与历史回填 |
+| Grok Build（beta） | Grok 插件与独立 CLI | session `usage.json` | 按 prompt 轮次和模型统计，而非逐次请求；支持历史回填 |
 | GitHub Copilot CLI | 设置插件与实时 extension | 官方的 `assistant.usage` 事件 | 实时逐次采集；不支持 transcript 回填 |
 | Cursor、Aider 等 | 独立 CLI | 由接入方提供的观测用量 | 不支持自动采集 |
 
@@ -108,6 +109,14 @@ gemini
       <pre><code>copilot plugin install https://github.com/Parsifal1986/TokensBurned</code></pre>
       <p>连接之后，执行 <code>tokensburned integrations install copilot</code>，再启动 <code>copilot --experimental</code>。该实时 extension 会记录官方的逐次调用用量事件，包括 subagent。这些事件无法从普通的 session 历史中恢复。仅安装设置插件并不会启用采集。</p>
     </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Grok Build</h3>
+      <pre><code>grok plugin install Parsifal1986/TokensBurned --trust</code></pre>
+      <p>启动新 session 后使用内置的 connect skill。Grok 按 prompt 轮次和模型记录用量，而不是按请求记录，因此每条记录覆盖一整轮。插件 hook 会合并已完成的轮次；不安装插件时，可用 <code>tokensburned run --harness grok-build</code> 采集。用 <code>tokensburned backfill --harness grok-build --dry-run</code> 预览历史。</p>
+    </td>
+    <td width="50%" valign="top"></td>
   </tr>
 </table>
 

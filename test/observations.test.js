@@ -118,6 +118,8 @@ test("unsupported harness hints never select Claude or Codex history", () => {
   assert.equal(detectedHarness({ TOKENSBURNED_HARNESS: "gemini-cli", CODEX_PLUGIN_ROOT: "/installed" }), "gemini-cli");
   assert.equal(detectedHarness({ COPILOT_PLUGIN_ROOT: "/plugin" }), "copilot");
   assert.equal(detectedHarness({ GEMINI_SESSION_ID: "session" }), "gemini-cli");
+  // Grok sets the Claude alias for plugin hooks too; it must not select Claude history.
+  assert.equal(detectedHarness({ GROK_PLUGIN_ROOT: "/plugin", CLAUDE_PLUGIN_ROOT: "/plugin" }), "grok-build");
 });
 
 test("Cline queues survive restart, concurrent replays and an offline upload", async (t) => {

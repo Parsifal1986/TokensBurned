@@ -30,13 +30,14 @@ test("bundled plugin skills match source skills", async () => {
 });
 
 test("repository exposes manifests for the supported plugin ecosystems", async () => {
-  const [copilot, gemini, claude, claudeMarketplace, codex, pkg] = await Promise.all([
+  const [copilot, gemini, claude, claudeMarketplace, codex, pkg, grok] = await Promise.all([
     fs.readFile(path.join(root, ".plugin", "plugin.json"), "utf8").then(JSON.parse),
     fs.readFile(path.join(root, "gemini-extension.json"), "utf8").then(JSON.parse),
     fs.readFile(path.join(root, ".claude-plugin", "plugin.json"), "utf8").then(JSON.parse),
     fs.readFile(path.join(root, ".claude-plugin", "marketplace.json"), "utf8").then(JSON.parse),
     fs.readFile(path.join(root, ".codex-plugin", "plugin.json"), "utf8").then(JSON.parse),
     fs.readFile(path.join(root, "package.json"), "utf8").then(JSON.parse),
+    fs.readFile(path.join(root, ".grok-plugin", "plugin.json"), "utf8").then(JSON.parse),
   ]);
 
   assert.equal(claude.version, pkg.version);
@@ -56,6 +57,11 @@ test("repository exposes manifests for the supported plugin ecosystems", async (
   assert.equal(codex.version, pkg.version);
   assert.equal(copilot.version, pkg.version);
   assert.equal(gemini.version, pkg.version);
+  // Grok prefers .grok-plugin over .claude-plugin; its hooks avoid Gemini's ${extensionPath}.
+  assert.equal(grok.version, pkg.version);
+  assert.equal(grok.name, claude.name);
+  await fs.access(path.join(root, grok.hooks));
+  assert.ok(pkg.files.includes(".grok-plugin"));
   assert.equal(copilot.name, "tokensburned");
   assert.equal(copilot.skills, "skills/");
   assert.equal(copilot.commands, "commands/");

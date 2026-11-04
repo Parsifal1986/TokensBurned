@@ -209,6 +209,7 @@ async function handleHook(args) {
   const harnessId = args[0] === "auto"
     ? detectedHarness()
     : (args[0] === "claude" ? "claude-code" : args[0]);
+  if (harnessId === "grok-build") return handleNativeHook(harnessId);
   const adapter = adapterFor(harnessId);
   if (!adapter) return;
 
@@ -261,6 +262,16 @@ async function handleHook(args) {
     } catch {
       // Best-effort; never break the harness.
     }
+  }
+  await ensureWorker();
+}
+
+// Grok's lifecycle hooks carry no usage; merge its settled usage files instead.
+async function handleNativeHook(harness) {
+  try {
+    await backfillHistory({ harnesses: [harness], days: 2, quiet: true, force: false });
+  } catch {
+    try { await flushPendingUploads(); } catch { /* Best-effort; never break the harness. */ }
   }
   await ensureWorker();
 }
@@ -950,7 +961,7 @@ Daily commands
   tokensburned update           Check releases and catch up without forcing uploads
   tokensburned disconnect       Disconnect this device
 
-run reads Codex, Claude Code and compatible OpenCode v1 SQLite usage locally.
+run reads Codex, Claude Code, OpenCode, Gemini CLI, Cline, Pi and Grok Build usage locally.
 Optional: run --harness codex,opencode. run --stop disables background startup.
 macOS/Linux user services; run --foreground is available for other platforms or debugging.
 Cursor/Aider automatic collection is not yet supported. No usage is estimated.
@@ -958,7 +969,7 @@ No upload-frequency or force-upload controls. See help --advanced for maintenanc
 `);
   if (has(args, "--advanced")) console.log(`
 Maintenance
-  backfill --harness <codex|claude-code|gemini-cli|opencode|cline|pi> [--days 1-90] [--dry-run]
+  backfill --harness <codex|claude-code|gemini-cli|opencode|cline|pi|grok-build> [--days 1-90] [--dry-run]
   integrations install copilot  Enable live usage extension (Copilot --experimental)
   server                        Fetch authenticated cloud totals
   delete-server-data            Delete cloud identity and data after confirmation
